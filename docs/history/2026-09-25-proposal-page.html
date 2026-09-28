@@ -1,0 +1,835 @@
+<title>Anti-Debate Live Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Open Field design system (inherited from Dialectical Topology) */
+:root{
+  --field:#FAFAFA; --field-subtle:#F4F3F1; --field-deep:#ECEBE8; --surface:#FFFFFF;
+  --ink:#1A1A1A; --ink-2:#5E5E5E; --ink-3:#8F8F8F; --ink-ghost:#C8C8C8;
+  --a:#C45A3C; --a-soft:#E8A892; --a-faint:#F7E4DC;
+  --b:#2E6B8A; --b-soft:#8BBDD4; --b-faint:#DDECF3;
+  --conv:#6E6296; --conv-soft:#C4BEDD; --conv-faint:#ECE9F5;
+  --insight:#B8862B; --insight-faint:#F7EED9;
+  --border:#E6E5E2; --border-2:#D0D0CC; --focus:rgba(46,107,138,.35);
+  --serif:'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --sans:'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono:'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --ease:cubic-bezier(.25,.1,.25,1);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --field:#13141B; --field-subtle:#1A1B24; --field-deep:#22232E; --surface:#1C1D27;
+    --ink:#ECEAE6; --ink-2:#B3B1AC; --ink-3:#85847F; --ink-ghost:#4A4A52;
+    --a:#E48C6F; --a-soft:#8E4B38; --a-faint:#3A2620;
+    --b:#72AECB; --b-soft:#3D6A80; --b-faint:#1C2E38;
+    --conv:#AFA2DD; --conv-soft:#5A5080; --conv-faint:#2A2640;
+    --insight:#E2BC6A; --insight-faint:#35301F;
+    --border:#2C2D38; --border-2:#3D3E4A; --focus:rgba(114,174,203,.45);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --field:#13141B; --field-subtle:#1A1B24; --field-deep:#22232E; --surface:#1C1D27;
+  --ink:#ECEAE6; --ink-2:#B3B1AC; --ink-3:#85847F; --ink-ghost:#4A4A52;
+  --a:#E48C6F; --a-soft:#8E4B38; --a-faint:#3A2620;
+  --b:#72AECB; --b-soft:#3D6A80; --b-faint:#1C2E38;
+  --conv:#AFA2DD; --conv-soft:#5A5080; --conv-faint:#2A2640;
+  --insight:#E2BC6A; --insight-faint:#35301F;
+  --border:#2C2D38; --border-2:#3D3E4A; --focus:rgba(114,174,203,.45);
+}
+*{box-sizing:border-box}
+body{background:var(--field);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;padding-inline:20px;padding-block:0 64px;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto}
+.prose{max-width:66ch}
+h1,h2,h3{font-family:var(--serif);font-weight:400;text-wrap:balance;margin:0;letter-spacing:-.005em}
+h1{font-size:clamp(2.4rem,6vw,3.6rem);line-height:1.05}
+h2{font-size:clamp(1.7rem,3.6vw,2.2rem);line-height:1.15}
+h3{font-size:1.35rem;line-height:1.2}
+p{margin:0}
+a{color:var(--b)}
+.eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.muted{color:var(--ink-2)}
+.small{font-size:.86rem}
+section{padding-block:56px 8px;display:grid;gap:20px}
+section + section{border-top:1px solid var(--border)}
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.cbtn{font:500 .78rem var(--sans);color:var(--ink-3);background:none;border:1px solid var(--border);border-radius:999px;padding:4px 12px;cursor:pointer}
+.cbtn:hover{color:var(--ink);border-color:var(--border-2)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+
+/* Header */
+header{padding-block:56px 32px;display:grid;gap:18px}
+.byline{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.9rem;color:var(--ink-2)}
+.status-pill{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;padding:3px 10px;border-radius:999px;background:var(--insight-faint);color:var(--insight)}
+.lede{font-size:1.15rem;line-height:1.55;color:var(--ink)}
+.lede em{font-family:var(--serif);font-size:1.3em;font-style:italic}
+
+/* Demo */
+.demo{display:grid;gap:14px}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.btn{font:500 .88rem var(--sans);border:1px solid var(--border-2);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 14px;cursor:pointer}
+.btn:hover{border-color:var(--ink-3)}
+.btn.primary{background:var(--ink);color:var(--field);border-color:var(--ink)}
+.btn[disabled]{opacity:.45;cursor:default}
+.seg{display:inline-flex;border:1px solid var(--border-2);border-radius:8px;overflow:hidden}
+.seg button{font:500 .82rem var(--sans);border:0;background:var(--surface);color:var(--ink-2);padding:7px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--field-deep);color:var(--ink)}
+.reveal-btn{background:var(--conv);color:#fff;border-color:var(--conv)}
+.phases{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.phase{font-family:var(--mono);font-size:.7rem;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);padding:4px 9px;border-radius:999px;border:1px solid var(--border)}
+.phase.on{color:var(--ink);border-color:var(--ink-2);background:var(--surface)}
+.phase.done{color:var(--ink-2)}
+
+.panes{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(280px,1fr);gap:14px;align-items:start}
+@media (max-width:900px){.panes{grid-template-columns:1fr}}
+.pane{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden}
+.pane-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--field-subtle)}
+.pane-head .who{font-size:.78rem;color:var(--ink-3)}
+
+/* Stage */
+.stage-card-slot{padding:12px 14px 0;min-height:10px}
+.stage-card{border-radius:10px;padding:12px 14px;display:grid;gap:4px;animation:arrive .6s var(--ease) both}
+.stage-card .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.07em;text-transform:uppercase}
+.stage-card .t{font-family:var(--serif);font-size:1.3rem;line-height:1.2}
+.stage-card .d{font-size:.9rem;color:var(--ink-2)}
+.stage-card.drift{background:var(--insight-faint)} .stage-card.drift .k{color:var(--insight)}
+.stage-card.crux{background:var(--field-deep)} .stage-card.crux .k{color:var(--ink-2)}
+.stage-card.steelman{background:var(--conv-faint)} .stage-card.steelman .k{color:var(--conv)}
+.stage-card.honest{background:var(--field-deep)} .stage-card.honest .k{color:var(--ink-2)}
+.pending-note{margin:12px 14px 0;padding:10px 12px;border:1px dashed var(--conv-soft);border-radius:10px;font-size:.88rem;color:var(--ink-2);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+
+.map-scroll{overflow-x:auto;padding:14px}
+.map{position:relative;min-width:660px;display:grid;gap:10px}
+.map svg.edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.cols{display:grid;grid-template-columns:1fr .85fr 1fr;gap:12px}
+.colhead{font-family:var(--mono);font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;text-align:center;padding-bottom:4px}
+.colhead.a{color:var(--a)} .colhead.b{color:var(--b)} .colhead.s{color:var(--conv)}
+.band{display:grid;gap:6px;position:relative}
+.band-label{font-family:var(--mono);font-size:.64rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:8px}
+.band-label::after{content:"";flex:1;border-top:1px solid var(--border)}
+.cell{display:flex;flex-direction:column;gap:8px;min-height:44px;position:relative;z-index:1}
+.cell.center{align-items:center}
+.band.high .cell{min-height:52px}
+.node{font-size:.84rem;line-height:1.4;padding:8px 10px;border-radius:8px;border:1px solid transparent;animation:arrive .7s var(--ease) both;position:relative}
+.node .tag{display:block;font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px;opacity:.85}
+.node.a{background:var(--a-faint);border-color:var(--a-soft)} .node.a .tag{color:var(--a)}
+.node.b{background:var(--b-faint);border-color:var(--b-soft)} .node.b .tag{color:var(--b)}
+.node.shared{background:var(--conv-faint);border-color:var(--conv-soft)} .node.shared .tag{color:var(--conv)}
+.node.root{background:transparent;border-style:dashed;color:var(--ink-2)}
+.node.root.a{border-color:var(--a-soft)} .node.root.b{border-color:var(--b-soft)}
+.node.high{background:var(--surface);border:1.5px solid var(--conv);max-width:78%;text-align:center;font-family:var(--serif);font-size:1.08rem;line-height:1.3}
+.node.high .tag{color:var(--conv);font-family:var(--mono)}
+.node.pulse{animation:pulse 1.4s var(--ease) 1}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:0 14px 14px;font-size:.76rem;color:var(--ink-3)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:22px;height:0;border-top:1.5px solid var(--ink-ghost)}
+.sw.chal{border-top:1.5px dashed var(--ink-3)} .sw.agree{border-top-color:var(--conv-soft);border-top-width:2px} .sw.syn{border-top-color:var(--conv);border-top-width:2px}
+
+/* Console */
+.console{display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+.lines{max-height:520px;overflow-y:auto;padding:8px 0;display:flex;flex-direction:column}
+.line{padding:8px 14px;display:grid;gap:4px;animation:arrive .4s var(--ease) both;border-bottom:1px solid var(--border)}
+.line:last-child{border-bottom:0}
+.line .row{display:flex;gap:8px;align-items:baseline}
+.tc{font-family:var(--mono);font-size:.7rem;color:var(--ink-3);min-width:3.4em}
+.chip{font-family:var(--mono);font-size:.66rem;font-weight:500;padding:1px 6px;border-radius:4px;color:#fff;flex:none}
+.chip.a{background:var(--a)} .chip.b{background:var(--b)} .chip.q{background:var(--insight)}
+.line .txt{font-size:.86rem;line-height:1.45}
+.meta{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.64rem;color:var(--ink-3);padding-left:calc(3.4em + 8px)}
+.bar{width:44px;height:4px;border-radius:2px;background:var(--field-deep);overflow:hidden;flex:none}
+.bar i{display:block;height:100%;background:var(--ink-3)}
+.line.held{background:var(--insight-faint)}
+.held-ask{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-left:calc(3.4em + 8px);font-size:.8rem;color:var(--insight);font-weight:500}
+.held-ask button{font:600 .76rem var(--mono);border:1px solid var(--border-2);background:var(--surface);color:var(--ink);border-radius:6px;padding:3px 10px;cursor:pointer}
+.line.prompt{background:var(--conv-faint)}
+.line.prompt .txt{font-style:italic}
+.console-foot{padding:10px 14px;border-top:1px solid var(--border);font-size:.76rem;color:var(--ink-3);background:var(--field-subtle)}
+
+@keyframes arrive{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--conv-soft)}60%{box-shadow:0 0 0 6px transparent}100%{box-shadow:none}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+/* How it works */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+@media (max-width:880px){.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.steps{grid-template-columns:1fr}}
+.step{display:grid;gap:8px;align-content:start;padding-top:14px;border-top:2px solid var(--ink)}
+.step .n{font-family:var(--mono);font-size:.72rem;color:var(--ink-3)}
+.step p{font-size:.92rem;color:var(--ink-2)}
+.diar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:820px){.diar{grid-template-columns:1fr}}
+.signals{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.signals li{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:baseline;font-size:.93rem}
+.signals b{font-weight:600}
+.signals .k{font-family:var(--mono);font-size:.72rem;color:var(--ink-3);min-width:1.4em}
+.asks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.ask{padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);display:grid;gap:4px;align-content:start}
+.ask b{font-weight:600;font-size:.95rem}
+.ask span{font-size:.88rem;color:var(--ink-2)}
+.principles{margin:0;padding-left:1.1em;display:grid;gap:8px;color:var(--ink-2)}
+.principles b{color:var(--ink);font-weight:600}
+
+/* Form */
+form{display:grid;gap:26px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:10px}
+legend{font-weight:600;font-size:1rem;margin-bottom:6px;padding:0}
+.hint{font-size:.85rem;color:var(--ink-3);margin-top:-6px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{position:relative}
+.opt input{position:absolute;opacity:0;inset:0;cursor:pointer}
+.opt span{display:inline-block;padding:8px 14px;border:1px solid var(--border-2);border-radius:999px;background:var(--surface);font-size:.9rem;cursor:pointer}
+.opt input:checked + span{background:var(--ink);color:var(--field);border-color:var(--ink)}
+.opt input:focus-visible + span{outline:3px solid var(--focus);outline-offset:2px}
+.frow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;align-items:center;padding-block:10px;border-bottom:1px solid var(--border)}
+.frow:first-of-type{border-top:1px solid var(--border)}
+.frow .fname{font-weight:500;font-size:.95rem}
+.frow .fdesc{font-size:.84rem;color:var(--ink-3)}
+.frow .seg button{padding:6px 10px;font-size:.8rem}
+@media (max-width:600px){.frow{grid-template-columns:1fr}}
+textarea,input[type=text]{width:100%;font:400 .95rem/1.5 var(--sans);color:var(--ink);background:var(--surface);border:1px solid var(--border-2);border-radius:8px;padding:10px 12px}
+textarea{min-height:96px;resize:vertical}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:640px){.two{grid-template-columns:1fr}}
+.savebar{position:sticky;bottom:0;margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.06)}
+.save-state{font-size:.88rem;color:var(--ink-2);display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ink-ghost);flex:none}
+.dot.ok{background:#3E8E5E} .dot.busy{background:var(--insight)} .dot.warn{background:var(--a)}
+footer{padding-block:40px 0;color:var(--ink-3);font-size:.85rem;border-top:1px solid var(--border);margin-top:48px}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">A proposal · draft for your input</div>
+  <h1>A live map for the Anti-Debate</h1>
+  <div class="byline">
+    <span>From Benjamin Life (@omniharmonic), for Stephanie Lepp</span>
+    <span class="status-pill">Draft · your answers shape the build</span>
+  </div>
+  <p class="lede prose">Two people talk. As they do, a quiet map grows behind them: the claims each person makes, the roots those claims grow from, the ground they share, and the <em>higher ground</em> that neither held alone. It is built on the work that grew out of your approach, first as Dialectical Topology, then Ontography. This page shows how it would work live, and asks you what it should and shouldn't do.</p>
+</header>
+
+<section id="demo" aria-labelledby="demo-h">
+  <div class="sec-head">
+    <div>
+      <div class="eyebrow">Watch it run</div>
+      <h2 id="demo-h">A replay, as if it were live</h2>
+    </div>
+    <button class="cbtn" type="button" data-comment="demo">Comment</button>
+  </div>
+  <p class="prose muted small">The claims are adapted from a public podcast debate about whether evil exists, which Dialectical Topology analyzed by hand. Speakers are shown as A and B. The steelman and integration lines are illustrative, written to show what those rounds would look like.</p>
+
+  <div class="demo">
+    <div class="controls">
+      <button class="btn primary" id="play" type="button">Pause</button>
+      <button class="btn" id="step" type="button">Next step</button>
+      <button class="btn" id="restart" type="button">Restart</button>
+      <div class="seg" role="group" aria-label="Display mode">
+        <button type="button" id="mode-ambient" aria-pressed="true">Ambient</button>
+        <button type="button" id="mode-reveal" aria-pressed="false">Reveal between rounds</button>
+      </div>
+      <div class="phases" id="phases"></div>
+    </div>
+
+    <div class="panes">
+      <div class="pane" aria-label="Stage display">
+        <div class="pane-head"><strong class="small">Stage</strong><span class="who">What the room sees</span></div>
+        <div id="pending"></div>
+        <div class="stage-card-slot" id="stage-card"></div>
+        <div class="map-scroll">
+          <div class="map" id="map">
+            <svg class="edges" id="edges" aria-hidden="true"></svg>
+            <div class="cols"><div class="colhead a">Speaker A</div><div class="colhead s">Shared ground</div><div class="colhead b">Speaker B</div></div>
+            <div class="band high"><div class="band-label">Higher ground</div><div class="cell center" id="c-high"></div></div>
+            <div class="band"><div class="band-label">Claims</div>
+              <div class="cols"><div class="cell" id="c-A-claim"></div><div class="cell" id="c-S-claim"></div><div class="cell" id="c-B-claim"></div></div>
+            </div>
+            <div class="band"><div class="band-label">Roots</div>
+              <div class="cols"><div class="cell" id="c-A-root"></div><div class="cell" id="c-S-root"></div><div class="cell" id="c-B-root"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i class="sw"></i>grows from</span>
+          <span><i class="sw chal"></i>challenges</span>
+          <span><i class="sw agree"></i>common ground</span>
+          <span><i class="sw syn"></i>integrates</span>
+          <span>Dashed box = possible root, inferred</span>
+        </div>
+      </div>
+
+      <div class="pane console" aria-label="Facilitator console">
+        <div class="pane-head"><strong class="small">Console</strong><span class="who">Only the operator and you see this</span></div>
+        <div class="lines" id="lines" aria-live="polite"></div>
+        <div class="console-foot">Each line shows who spoke and how sure the system is. Unsure lines wait for a person to confirm.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" aria-labelledby="how-h">
+  <div class="sec-head">
+    <div>
+      <div class="eyebrow">How it works</div>
+      <h2 id="how-h">Four moves, with a person in the loop</h2>
+    </div>
+    <button class="cbtn" type="button" data-comment="how">Comment</button>
+  </div>
+  <div class="steps">
+    <div class="step"><span class="n">Listen</span><h3>Who said what</h3><p>Open-source speech recognition (NVIDIA Parakeet) runs on a laptop in the room. No audio leaves the venue. It works in person, on Zoom, or from a livestream.</p></div>
+    <div class="step"><span class="n">Map</span><h3>Claims, as they're made</h3><p>Each finished turn becomes a few short claims, each linked to the exact words said. Claims connect to earlier ones: builds on, challenges, agrees.</p></div>
+    <div class="step"><span class="n">Deepen</span><h3>Roots and bridges</h3><p>Every minute or so it looks beneath the claims for the assumptions they rest on, the words used in different senses, and the one disagreement the others depend on.</p></div>
+    <div class="step"><span class="n">Reveal</span><h3>You choose what shows</h3><p>Nothing reaches the screen without a person approving it. You can show the map continuously, only between rounds, or keep it to yourself.</p></div>
+  </div>
+
+  <div class="diar">
+    <div class="prose" style="display:grid;gap:12px">
+      <h3>Getting the speaker right, every time</h3>
+      <p class="muted">Everything on the map depends on knowing who said it. Putting one person's words under the other's name, on stage, is the worst mistake this tool could make. So identifying speakers is its own layer, running in every setup, even when each person has their own mic.</p>
+      <p class="muted">Separate mics still pick up each other's voices. People overlap. A moderator or audience member joins in. On a livestream, everyone arrives on one channel. The system combines several signals and asks a person whenever it isn't sure.</p>
+    </div>
+    <ul class="signals">
+      <li><span class="k">1</span><span><b>Which mic is loudest.</b> Drops the faint copy of a voice that bleeds into the other person's mic.</span></li>
+      <li><span class="k">2</span><span><b>Voice separation.</b> A speaker-separation model (Sortformer or pyannote) tracks who is speaking, including when two people talk at once.</span></li>
+      <li><span class="k">3</span><span><b>A 30-second voice sample at sound check.</b> Names each voice. Anyone else becomes "audience" and never lands in a debater's column.</span></li>
+      <li><span class="k">4</span><span><b>A confidence score.</b> When the signals agree, the line goes straight through. When they don't, it waits.</span></li>
+      <li><span class="k">5</span><span><b>A person decides.</b> The operator confirms unsure lines with one key and can fix any line later. The claims move with it.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="needs" aria-labelledby="needs-h">
+  <div class="sec-head">
+    <div>
+      <div class="eyebrow">What it asks of the event</div>
+      <h2 id="needs-h">A light footprint in the room</h2>
+    </div>
+    <button class="cbtn" type="button" data-comment="needs">Comment</button>
+  </div>
+  <div class="asks">
+    <div class="ask"><b>A mic per speaker</b><span>Lapel or handheld, into a small audio interface or the venue's mixer. On Zoom, each person on their own device.</span></div>
+    <div class="ask"><b>Thirty seconds at sound check</b><span>Each speaker says a few sentences so the system learns their voice.</span></div>
+    <div class="ask"><b>One operator with a laptop</b><span>Benjamin or a volunteer, approving what goes on screen and confirming unsure speakers.</span></div>
+    <div class="ask"><b>A screen, if you want one</b><span>A projector or stream overlay. Or none, if the map is for you alone.</span></div>
+  </div>
+  <div class="prose" style="display:grid;gap:10px">
+    <h3>What it will not do</h3>
+    <ul class="principles">
+      <li><b>No scoring.</b> No winner, no steelman score, no leaderboard.</li>
+      <li><b>No forced synthesis.</b> Where two views stay different, the map says so plainly.</li>
+      <li><b>No words put in anyone's mouth.</b> Every claim links to what was actually said. Inferred roots are marked as guesses. Debaters can correct anything, live or afterwards.</li>
+      <li><b>No upstaging.</b> The people on stage are the event. The map supports them.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="input" aria-labelledby="input-h">
+  <div class="sec-head">
+    <div>
+      <div class="eyebrow">Your input</div>
+      <h2 id="input-h">What should it be for you?</h2>
+    </div>
+    <button class="cbtn" type="button" data-comment="input">Comment</button>
+  </div>
+  <p class="prose muted">Answer whatever you can. Skip anything. Your answers save as you go, so you can come back later.</p>
+
+  <form id="form" novalidate>
+    <fieldset>
+      <legend>When should the audience see the map?</legend>
+      <p class="hint">The most important choice. My suggestion is between rounds, so the people on stage stay the focus.</p>
+      <div class="opts" data-name="visibility">
+        <label class="opt"><input type="radio" name="visibility" id="vis-live" value="Live, throughout"><span>Live, throughout</span></label>
+        <label class="opt"><input type="radio" name="visibility" id="vis-rounds" value="Between rounds"><span>Between rounds</span></label>
+        <label class="opt"><input type="radio" name="visibility" id="vis-end" value="Only at the end"><span>Only at the end</span></label>
+        <label class="opt"><input type="radio" name="visibility" id="vis-me" value="Only me, as facilitator"><span>Only me, as facilitator</span></label>
+        <label class="opt"><input type="radio" name="visibility" id="vis-unsure" value="Not sure yet"><span>Not sure yet</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Should the debaters see it while they speak?</legend>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="debatersSee" id="ds-yes" value="Yes"><span>Yes</span></label>
+        <label class="opt"><input type="radio" name="debatersSee" id="ds-no" value="No"><span>No</span></label>
+        <label class="opt"><input type="radio" name="debatersSee" id="ds-ask" value="Ask them"><span>Ask them</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Where does it happen?</legend>
+      <div class="opts">
+        <label class="opt"><input type="radio" name="setting" id="set-person" value="In person"><span>In person</span></label>
+        <label class="opt"><input type="radio" name="setting" id="set-zoom" value="Zoom"><span>Zoom</span></label>
+        <label class="opt"><input type="radio" name="setting" id="set-hybrid" value="Hybrid"><span>Hybrid</span></label>
+      </div>
+      <div class="opts">
+        <label class="opt"><input type="checkbox" name="extras" id="ex-stream" value="Livestreamed"><span>Livestreamed</span></label>
+        <label class="opt"><input type="checkbox" name="extras" id="ex-mod" value="A moderator speaks"><span>A moderator speaks</span></label>
+        <label class="opt"><input type="checkbox" name="extras" id="ex-qa" value="Audience Q&amp;A"><span>Audience Q&amp;A</span></label>
+        <label class="opt"><input type="checkbox" name="extras" id="ex-third" value="More than two debaters"><span>More than two debaters</span></label>
+        <label class="opt"><input type="checkbox" name="extras" id="ex-sound" value="Sound check is possible"><span>Sound check is possible</span></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Which features matter?</legend>
+      <div id="features"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend><label for="rounds">Walk me through the rounds</label></legend>
+      <p class="hint">Their order, rough timings, and what happens in each. The map changes what it emphasizes by round.</p>
+      <textarea id="rounds" name="rounds" placeholder="e.g. Openings, 5 min each. Rebuttals. Then each person steelmans the other..."></textarea>
+    </fieldset>
+
+    <div class="two">
+      <fieldset>
+        <legend><label for="when">Date, venue, audience size</label></legend>
+        <input type="text" id="when" name="when" placeholder="e.g. Nov 14, SF, about 120 people">
+      </fieldset>
+      <fieldset>
+        <legend><label for="recordings">Past Anti-Debate recordings we could tune on?</label></legend>
+        <input type="text" id="recordings" name="recordings" placeholder="Links, or who to ask">
+      </fieldset>
+    </div>
+
+    <fieldset>
+      <legend><label for="consent">Anything about consent or the debaters' comfort?</label></legend>
+      <textarea id="consent" name="consent" placeholder="Should debaters review the map before it's shared? Anything off-limits?"></textarea>
+    </fieldset>
+
+    <fieldset>
+      <legend><label for="yes">What would make this a clear yes for you? What worries you?</label></legend>
+      <textarea id="yes" name="yes"></textarea>
+    </fieldset>
+
+    <div class="savebar">
+      <div class="save-state" id="save-state" role="status"><i class="dot" id="save-dot"></i><span id="save-text">Your answers save as you type.</span></div>
+      <button class="btn" type="button" id="copy">Copy my answers</button>
+    </div>
+  </form>
+</section>
+
+<footer>
+  <p>Prepared by Benjamin Life (@omniharmonic). Built on Dialectical Topology and Ontography. A companion technical plan covers architecture, speaker diarization, and the build schedule.</p>
+</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var $ = function(id){ return document.getElementById(id); };
+  var PHASES = ["Opening statements","Rebuttals","Steelman","Integration"];
+
+  /* ---------- Demo script ---------- */
+  var SCRIPT = [
+    {phase:0, line:{id:"l1",tc:"00:14",sp:"B",txt:"Evil doesn't exist objectively. It's a perception based on incomplete awareness, an event we haven't yet seen the benefits of.",conf:.97,sig:"mic 2 · voice B .95"},
+      nodes:[{id:"b1",col:"B",band:"claim",tag:"Claim",txt:"Evil is a perception born of incomplete awareness."}]},
+    {nodes:[{id:"br",col:"B",band:"root",kind:"root",tag:"Possible root",txt:"Reality is ultimately unified. Good and evil are perspectives on it."}],
+      edges:[["br","b1","grounds"]]},
+    {line:{id:"l2",tc:"01:02",sp:"A",txt:"Some things are fundamentally wrong. Child abuse, torture, assault. That isn't a perspective. We know it in our body.",conf:.96,sig:"mic 1 · voice A .93"},
+      nodes:[{id:"a1",col:"A",band:"claim",tag:"Claim",txt:"Some acts are wrong in themselves, and we know it bodily."}]},
+    {nodes:[{id:"ar",col:"A",band:"root",kind:"root",tag:"Possible root",txt:"Good and evil are real features of the world, not projections."}],
+      edges:[["ar","a1","grounds"]]},
+    {line:{id:"l3",tc:"03:40",sp:"B",txt:"Every event has both upsides and downsides. To see only one side is incomplete awareness.",conf:.95,sig:"mic 2 · voice B .94"},
+      nodes:[{id:"b2",col:"B",band:"claim",tag:"Claim",txt:"Every event carries both upsides and downsides."}],
+      edges:[["br","b2","grounds"]]},
+    {line:{id:"l4",tc:"05:15",sp:"A",txt:"Life itself is good. There's something in us that drives toward life, love, freedom.",conf:.96,sig:"mic 1 · voice A .92"},
+      nodes:[{id:"a2",col:"A",band:"claim",tag:"Claim",txt:"Life itself is good."}],
+      edges:[["ar","a2","grounds"]]},
+    {phase:1, line:{id:"l5",tc:"12:30",sp:"B",txt:"Labeling something evil stops you from understanding why it happened. To understand isn't to condone.",conf:.94,sig:"mic 2 · voice B .93"},
+      nodes:[{id:"b3",col:"B",band:"claim",tag:"Challenges A",txt:"Calling something evil blocks understanding why it happened."}],
+      edges:[["b3","a1","challenges"]]},
+    {card:{kind:"drift",k:"Same word, different meanings",t:"“Evil”",d:"A means a real force that pulls us away from love. B means a label we give an event before we can see its benefits."},
+      prompt:"Drift on “evil”. Worth naming before the next exchange?"},
+    {line:{id:"l6",tc:"13:05",sp:null,guess:"A",txt:"I can appreciate the therapeutic value of finding meaning in tragedy, and still believe some acts are simply wrong.",conf:.54,sig:"mic 1 + mic 2 both active · overlap · voice A .61"},
+      hold:{line:"l6",node:{id:"a3",band:"claim",tag:"Claim",txt:"Finding meaning after tragedy can heal, and some acts are still wrong."}}},
+    {autoResolve:"l6"},
+    {nodes:[{id:"s1",col:"S",band:"claim",kind:"shared",tag:"Common ground",txt:"Understanding why harm happens can help prevent it."}],
+      edges:[["b3","s1","agree"],["a3","s1","agree"]]},
+    {card:{kind:"crux",k:"Possible crux",t:"Does evil exist in the world, or only in how we perceive it?",d:"Most of this round's disagreements trace back to the two roots below. If this one moved, several others would too."},
+      pulse:["ar","br"]},
+    {phase:2, line:{id:"l7",tc:"31:10",sp:"A",txt:"Let me say your view as well as you would. Healing comes from seeing the whole of an event, not only the wound, and judging too fast keeps people stuck as victims.",conf:.95,sig:"mic 1 · voice A .94"},
+      card:{kind:"steelman",k:"Steelman check · A restating B",t:"Close. B, is this you?",d:"Captures: every event has two sides; labeling blocks understanding. Not yet captured: B's view that morality differs across cultures."},
+      pulse:["b2","b3"]},
+    {line:{id:"l8",tc:"32:02",sp:"B",txt:"Yes. That's it. That's better than I usually say it.",conf:.96,sig:"mic 2 · voice B .95"},
+      card:{kind:"steelman",k:"Steelman check · confirmed by B",t:"B recognizes their view in A's words.",d:"Recognition, not a score. The one missing piece stays visible to the facilitator."}},
+    {phase:3, line:{id:"l9",tc:"41:20",sp:"B",txt:"Maybe the difference is timing. After a harm, finding the other side is what heals. Before it, you stop it.",conf:.95,sig:"mic 2 · voice B .94"},
+      prompt:"Ask A: does the timing distinction leave anything of your view out?"},
+    {nodes:[{id:"h1",col:"H",band:"high",kind:"high",tag:"Higher ground · candidate",txt:"After harm, understanding serves healing. Before and during harm, judgment serves prevention."}],
+      edges:[["a3","h1","syn"],["b3","h1","syn"],["s1","h1","syn"]]},
+    {card:{kind:"honest",k:"Still different",t:"Whether evil is real or only perceived stays open.",d:"The map keeps this as a genuine disagreement. Nothing here forces them to agree."}}
+  ];
+
+  var state, timer = null, playing = true, mode = "ambient", queue = [];
+  function reset(){
+    state = {i:0, phase:-1, nodes:{}, order:[], edges:[], card:null, holds:{}};
+    queue = [];
+    ["c-high","c-A-claim","c-S-claim","c-B-claim","c-A-root","c-S-root","c-B-root"].forEach(function(id){ $(id).textContent=""; });
+    $("lines").textContent = ""; $("stage-card").textContent = ""; $("edges").textContent = "";
+    renderPhases(); renderPending();
+  }
+
+  function renderPhases(){
+    var el = $("phases"); el.textContent = "";
+    PHASES.forEach(function(p, i){
+      var s = document.createElement("span");
+      s.className = "phase" + (i === state.phase ? " on" : i < state.phase ? " done" : "");
+      s.textContent = p; el.appendChild(s);
+    });
+  }
+
+  function addLine(l){
+    var box = $("lines");
+    var d = document.createElement("div"); d.className = "line"; d.id = "line-" + l.id;
+    var row = document.createElement("div"); row.className = "row";
+    var tc = document.createElement("span"); tc.className = "tc"; tc.textContent = l.tc;
+    var chip = document.createElement("span"); chip.className = "chip " + (l.sp ? l.sp.toLowerCase() : "q"); chip.textContent = l.sp || "?";
+    var tx = document.createElement("span"); tx.className = "txt"; tx.textContent = l.txt;
+    row.append(tc, chip, tx); d.appendChild(row);
+    var meta = document.createElement("div"); meta.className = "meta";
+    var bar = document.createElement("span"); bar.className = "bar";
+    var fill = document.createElement("i"); fill.style.width = Math.round(l.conf*100) + "%"; bar.appendChild(fill);
+    var sig = document.createElement("span"); sig.textContent = "sure " + l.conf.toFixed(2) + " · " + l.sig;
+    meta.append(bar, sig); d.appendChild(meta);
+    if (!l.sp){
+      d.classList.add("held");
+      var ask = document.createElement("div"); ask.className = "held-ask";
+      var lab = document.createElement("span"); lab.textContent = "Held. Who said this?";
+      ask.appendChild(lab);
+      ["A","B"].forEach(function(k){
+        var b = document.createElement("button"); b.type = "button"; b.textContent = k;
+        b.addEventListener("click", function(){ resolveHold(l.id, k, "operator"); });
+        ask.appendChild(b);
+      });
+      d.appendChild(ask);
+    }
+    box.appendChild(d); box.scrollTop = box.scrollHeight;
+  }
+
+  function addPrompt(txt){
+    var box = $("lines");
+    var d = document.createElement("div"); d.className = "line prompt";
+    var row = document.createElement("div"); row.className = "row";
+    var tc = document.createElement("span"); tc.className = "tc"; tc.textContent = "tip";
+    var tx = document.createElement("span"); tx.className = "txt"; tx.textContent = "Facilitator prompt: " + txt;
+    row.append(tc, tx); d.appendChild(row); box.appendChild(d); box.scrollTop = box.scrollHeight;
+  }
+
+  function resolveHold(lineId, who, by){
+    var h = state.holds[lineId]; if (!h || h.done) return;
+    h.done = true;
+    var el = $("line-" + lineId);
+    if (el){
+      el.classList.remove("held");
+      var chip = el.querySelector(".chip"); chip.className = "chip " + who.toLowerCase(); chip.textContent = who;
+      var ask = el.querySelector(".held-ask"); if (ask) ask.remove();
+      var meta = el.querySelector(".meta span:last-child");
+      meta.textContent += by === "operator" ? " · confirmed by operator" : " · confirmed by operator (demo auto)";
+    }
+    var n = Object.assign({}, h.node, {col: who});
+    n.tag = who === h.guess ? h.node.tag : "Claim · relabeled";
+    stageOp({nodes:[n], edges: who === "A" ? [["ar", n.id, "grounds"]] : [["br", n.id, "grounds"]]});
+  }
+
+  /* Stage operations go through the reveal queue */
+  function stageOp(op){
+    if (mode === "reveal"){ queue.push(op); renderPending(); }
+    else applyStage(op);
+  }
+  function applyStage(op){
+    (op.nodes||[]).forEach(placeNode);
+    (op.edges||[]).forEach(function(e){ state.edges.push(e); });
+    if (op.card) showCard(op.card);
+    (op.pulse||[]).forEach(function(id){
+      var el = $("n-" + id); if (!el) return;
+      el.classList.remove("pulse"); void el.offsetWidth; el.classList.add("pulse");
+    });
+    requestAnimationFrame(drawEdges);
+  }
+  function placeNode(n){
+    if (state.nodes[n.id]){
+      var old = $("n-" + n.id); if (old) old.remove();
+    }
+    state.nodes[n.id] = n;
+    var target = n.band === "high" ? $("c-high") : $("c-" + n.col + "-" + n.band);
+    var el = document.createElement("div");
+    var cls = "node";
+    if (n.kind === "high") cls += " high";
+    else if (n.kind === "shared") cls += " shared";
+    else cls += " " + n.col.toLowerCase() + (n.kind === "root" ? " root" : "");
+    el.className = cls; el.id = "n-" + n.id;
+    var t = document.createElement("span"); t.className = "tag"; t.textContent = n.tag;
+    el.appendChild(t); el.appendChild(document.createTextNode(n.txt));
+    target.appendChild(el);
+  }
+  function showCard(c){
+    var slot = $("stage-card"); slot.textContent = "";
+    var d = document.createElement("div"); d.className = "stage-card " + c.kind;
+    var k = document.createElement("div"); k.className = "k"; k.textContent = c.k;
+    var t = document.createElement("div"); t.className = "t"; t.textContent = c.t;
+    var dd = document.createElement("div"); dd.className = "d"; dd.textContent = c.d;
+    d.append(k, t, dd); slot.appendChild(d);
+  }
+  function renderPending(){
+    var p = $("pending"); p.textContent = "";
+    if (mode !== "reveal") return;
+    var n = queue.length;
+    var box = document.createElement("div"); box.className = "pending-note";
+    var s = document.createElement("span");
+    s.textContent = n ? n + (n === 1 ? " update" : " updates") + " waiting. The room sees nothing new until you reveal." : "Reveal mode: updates wait here until you reveal them.";
+    box.appendChild(s);
+    var b = document.createElement("button"); b.type = "button"; b.className = "btn reveal-btn"; b.textContent = "Reveal";
+    b.disabled = !n;
+    b.addEventListener("click", flushQueue);
+    box.appendChild(b); p.appendChild(box);
+  }
+  function flushQueue(){
+    var q = queue; queue = [];
+    q.forEach(applyStage); renderPending();
+  }
+
+  function stepOnce(){
+    if (state.i >= SCRIPT.length){ finish(); return; }
+    var s = SCRIPT[state.i++];
+    if (typeof s.phase === "number"){
+      state.phase = s.phase; renderPhases();
+      if (mode === "reveal" && s.phase > 0 && queue.length){ /* round boundary: operator would reveal here */ }
+    }
+    if (s.line) addLine(s.line);
+    if (s.prompt) addPrompt(s.prompt);
+    if (s.hold){ state.holds[s.hold.line] = {node:s.hold.node, guess:"A", done:false}; }
+    if (s.autoResolve) resolveHold(s.autoResolve, "A", "auto");
+    if (s.nodes || s.edges || s.card || s.pulse) stageOp({nodes:s.nodes, edges:s.edges, card:s.card, pulse:s.pulse});
+    if (state.i >= SCRIPT.length) finish();
+  }
+  function finish(){
+    stop(); $("play").textContent = "Play"; playing = false;
+    $("step").disabled = true;
+    if (!$("line-end")){
+      var box = $("lines"); var d = document.createElement("div"); d.className = "line"; d.id = "line-end";
+      var t = document.createElement("span"); t.className = "txt muted"; t.textContent = "End of replay. After the event, a fuller analysis runs on the whole recording and becomes a take-home explorer.";
+      d.appendChild(t); box.appendChild(d); box.scrollTop = box.scrollHeight;
+    }
+  }
+  function stop(){ if (timer){ clearInterval(timer); timer = null; } }
+  function start(){ stop(); timer = setInterval(stepOnce, 2600); }
+
+  /* Edges */
+  function drawEdges(){
+    var svg = $("edges"), map = $("map"); if (!svg || !map) return;
+    var mr = map.getBoundingClientRect();
+    svg.setAttribute("viewBox", "0 0 " + mr.width + " " + mr.height);
+    svg.textContent = "";
+    var NS = "http://www.w3.org/2000/svg";
+    var cs = getComputedStyle(document.documentElement);
+    var colors = {grounds:cs.getPropertyValue("--ink-ghost"), challenges:cs.getPropertyValue("--ink-3"), agree:cs.getPropertyValue("--conv-soft"), syn:cs.getPropertyValue("--conv")};
+    state.edges.forEach(function(e){
+      var a = $("n-" + e[0]), b = $("n-" + e[1]); if (!a || !b) return;
+      var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      var ax = ra.left + ra.width/2 - mr.left, bx = rb.left + rb.width/2 - mr.left;
+      var ay, by;
+      if (ra.top > rb.bottom){ ay = ra.top - mr.top; by = rb.bottom - mr.top; }
+      else if (rb.top > ra.bottom){ ay = ra.bottom - mr.top; by = rb.top - mr.top; }
+      else { ay = ra.top + ra.height/2 - mr.top; by = rb.top + rb.height/2 - mr.top;
+             ax = ra.left > rb.left ? ra.left - mr.left : ra.right - mr.left;
+             bx = ra.left > rb.left ? rb.right - mr.left : rb.left - mr.left; }
+      var my = (ay + by)/2;
+      var p = document.createElementNS(NS, "path");
+      var d = Math.abs(ay - by) < 4 ? "M"+ax+","+ay+" C"+(ax+(bx-ax)/3)+","+(ay-24)+" "+(ax+2*(bx-ax)/3)+","+(by-24)+" "+bx+","+by
+                                    : "M"+ax+","+ay+" C"+ax+","+my+" "+bx+","+my+" "+bx+","+by;
+      p.setAttribute("d", d); p.setAttribute("fill", "none");
+      p.setAttribute("stroke", (colors[e[2]] || colors.grounds).trim());
+      p.setAttribute("stroke-width", e[2] === "syn" || e[2] === "agree" ? "2" : "1.4");
+      if (e[2] === "challenges") p.setAttribute("stroke-dasharray", "5 4");
+      svg.appendChild(p);
+    });
+  }
+  if ("ResizeObserver" in window) new ResizeObserver(function(){ requestAnimationFrame(drawEdges); }).observe($("map"));
+  window.addEventListener("resize", function(){ requestAnimationFrame(drawEdges); });
+  if (window.matchMedia) window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawEdges);
+  new MutationObserver(drawEdges).observe(document.documentElement, {attributes:true, attributeFilter:["data-theme"]});
+
+  $("play").addEventListener("click", function(){
+    if (state.i >= SCRIPT.length){ reset(); $("step").disabled = false; }
+    playing = !playing; this.textContent = playing ? "Pause" : "Play";
+    if (playing){ stepOnce(); start(); } else stop();
+  });
+  $("step").addEventListener("click", function(){
+    playing = false; $("play").textContent = "Play"; stop(); stepOnce();
+  });
+  $("restart").addEventListener("click", function(){
+    reset(); $("step").disabled = false; playing = true; $("play").textContent = "Pause"; stepOnce(); start();
+  });
+  function setMode(m){
+    mode = m;
+    $("mode-ambient").setAttribute("aria-pressed", m === "ambient");
+    $("mode-reveal").setAttribute("aria-pressed", m === "reveal");
+    if (m === "ambient" && queue.length) flushQueue();
+    renderPending();
+  }
+  $("mode-ambient").addEventListener("click", function(){ setMode("ambient"); });
+  $("mode-reveal").addEventListener("click", function(){ setMode("reveal"); });
+
+  // Open in a meaningful state: the opening round already on the map.
+  reset();
+  for (var k = 0; k < 4; k++) stepOnce();
+  start();
+
+  /* ---------- Feedback form ---------- */
+  var FEATURES = [
+    ["drift","Same word, different meanings","Flags when the two speakers use a key word in different senses."],
+    ["crux","The crux","Finds the one disagreement the others depend on."],
+    ["steelman","Steelman check","Shows how much of B's view A's restatement captured, and asks B to confirm."],
+    ["higher","Higher ground","Suggests claims that combine both views, labeled as candidates."],
+    ["prompts","Facilitator prompts","Suggested questions, visible to you only."],
+    ["audience","Audience phone view","People can follow the map, and each claim's exact words, on their phones."],
+    ["archive","Take-home explorer","After the event, a full interactive map of the debate to publish with the recording."]
+  ];
+  var RATINGS = ["Must have","Nice to have","Skip","Not sure"];
+  var fbox = $("features");
+  FEATURES.forEach(function(f){
+    var row = document.createElement("div"); row.className = "frow";
+    var info = document.createElement("div");
+    var nm = document.createElement("div"); nm.className = "fname"; nm.textContent = f[1];
+    var ds = document.createElement("div"); ds.className = "fdesc"; ds.textContent = f[2];
+    info.append(nm, ds);
+    var seg = document.createElement("div"); seg.className = "seg"; seg.setAttribute("role","group"); seg.setAttribute("aria-label", f[1]);
+    RATINGS.forEach(function(r, i){
+      var b = document.createElement("button"); b.type = "button"; b.id = "feat-" + f[0] + "-" + i;
+      b.textContent = r; b.setAttribute("aria-pressed","false"); b.dataset.feature = f[0]; b.dataset.value = r;
+      b.addEventListener("click", function(){
+        var cur = answers.features[f[0]] === r ? "" : r;
+        answers.features[f[0]] = cur; paintFeatures(); changed();
+      });
+      seg.appendChild(b);
+    });
+    row.append(info, seg); fbox.appendChild(row);
+  });
+
+  var answers = {visibility:"", debatersSee:"", setting:"", extras:[], features:{}, rounds:"", when:"", recordings:"", consent:"", yes:""};
+  var TEXT = ["rounds","when","recordings","consent","yes"];
+  function paintFeatures(){
+    document.querySelectorAll("#features button").forEach(function(b){
+      b.setAttribute("aria-pressed", answers.features[b.dataset.feature] === b.dataset.value ? "true" : "false");
+    });
+  }
+  function paintForm(){
+    ["visibility","debatersSee","setting"].forEach(function(n){
+      document.querySelectorAll('input[name="'+n+'"]').forEach(function(r){ r.checked = r.value === answers[n]; });
+    });
+    document.querySelectorAll('input[name="extras"]').forEach(function(c){ c.checked = answers.extras.indexOf(c.value) >= 0; });
+    TEXT.forEach(function(k){ $(k).value = answers[k] || ""; });
+    paintFeatures();
+  }
+  function readForm(){
+    ["visibility","debatersSee","setting"].forEach(function(n){
+      var c = document.querySelector('input[name="'+n+'"]:checked'); answers[n] = c ? c.value : "";
+    });
+    answers.extras = Array.prototype.map.call(document.querySelectorAll('input[name="extras"]:checked'), function(c){ return c.value; });
+    TEXT.forEach(function(k){ answers[k] = $(k).value; });
+  }
+  $("form").addEventListener("input", function(e){ if (e.target.closest(".seg")) return; readForm(); changed(); });
+  $("form").addEventListener("change", function(e){ if (e.target.closest(".seg")) return; readForm(); changed(); });
+  $("form").addEventListener("submit", function(e){ e.preventDefault(); });
+
+  function setStatus(kind, text){ $("save-dot").className = "dot " + (kind||""); $("save-text").textContent = text; }
+
+  // Local draft (per-viewer convenience)
+  var LS_KEY = "antidebate-map-answers";
+  function saveLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify(answers)); } catch(e){} }
+  function loadLocal(){ try { var v = localStorage.getItem(LS_KEY); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
+  function merge(src){ if (!src) return; Object.keys(answers).forEach(function(k){ if (src[k] !== undefined) answers[k] = src[k]; }); if (!answers.features) answers.features = {}; if (!Array.isArray(answers.extras)) answers.extras = []; }
+
+  merge(loadLocal()); paintForm();
+
+  // Shared save (db): one document per respondent
+  var docRef = null, writable = true, debounce = null, writing = null, dirty = false;
+  function changed(){
+    saveLocal();
+    if (!docRef || !writable){ setStatus("ok", docRef ? "Saved on this device. Use Copy to send them to Benjamin." : "Saved on this device."); return; }
+    dirty = true; setStatus("busy", "Saving…");
+    clearTimeout(debounce); debounce = setTimeout(flush, 1200);
+  }
+  function flush(){
+    if (!dirty || !docRef) return;
+    if (writing){ writing.then(flush); return; }
+    dirty = false;
+    var body = JSON.parse(JSON.stringify(answers)); body.updatedAt = new Date().toISOString();
+    writing = docRef.set(body).then(function(){
+      writing = null; if (!dirty) setStatus("ok", "Saved. Benjamin can see your answers.");
+    }, function(err){
+      writing = null;
+      if (err && (err.code === "invalid_argument" || err.code === "not_granted" || err.code === "revoked")){
+        writable = false; setStatus("warn", "Couldn't save here. Your answers are kept on this device; use Copy to send them.");
+      } else if (err && err.code === "unavailable"){
+        dirty = true; setTimeout(flush, 1500 + Math.random()*1500); setStatus("busy", "Retrying…");
+      } else { setStatus("warn", "Couldn't save just now. Your answers are kept on this device."); }
+    });
+  }
+
+  (async function initDb(){
+    if (!window.claude || !window.claude.use) { setStatus("", "Your answers save on this device. Use Copy to send them."); return; }
+    var db = await window.claude.use("db");
+    var user = await window.claude.use("user");
+    if (!db){ setStatus("", "Your answers save on this device. Use Copy to send them."); return; }
+    var uid = user ? await user.id() : null;
+    if (!uid){
+      try { uid = localStorage.getItem("antidebate-anon"); if (!uid){ uid = "anon-" + Math.random().toString(36).slice(2,10); localStorage.setItem("antidebate-anon", uid); } } catch(e){ uid = "anon-" + Math.random().toString(36).slice(2,10); }
+    }
+    if (user){ var cw = await user.can("data.write"); if (cw === false) writable = false; }
+    try { docRef = db.collection("responses").doc(uid); } catch(e){ docRef = null; return; }
+    try {
+      var snap = await docRef.get();
+      if (snap.exists){ merge(snap.data()); paintForm(); saveLocal(); }
+    } catch(e){}
+    setStatus(writable ? "ok" : "", writable ? "Your answers save as you type, and Benjamin can see them." : "This view can't save to the shared page. Use Copy to send your answers.");
+    var local = loadLocal();
+    if (writable && local && JSON.stringify(local) !== JSON.stringify(answers)){ /* nothing: db state was merged over local */ }
+  })();
+
+  // Copy answers as plain text
+  function summary(){
+    var L = [];
+    L.push("Anti-Debate live map: my answers", "");
+    L.push("Audience sees the map: " + (answers.visibility || "-"));
+    L.push("Debaters see it while speaking: " + (answers.debatersSee || "-"));
+    L.push("Setting: " + (answers.setting || "-") + (answers.extras.length ? " (" + answers.extras.join(", ") + ")" : ""));
+    L.push("", "Features:");
+    FEATURES.forEach(function(f){ L.push("  " + f[1] + ": " + (answers.features[f[0]] || "-")); });
+    L.push("", "Rounds: " + (answers.rounds || "-"));
+    L.push("Date, venue, audience: " + (answers.when || "-"));
+    L.push("Past recordings: " + (answers.recordings || "-"));
+    L.push("Consent: " + (answers.consent || "-"));
+    L.push("What makes it a yes / worries: " + (answers.yes || "-"));
+    return L.join("\n");
+  }
+  $("copy").addEventListener("click", function(){
+    var text = summary(), btn = this;
+    function fallback(){
+      var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly",""); ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); btn.textContent = "Copied"; } catch(e){ btn.textContent = "Select and copy"; }
+      setTimeout(function(){ ta.remove(); btn.textContent = "Copy my answers"; }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ btn.textContent = "Copied"; setTimeout(function(){ btn.textContent = "Copy my answers"; }, 1600); }, fallback);
+    } else fallback();
+  });
+
+  /* ---------- Section comments ---------- */
+  var commentsP = window.claude && window.claude.use ? window.claude.use("comments") : Promise.resolve(null);
+  commentsP.then(function(c){
+    document.querySelectorAll("[data-comment]").forEach(function(b){
+      if (!c){ b.hidden = true; return; }
+      b.addEventListener("click", function(){
+        var sec = $(b.dataset.comment);
+        var h = sec && sec.querySelector("h2");
+        c.openComposer({element: h || sec}).catch(function(){});
+      });
+    });
+  }, function(){ document.querySelectorAll("[data-comment]").forEach(function(b){ b.hidden = true; }); });
+})();
+</script>

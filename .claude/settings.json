@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh", "timeout": 300 }]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(pnpm check)",
+      "Bash(pnpm test)",
+      "Bash(pnpm typecheck)",
+      "Bash(pnpm install)",
+      "Bash(pnpm replay:dt)",
+      "Bash(pnpm --filter:*)",
+      "Bash(uv sync:*)",
+      "Bash(uv run pytest:*)"
+    ]
+  }
+}

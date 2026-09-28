@@ -1,0 +1,28 @@
+{
+  "name": "antidebate-live",
+  "private": true,
+  "description": "Real-time Anti-Debate mapping: rigorous claim extraction, crux and higher-ground detection, facilitator cockpit, audience detail dial, 3D topology, playback.",
+  "author": "Benjamin Life (@omniharmonic)",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "turbo run dev --filter=@adl/web",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "check": "pnpm typecheck && pnpm test",
+    "replay:dt": "pnpm --filter @adl/worker replay -- --fixture dt --speed max --out ../../.data/dt.events.jsonl",
+    "db:generate": "pnpm --filter @adl/db generate",
+    "db:push": "pnpm --filter @adl/db push"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.5",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.2"
+  }
+}

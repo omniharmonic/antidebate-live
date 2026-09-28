@@ -1,0 +1,67 @@
+/*
+ * Open Field design tokens (inherited from Dialectical Topology → Ontography).
+ * UX §2: light field, ink scale, per-participant voice colors, violet = convergence
+ * and higher ground, amber = drift/insight (rare). The stage and cockpit use the dark variant.
+ */
+:root {
+  --field: #fafafa;
+  --field-subtle: #f4f3f1;
+  --field-deep: #ecebe8;
+  --surface: #ffffff;
+  --ink: #1a1a1a;
+  --ink-2: #5e5e5e;
+  --ink-3: #8f8f8f;
+  --ink-ghost: #c8c8c8;
+  --voice-a: #c45a3c;
+  --voice-a-soft: #e8a892;
+  --voice-a-faint: #f7e4dc;
+  --voice-b: #2e6b8a;
+  --voice-b-soft: #8bbdd4;
+  --voice-b-faint: #ddecf3;
+  --voice-mod: #5f6b4e;
+  --convergence: #6e6296;
+  --convergence-soft: #c4bedd;
+  --convergence-faint: #ece9f5;
+  --insight: #b8862b;
+  --insight-faint: #f7eed9;
+  --border: #e6e5e2;
+  --border-2: #d0d0cc;
+  --focus: rgba(46, 107, 138, 0.35);
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --font-text: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --ease-resolve: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --arrive-ms: 600ms;
+}
+
+/* Stage + cockpit (dark, projection-safe). Apply with [data-surface="stage"] or data-theme="dark". */
+[data-surface='stage'],
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --field: #0f1016;
+  --field-subtle: #16171f;
+  --field-deep: #1e1f29;
+  --surface: #181922;
+  --ink: #eceae6;
+  --ink-2: #b3b1ac;
+  --ink-3: #85847f;
+  --ink-ghost: #4a4a52;
+  --voice-a: #e48c6f;
+  --voice-a-soft: #8e4b38;
+  --voice-a-faint: #3a2620;
+  --voice-b: #72aecb;
+  --voice-b-soft: #3d6a80;
+  --voice-b-faint: #1c2e38;
+  --convergence: #afa2dd;
+  --convergence-soft: #5a5080;
+  --convergence-faint: #2a2640;
+  --insight: #e2bc6a;
+  --insight-faint: #35301f;
+  --border: #2c2d38;
+  --border-2: #3d3e4a;
+  --focus: rgba(114, 174, 203, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --arrive-ms: 0ms; }
+}

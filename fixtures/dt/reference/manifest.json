@@ -1,0 +1,117 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-02-23T02:15:36.599284",
+  "source": {
+    "title": "Aubrey Marcus Podcast #521",
+    "subtitle": "No Such Thing As Evil? - with Dr. John Demartini",
+    "duration_seconds": 6330,
+    "speakers": [
+      {
+        "id": "marcus",
+        "name": "Aubrey Marcus",
+        "color": "#f59e0b",
+        "role": "Host"
+      },
+      {
+        "id": "demartini",
+        "name": "Dr. John Demartini",
+        "color": "#14b8a6",
+        "role": "Guest"
+      }
+    ]
+  },
+  "lenses": [
+    {
+      "id": "landscape",
+      "name": "Semantic Landscape",
+      "description": "3D terrain of meaning - explore the conversation's conceptual topology",
+      "data_file": "landscape.json",
+      "component": "SemanticLandscape"
+    },
+    {
+      "id": "claims",
+      "name": "Claim Atlas",
+      "description": "Interactive map of philosophical claims and their relationships",
+      "data_file": "claims.json",
+      "component": "ClaimAtlas"
+    },
+    {
+      "id": "flow",
+      "name": "Dialectical Flow",
+      "description": "Timeline showing the conversation's emotional and intellectual arc",
+      "data_file": "flow.json",
+      "component": "DialecticalFlow"
+    },
+    {
+      "id": "worldview",
+      "name": "Worldview Map",
+      "description": "8-dimensional visualization of where speakers agree and diverge",
+      "data_file": "ontology.json",
+      "component": "WorldviewMap"
+    },
+    {
+      "id": "arena",
+      "name": "Steel Man Arena",
+      "description": "Generative space where positions are steel-manned and synthesis explored",
+      "data_file": "dialogue.json",
+      "component": "SteelManArena"
+    }
+  ],
+  "statistics": {
+    "total_segments": 270,
+    "total_chunks": 270,
+    "total_claims": 42,
+    "total_wiki_entities": 84,
+    "dimensions_analyzed": 8,
+    "inflection_points": 8,
+    "arena_rounds": 5
+  },
+  "files": {
+    "transcript_diarized.json": {
+      "size": 149062,
+      "hash": "53b486ca",
+      "description": "Parsed transcript with speaker attribution"
+    },
+    "chunks.json": {
+      "size": 165180,
+      "hash": "26db758c",
+      "description": "Semantic chunks for embedding"
+    },
+    "embeddings_meta.json": {
+      "size": 121,
+      "hash": "53881a61",
+      "description": "Embedding metadata (vectors stored separately)"
+    },
+    "landscape.json": {
+      "size": 245415,
+      "hash": "bc9c0332",
+      "description": "3D UMAP projection with clusters"
+    },
+    "claims.json": {
+      "size": 25632,
+      "hash": "85435aa6",
+      "description": "42 extracted philosophical claims"
+    },
+    "ontology.json": {
+      "size": 14613,
+      "hash": "4f4353ae",
+      "description": "8-dimension philosophical analysis"
+    },
+    "flow.json": {
+      "size": 13520,
+      "hash": "d4206bf5",
+      "description": "Conversation flow with inflection points"
+    },
+    "dialogue.json": {
+      "size": 21130,
+      "hash": "b4ee58ff",
+      "description": "Steel Man Arena content"
+    },
+    "wiki_index.json": {
+      "size": 1833,
+      "hash": "fae87856",
+      "description": "Wiki entity index"
+    }
+  },
+  "total_size_bytes": 636506
+}

@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+@import '@adl/ui/tokens.css';
+
+@theme inline {
+  --color-field: var(--field);
+  --color-field-subtle: var(--field-subtle);
+  --color-field-deep: var(--field-deep);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-border: var(--border);
+  --color-voice-a: var(--voice-a);
+  --color-voice-b: var(--voice-b);
+  --color-convergence: var(--convergence);
+  --color-insight: var(--insight);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-text);
+  --font-mono: var(--font-mono);
+}
+
+html,
+body {
+  background: var(--field);
+  color: var(--ink);
+  font-family: var(--font-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-wrap: balance;
+}

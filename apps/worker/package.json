@@ -1,0 +1,20 @@
+{
+  "name": "@adl/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "replay": "tsx src/replay.ts",
+    "extract": "tsx src/extract.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@adl/core": "workspace:*",
+    "@adl/db": "workspace:*",
+    "@adl/llm": "workspace:*",
+    "@adl/ontology": "workspace:*",
+    "@adl/pipeline": "workspace:*",
+    "dotenv": "^17.2.3"
+  }
+}

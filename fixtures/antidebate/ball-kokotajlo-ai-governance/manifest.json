@@ -1,0 +1,29 @@
+{
+  "slug": "ball-kokotajlo-ai-governance",
+  "title": "Should Governments or Markets control AI? Dean Ball × Daniel Kokotajlo Anti-Debate",
+  "format": "anti-debate",
+  "moderator": { "key": "MOD", "displayName": "Liv Boeree" },
+  "participants": [
+    { "key": "A", "displayName": "Dean W. Ball" },
+    { "key": "B", "displayName": "Daniel Kokotajlo" }
+  ],
+  "sources": {
+    "video": "https://www.youtube.com/watch?v=wkPsbwzyOa8",
+    "writeup": "https://www.synthesismedia.org/p/anti-debate-on-ai-governance-dean",
+    "podcast": "Win-Win with Liv Boeree #55"
+  },
+  "media": {
+    "audio": "audio.m4a",
+    "transcript": "transcript.utterances.json",
+    "status": "not_downloaded"
+  },
+  "reference": {
+    "publishedSynthesis": [
+      "Build frontier-lab auditing and verification systems",
+      "Establish preconditions for a US–China bilateral agreement",
+      "Transparency requirements as the immediate step"
+    ],
+    "verified": false
+  },
+  "gold": { "segments": [], "heldOut": [] }
+}

@@ -1,0 +1,638 @@
+{
+  "metadata": {
+    "source": "Aubrey Marcus Podcast #521 - No Such Thing As Evil",
+    "speakers": ["marcus", "demartini"],
+    "extracted_by": "Claude Code",
+    "extraction_date": "2026-02-23",
+    "total_claims": 42,
+    "methodology": "Direct analysis of transcript with philosophical claim identification"
+  },
+  "claims": [
+    {
+      "id": "D01",
+      "speaker": "demartini",
+      "text": "Evil doesn't exist objectively - it's a perception based on incomplete awareness. What we label 'evil' is simply an event we haven't yet seen the benefits of.",
+      "type": "ontological",
+      "warrants": [
+        "Therapeutic experience with thousands of trauma survivors",
+        "Appeal to Heraclitus's 'hidden order in apparent chaos'"
+      ],
+      "evidence": ["Work with 150,000+ people finding benefits in traumatic events"],
+      "timestamp": 26,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["moral_relativism", "unity_of_opposites", "therapeutic_dissolution"]
+    },
+    {
+      "id": "D02",
+      "speaker": "demartini",
+      "text": "Every event has both upsides and downsides - the unity of opposites. To see only one side is to have incomplete awareness.",
+      "type": "ontological",
+      "warrants": [
+        "Reference to Heraclitus's unity of opposites",
+        "Biological analogy: mitosis and apoptosis in perfect balance"
+      ],
+      "evidence": ["Central limit theorem showing bell curve of positive/negative outcomes over time"],
+      "timestamp": 408,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["nonduality", "unity_of_opposites", "cosmic_balance"]
+    },
+    {
+      "id": "D03",
+      "speaker": "demartini",
+      "text": "Morality evolves from amygdala-driven absolutism (primitive) to prefrontal cortex relativism (advanced). The highest moral reasoning sees events objectively without labels.",
+      "type": "epistemological",
+      "warrants": [
+        "Neuroscience of moral development",
+        "Reference to evolution of moral systems"
+      ],
+      "evidence": ["Brain structure: amygdala assigns valency, prefrontal cortex sees objectively"],
+      "timestamp": 1508,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["amygdala_reactivity", "moral_development", "objectivity"]
+    },
+    {
+      "id": "D04",
+      "speaker": "demartini",
+      "text": "Therapeutic dissolution - helping people find the 'other side' of traumatic events - frees them from victimhood. Making things good/bad keeps people trapped as victims.",
+      "type": "methodological",
+      "warrants": [
+        "Therapeutic outcomes with trauma survivors",
+        "Demartini Method principles"
+      ],
+      "evidence": ["Case studies: pedophile who stopped after understanding root cause", "Oklahoma City bombing family gratitude"],
+      "timestamp": 1710,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["demartini_method", "therapeutic_dissolution", "gratitude"]
+    },
+    {
+      "id": "D05",
+      "speaker": "demartini",
+      "text": "Morality is culturally relative - what's considered evil in one society is acceptable in another. There are no universally ascended moral values across time and space.",
+      "type": "ethical",
+      "warrants": [
+        "Reference to Montaigne's travels seeking universal morality",
+        "Cross-cultural examples"
+      ],
+      "evidence": ["Older men marrying young girls acceptable in Middle East, criminal in America"],
+      "timestamp": 597,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["moral_relativism", "cultural_ethics", "situational_ethics"]
+    },
+    {
+      "id": "D06",
+      "speaker": "demartini",
+      "text": "Our job is to discover the hidden order in apparent chaos, not to judge events as good or evil. When we discover this order, we're graced.",
+      "type": "epistemological",
+      "warrants": [
+        "Heraclitus's philosophy of hidden order",
+        "Appeal to divine wisdom"
+      ],
+      "evidence": ["Therapeutic transformations when people see both sides"],
+      "timestamp": 2193,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["hidden_order", "cosmic_balance", "logos"]
+    },
+    {
+      "id": "D07",
+      "speaker": "demartini",
+      "text": "Labeling something evil prevents understanding why it happened. To understand is not to condone - it's to see the full picture and potentially prevent future harm.",
+      "type": "epistemological",
+      "warrants": [
+        "Therapeutic methodology",
+        "Contrast between judgment and understanding"
+      ],
+      "evidence": ["Understanding pedophile's childhood trauma led to cure"],
+      "timestamp": 1566,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["understanding_vs_judgment", "therapeutic_dissolution"]
+    },
+    {
+      "id": "D08",
+      "speaker": "demartini",
+      "text": "The person doing harm believes they're doing good within their value system. No one does anything unless they believe it gives them more advantage than disadvantage.",
+      "type": "ethical",
+      "warrants": [
+        "Reference to Epictetus on human motivation",
+        "Universal principle of self-interest"
+      ],
+      "evidence": ["Jihadist believes he's doing God's will"],
+      "timestamp": 890,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["moral_psychology", "value_systems", "epictetus"]
+    },
+    {
+      "id": "D09",
+      "speaker": "demartini",
+      "text": "Even Jesus wasn't one-sided. The texts show him neither entirely good nor bad - these are labels we project based on our allegiances.",
+      "type": "ontological",
+      "warrants": [
+        "Textual analysis of religious figures",
+        "Critique of hagiography"
+      ],
+      "evidence": ["Biblical texts showing multiple sides of Jesus"],
+      "timestamp": 0,
+      "engagement_level": "opening_salvo",
+      "related_concepts": ["christ", "nonduality", "unity_of_opposites"]
+    },
+    {
+      "id": "D10",
+      "speaker": "demartini",
+      "text": "Anthropomorphizing good and evil as God and devil is projection. Divinity includes everything - it's not local to a particular culture or time.",
+      "type": "ontological",
+      "warrants": [
+        "Reference to Maimonides and omnipresence",
+        "Einstein's cosmic religious feeling"
+      ],
+      "evidence": ["Philosophical tradition of divine omnipresence"],
+      "timestamp": 2126,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["anthropomorphism", "divine_omnipresence", "nonduality"]
+    },
+    {
+      "id": "D11",
+      "speaker": "demartini",
+      "text": "Life and death are paired - neither is inherently good or bad. Your body has build and destroy in perfect balance. Bringing some people into life is their torture.",
+      "type": "ontological",
+      "warrants": [
+        "Biological reality of cellular death and regeneration",
+        "Buddhist concept of suffering in existence"
+      ],
+      "evidence": ["Mitosis and apoptosis, oxidation and reduction"],
+      "timestamp": 2400,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["unity_of_opposites", "life_death_balance", "biology"]
+    },
+    {
+      "id": "D12",
+      "speaker": "demartini",
+      "text": "Beyond the outer appearance, there's nothing but love. All else is illusion. The quality of your life depends on the quality of questions you ask.",
+      "type": "ontological",
+      "warrants": [
+        "Nondual philosophy",
+        "Socratic method of inquiry"
+      ],
+      "evidence": ["Opening statement of core philosophy"],
+      "timestamp": 231,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["nonduality", "love", "inquiry"]
+    },
+    {
+      "id": "D13",
+      "speaker": "demartini",
+      "text": "Whatever you perceive in the world around you is a reprojection of yourself. Predators appear to make us realize parts of ourselves we haven't owned.",
+      "type": "epistemological",
+      "warrants": [
+        "Jungian shadow concept",
+        "Projection psychology"
+      ],
+      "evidence": ["Therapeutic experience with projection work"],
+      "timestamp": 255,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["projection", "shadow", "self_knowledge"]
+    },
+    {
+      "id": "D14",
+      "speaker": "demartini",
+      "text": "Most people are unconscious automatons. They react, then 200 milliseconds later construct a reason why. True conscious awareness is rare.",
+      "type": "epistemological",
+      "warrants": [
+        "Neuroscience of decision-making",
+        "Libet experiments on free will"
+      ],
+      "evidence": ["Research on delayed conscious awareness of decisions"],
+      "timestamp": 5373,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["consciousness", "free_will", "automaticity"]
+    },
+    {
+      "id": "M01",
+      "speaker": "marcus",
+      "text": "Some things ARE fundamentally wrong - child abuse, torture, assault. This isn't perspective; it's embodied knowledge we 'know in our body.'",
+      "type": "ethical",
+      "warrants": [
+        "Somatic epistemology - bodily knowing",
+        "Universal human response to witnessing harm"
+      ],
+      "evidence": ["Visceral reaction to images of abuse", "Universal horror at torture"],
+      "timestamp": 1657,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["somatic_epistemology", "universal_ethics", "embodied_knowing"]
+    },
+    {
+      "id": "M02",
+      "speaker": "marcus",
+      "text": "There is something fundamental inside us driving toward life, love, freedom. If someone intentionally interferes with that, we have an obligation to stop them.",
+      "type": "ethical",
+      "warrants": [
+        "Inherent drive toward flourishing",
+        "Natural law tradition"
+      ],
+      "evidence": ["Universal desire for freedom and self-determination"],
+      "timestamp": 67,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["sacred_obligation", "life_force", "natural_law"]
+    },
+    {
+      "id": "M03",
+      "speaker": "marcus",
+      "text": "We have an obligation - an 'ought' - to act against evil. This isn't just preference; it's sacred duty.",
+      "type": "ethical",
+      "warrants": [
+        "Deontological ethics",
+        "Sacred responsibility"
+      ],
+      "evidence": ["Would forcibly stop someone assaulting his wife"],
+      "timestamp": 12,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["sacred_obligation", "duty", "action_imperative"]
+    },
+    {
+      "id": "M04",
+      "speaker": "marcus",
+      "text": "Morality has evolved - the Zoroastrians stopping child sacrifice is clear moral progress. We shouldn't regress to 'whatever culture thinks is fine.'",
+      "type": "ethical",
+      "warrants": [
+        "Historical evidence of moral evolution",
+        "Rejection of complete relativism"
+      ],
+      "evidence": ["Zoroastrians ending child sacrifice rituals"],
+      "timestamp": 5456,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["moral_evolution", "progress", "zoroastrianism"]
+    },
+    {
+      "id": "M05",
+      "speaker": "marcus",
+      "text": "There's a middle path between absolutism and relativism. Situation plays a part, but some things remain fundamentally wrong across all contexts.",
+      "type": "ethical",
+      "warrants": [
+        "Rejection of both extremes",
+        "Nuanced ethical framework"
+      ],
+      "evidence": ["Aristotle's golden mean reference"],
+      "timestamp": 2406,
+      "engagement_level": "attempted_synthesis",
+      "related_concepts": ["middle_path", "aristotle", "nuanced_ethics"]
+    },
+    {
+      "id": "M06",
+      "speaker": "marcus",
+      "text": "We participate in God, not just observe. We are co-creators, not passive witnesses to cosmic events.",
+      "type": "ontological",
+      "warrants": [
+        "Participatory theology",
+        "Co-creation with divine"
+      ],
+      "evidence": ["Theological tradition of human-divine partnership"],
+      "timestamp": 2122,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["participation", "co_creation", "agency"]
+    },
+    {
+      "id": "M07",
+      "speaker": "marcus",
+      "text": "Evil is a 'cosmic conspiracy to separate us from love.' There are actual forces working against unity and connection.",
+      "type": "ontological",
+      "warrants": [
+        "Reference to Father Sean Ó Laoire",
+        "Dualistic cosmology"
+      ],
+      "evidence": ["Theological framework of cosmic struggle"],
+      "timestamp": 5508,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["cosmic_evil", "separation", "dualism"]
+    },
+    {
+      "id": "M08",
+      "speaker": "marcus",
+      "text": "Life itself is good. God desires ever-deepening complexity of thought, more life, more love, more beauty.",
+      "type": "ontological",
+      "warrants": [
+        "Teleological argument",
+        "Evidence of increasing complexity in universe"
+      ],
+      "evidence": ["Life has been increasing in complexity and diversity"],
+      "timestamp": 2554,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["life_value", "telos", "divine_purpose"]
+    },
+    {
+      "id": "M09",
+      "speaker": "marcus",
+      "text": "Intentional, prolonged torture of innocents (like a child) for pleasure is absolutely evil. No situational context can justify it.",
+      "type": "ethical",
+      "warrants": [
+        "Harm to innocents principle",
+        "Rejection of consequentialist justification"
+      ],
+      "evidence": ["Inquisition torture devices", "Child torture scenarios"],
+      "timestamp": 2265,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["absolute_evil", "innocence", "torture"]
+    },
+    {
+      "id": "M10",
+      "speaker": "marcus",
+      "text": "The fact that we have laws against these things, that 80% of people would be horrified by these images, shows values are anthropologically embedded in us.",
+      "type": "epistemological",
+      "warrants": [
+        "Universal human response",
+        "Legal systems as evidence of shared values"
+      ],
+      "evidence": ["Existence of laws against murder, abuse", "Universal horror response"],
+      "timestamp": 1689,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["anthropological_ethics", "universal_values", "law"]
+    },
+    {
+      "id": "M11",
+      "speaker": "marcus",
+      "text": "Ho'oponopono teaches us to locate in ourselves what we find reprehensible in others. This is healing work, but it doesn't negate that some acts are truly harmful.",
+      "type": "methodological",
+      "warrants": [
+        "Hawaiian Kahuna tradition",
+        "Integration of therapeutic and moral frameworks"
+      ],
+      "evidence": ["Ho'oponopono practice"],
+      "timestamp": 5338,
+      "engagement_level": "attempted_synthesis",
+      "related_concepts": ["ho_oponopono", "shadow_work", "healing"]
+    },
+    {
+      "id": "M12",
+      "speaker": "marcus",
+      "text": "Yeshua said 'forgive them for they know not what they do' - beautiful teaching. But this addresses ignorance, not intentional evil.",
+      "type": "ethical",
+      "warrants": [
+        "Christian ethics",
+        "Distinction between ignorance and malice"
+      ],
+      "evidence": ["Gospel account of crucifixion"],
+      "timestamp": 5362,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["christ", "forgiveness", "ignorance_vs_malice"]
+    },
+    {
+      "id": "M13",
+      "speaker": "marcus",
+      "text": "I can appreciate the therapeutic value of finding meaning in tragedy while still believing some acts are fundamentally wrong.",
+      "type": "methodological",
+      "warrants": [
+        "Compatibility of therapeutic and moral frameworks",
+        "Both/and rather than either/or"
+      ],
+      "evidence": ["Agreement that gratitude transforms baggage into fuel"],
+      "timestamp": 1787,
+      "engagement_level": "attempted_synthesis",
+      "related_concepts": ["integration", "therapy_and_ethics", "gratitude"]
+    },
+    {
+      "id": "M14",
+      "speaker": "marcus",
+      "text": "Rumi is NOT the same as a jihadist. There's a fundamental difference between promoting love and promoting violence.",
+      "type": "ethical",
+      "warrants": [
+        "Qualitative distinction between violence and peace",
+        "Not all 'promotion of ideals' is equivalent"
+      ],
+      "evidence": ["Rumi's poetry vs jihadist violence"],
+      "timestamp": 36,
+      "engagement_level": "direct_counter",
+      "related_concepts": ["rumi", "violence_vs_peace", "false_equivalence"]
+    },
+    {
+      "id": "D15",
+      "speaker": "demartini",
+      "text": "Rumi is, in his own way, a jihadist - promoting his ideal. Both are trying to do what they think is God's will.",
+      "type": "ethical",
+      "warrants": [
+        "Functional equivalence of ideological promotion",
+        "Everyone believes they serve good"
+      ],
+      "evidence": ["Both Rumi and jihadists promoting what they believe is divine"],
+      "timestamp": 38,
+      "engagement_level": "provocative_thesis",
+      "related_concepts": ["moral_equivalence", "idealism", "religious_motivation"]
+    },
+    {
+      "id": "D16",
+      "speaker": "demartini",
+      "text": "I don't go to forgiveness - I go all the way to gratitude. Forgiveness assumes something needed forgiving. True healing is 'thank you.'",
+      "type": "methodological",
+      "warrants": [
+        "Demartini Method progression",
+        "Gratitude as higher than forgiveness"
+      ],
+      "evidence": ["Therapeutic practice of moving beyond forgiveness"],
+      "timestamp": 5358,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["gratitude", "forgiveness", "therapeutic_progression"]
+    },
+    {
+      "id": "D17",
+      "speaker": "demartini",
+      "text": "You react in proportion to your morality at the time. If you see something as evil, you'll try to stop it - but it's evil in YOUR perception.",
+      "type": "epistemological",
+      "warrants": [
+        "Subjective nature of moral perception",
+        "Action follows perception"
+      ],
+      "evidence": ["Marcus would stop assault because HE values his wife"],
+      "timestamp": 1013,
+      "engagement_level": "reframing",
+      "related_concepts": ["moral_perception", "subjectivity", "reaction"]
+    },
+    {
+      "id": "D18",
+      "speaker": "demartini",
+      "text": "There are upsides to the murder of children. The Oklahoma City bombing mother said it was 'one of the greatest things that ever happened' to her.",
+      "type": "ethical",
+      "warrants": [
+        "First-person testimony",
+        "Long-term outcomes vs immediate perception"
+      ],
+      "evidence": ["Oklahoma City bombing family's transformation"],
+      "timestamp": 1879,
+      "engagement_level": "provocative_thesis",
+      "related_concepts": ["silver_lining", "transformation", "perspective_shift"]
+    },
+    {
+      "id": "D19",
+      "speaker": "demartini",
+      "text": "To say life is good and death is bad is very narrow. Evolution requires extinctions. Your body requires cellular death.",
+      "type": "ontological",
+      "warrants": [
+        "Biological necessity of death",
+        "Evolutionary theory"
+      ],
+      "evidence": ["Mitosis/apoptosis balance", "Extinction and speciation"],
+      "timestamp": 2592,
+      "engagement_level": "supporting_argument",
+      "related_concepts": ["life_death_balance", "evolution", "necessity"]
+    },
+    {
+      "id": "D20",
+      "speaker": "demartini",
+      "text": "When you make evil 'out there' and good 'out there,' you dissociate from yourself. It's all you - there are no good and bad people, just people.",
+      "type": "ontological",
+      "warrants": [
+        "Projection psychology",
+        "Nondual philosophy"
+      ],
+      "evidence": ["Shadow integration work"],
+      "timestamp": 5511,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["projection", "nonduality", "shadow_integration"]
+    },
+    {
+      "id": "M15",
+      "speaker": "marcus",
+      "text": "The murdered child doesn't get a chance to be grateful. The family may find meaning, but the child's life was taken.",
+      "type": "ethical",
+      "warrants": [
+        "Victim-centered ethics",
+        "Irreversibility of death"
+      ],
+      "evidence": ["Logical critique of family-focused resolution"],
+      "timestamp": 1841,
+      "engagement_level": "direct_counter",
+      "related_concepts": ["victim_perspective", "irreversibility", "justice"]
+    },
+    {
+      "id": "M16",
+      "speaker": "marcus",
+      "text": "If I see someone putting a cat in a microwave, I'm going to stop it - not because of trauma but because value lives inside me. It's intrinsic to the cosmos.",
+      "type": "ontological",
+      "warrants": [
+        "Intrinsic value in universe",
+        "Rejection of psychological reductionism"
+      ],
+      "evidence": ["Immediate moral response to harm"],
+      "timestamp": 5554,
+      "engagement_level": "direct_counter",
+      "related_concepts": ["intrinsic_value", "cosmic_ethics", "anti_reductionism"]
+    },
+    {
+      "id": "M17",
+      "speaker": "marcus",
+      "text": "I came expecting a conversation about thoughts impacting reality. Instead we found a bright point of distinction. Debate is healthy when people stand by their opinions.",
+      "type": "methodological",
+      "warrants": [
+        "Value of dialectic",
+        "Productive disagreement"
+      ],
+      "evidence": ["The conversation itself as evidence"],
+      "timestamp": 116,
+      "engagement_level": "meta_reflection",
+      "related_concepts": ["dialectic", "productive_disagreement", "truth_seeking"]
+    },
+    {
+      "id": "M18",
+      "speaker": "marcus",
+      "text": "Is there such a thing as good and evil, or is it all one source without distinction? I believe it's a bit of both.",
+      "type": "ontological",
+      "warrants": [
+        "Middle path epistemology",
+        "Integration of perspectives"
+      ],
+      "evidence": ["Reflection after the debate"],
+      "timestamp": 150,
+      "engagement_level": "attempted_synthesis",
+      "related_concepts": ["both_and", "synthesis", "middle_path"]
+    },
+    {
+      "id": "D21",
+      "speaker": "demartini",
+      "text": "I'm teaching people to be masters of their destiny, not victims of history. Finding blessings in trauma sets people free.",
+      "type": "methodological",
+      "warrants": [
+        "Empowerment vs victimhood framework",
+        "Therapeutic outcomes"
+      ],
+      "evidence": ["Thousands of transformed clients"],
+      "timestamp": 1710,
+      "engagement_level": "central_thesis",
+      "related_concepts": ["empowerment", "destiny", "liberation"]
+    },
+    {
+      "id": "D22",
+      "speaker": "demartini",
+      "text": "I'm not going to pacify my research for any human being on this planet. The reality is there's upsides to every event.",
+      "type": "methodological",
+      "warrants": [
+        "Commitment to truth over comfort",
+        "Research-based conviction"
+      ],
+      "evidence": ["Willingness to state uncomfortable truths"],
+      "timestamp": 91,
+      "engagement_level": "stance_declaration",
+      "related_concepts": ["intellectual_courage", "truth_commitment", "controversy"]
+    }
+  ],
+  "engagement_map": [
+    {
+      "claim_id": "D01",
+      "responses": [
+        {"claim_id": "M01", "type": "direct_counter", "quality": "substantive"},
+        {"claim_id": "M09", "type": "direct_counter", "quality": "substantive"}
+      ]
+    },
+    {
+      "claim_id": "D05",
+      "responses": [
+        {"claim_id": "M04", "type": "direct_counter", "quality": "substantive"},
+        {"claim_id": "M10", "type": "direct_counter", "quality": "substantive"}
+      ]
+    },
+    {
+      "claim_id": "D15",
+      "responses": [
+        {"claim_id": "M14", "type": "direct_counter", "quality": "substantive"}
+      ]
+    },
+    {
+      "claim_id": "D18",
+      "responses": [
+        {"claim_id": "M15", "type": "direct_counter", "quality": "substantive"}
+      ]
+    },
+    {
+      "claim_id": "D04",
+      "responses": [
+        {"claim_id": "M13", "type": "partial_agreement", "quality": "nuanced"}
+      ]
+    }
+  ],
+  "thematic_clusters": [
+    {
+      "id": "ontology_of_evil",
+      "label": "The Nature of Evil",
+      "claims": ["D01", "D02", "D10", "D20", "M01", "M07", "M09"],
+      "tension_type": "fundamental_disagreement"
+    },
+    {
+      "id": "moral_relativism",
+      "label": "Moral Relativism vs Universal Ethics",
+      "claims": ["D05", "D08", "M04", "M05", "M10"],
+      "tension_type": "spectrum_positions"
+    },
+    {
+      "id": "therapeutic_vs_moral",
+      "label": "Therapeutic vs Moral Frameworks",
+      "claims": ["D04", "D07", "D21", "M03", "M11", "M13"],
+      "tension_type": "domain_confusion"
+    },
+    {
+      "id": "life_and_value",
+      "label": "The Value of Life",
+      "claims": ["D11", "D19", "M02", "M08"],
+      "tension_type": "fundamental_disagreement"
+    },
+    {
+      "id": "epistemology_of_morals",
+      "label": "How We Know What's Right",
+      "claims": ["D03", "D13", "D14", "M01", "M10"],
+      "tension_type": "different_foundations"
+    }
+  ]
+}

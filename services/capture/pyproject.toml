@@ -1,0 +1,35 @@
+[project]
+name = "adl-capture"
+version = "0.1.0"
+description = "Live multichannel capture, speaker attribution and offline transcription for antidebate-live."
+authors = [{ name = "Benjamin Life (@omniharmonic)" }]
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=1.26",
+  "soundfile>=0.12",
+  "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+# Live capture on the operator Mac (WS1)
+live = ["sounddevice>=0.5", "silero-vad>=5.1"]
+# Parakeet on Apple Silicon (MLX). macOS arm64 only.
+mac = ["parakeet-mlx>=0.3"]
+# Offline diarization for replays (needs HF_TOKEN with access to the pyannote models)
+diarize = ["pyannote.audio>=3.3"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["adl_capture"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

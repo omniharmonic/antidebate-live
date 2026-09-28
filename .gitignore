@@ -1,0 +1,24 @@
+node_modules/
+.next/
+dist/
+.turbo/
+.data/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+.vercel
+.DS_Store
+# media never committed; manifests are
+fixtures/antidebate/**/*.wav
+fixtures/antidebate/**/*.mp3
+fixtures/antidebate/**/*.m4a
+fixtures/antidebate/**/*.webm
+fixtures/antidebate/**/*.mp4
+recordings/
+# python
+services/capture/.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+next-env.d.ts
