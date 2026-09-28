@@ -7,6 +7,7 @@ By **Benjamin Life** ([@omniharmonic](https://github.com/omniharmonic)). The liv
 **First deployment:** the Anti-Debate at Progress Conference, Lighthaven (Berkeley), **Sun 2026-10-11, 2:00–3:30pm**, facilitated by Stephanie Lepp.
 
 ## Start here
+0. [`docs/HANDOFF.md`](docs/HANDOFF.md): **new agent? start here**
 1. [`docs/README.md`](docs/README.md): decisions and the doc index (PRD, Ontology, Architecture, UX, Quality, Implementation Plan, Reuse Audit)
 2. [`docs/NEXT_STEPS.md`](docs/NEXT_STEPS.md): what to do right now, in order
 3. [`docs/client/`](docs/client/): Stephanie's feedback and the prior debates to replay

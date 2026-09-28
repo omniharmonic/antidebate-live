@@ -17,6 +17,7 @@ Topology Live is a general-purpose instrument for facilitated disagreement. It l
 | [QUALITY.md](./QUALITY.md) | How we know the map is right: gold sets, annotation protocol, metrics, release gates, red-teaming |
 | [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) | Milestones from today to Oct 11 and beyond, workstreams, acceptance criteria, event-day runbook |
 | [REUSE_AUDIT.md](./REUSE_AUDIT.md) | What comes from Ontography and Dialectical Topology, what is built fresh, and the new repo's layout |
+| [HANDOFF.md](./HANDOFF.md) | Onboarding for the next build agent: state, first steps, gotchas, rules |
 | [NEXT_STEPS.md](./NEXT_STEPS.md) | What to do right now, in order |
 | [client/](./client/) | Stephanie's feedback (verbatim) and the prior Anti-Debates to replay |
 
