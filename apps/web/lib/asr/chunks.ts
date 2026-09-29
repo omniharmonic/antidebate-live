@@ -1,6 +1,9 @@
 export type Word = { text: string; startMs: number; endMs: number; confidence?: number };
 
 export function planChunks(totalMs: number, windowMs = 60_000, overlapMs = 4_000) {
+  if (windowMs <= overlapMs) {
+    throw new RangeError(`windowMs (${windowMs}) must be greater than overlapMs (${overlapMs})`);
+  }
   const out: { index: number; startMs: number; endMs: number }[] = [];
   for (let start = 0, i = 0; start < totalMs; start += windowMs - overlapMs, i++) {
     out.push({ index: i, startMs: start, endMs: Math.min(totalMs, start + windowMs) });
