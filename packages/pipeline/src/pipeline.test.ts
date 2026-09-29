@@ -87,3 +87,38 @@ describe('mapL1Output', () => {
     expect(stances[1]).toMatchObject({ attitude: 'rejects', source: 'stated' });
   });
 });
+
+describe('insightCards key resolution', () => {
+  it('accepts display names where keys are expected', async () => {
+    const { insightCards } = await import('./l4');
+    const stance = (id: string, pid: string, key: string) => ({ id, participantKey: key, propositionId: pid, atMs: 0, attitude: 'accepts' as const, strength: 'confident' as const, source: 'stated' as const });
+    const v = {
+      debaters: [{ key: 'A', displayName: 'Shereef Bishay' }, { key: 'B', displayName: 'Layman Pascal' }],
+      props: new Map(), stances: [], relations: [], disagreements: [], clashes: [], commonGround: [], cruxCandidates: [], quotes: new Map(),
+      holders: new Map([['p1', new Map([['A', stance('s1', 'p1', 'A')]])], ['p2', new Map([['B', stance('s2', 'p2', 'B')]])]]),
+    } as unknown as Parameters<typeof insightCards>[1];
+    const out = insightCards(
+      { crux: null, prompts: [{ text: 'Q?', addresseeKey: 'Layman', kind: 'open_question', rationale: '', targets: [] }], higherGround: [{ text: 'Both could sign this.', construction: 'value_lift', derivation: [{ participantKey: 'Shereef Bishay', propositionIds: ['p1'] }, { participantKey: 'Layman Pascal', propositionIds: ['p2'] }], costs: [{ participantKey: 'Shereef Bishay', gives: 'nothing' }] }] },
+      v,
+    );
+    expect(out.higherGround).toHaveLength(1);
+    expect(out.higherGround[0]!.derivation).toEqual({ A: ['p1'], B: ['p2'] });
+    expect(out.prompts[0]!.addresseeKey).toBe('B');
+  });
+});
+
+describe('crossSpeakerCandidates', () => {
+  it('finds a paraphrase held by the other speaker, not by the same one', async () => {
+    const { crossSpeakerCandidates } = await import('./mapview');
+    const st = (k: string, pid: string) => ({ id: `s-${pid}-${k}`, participantKey: k, propositionId: pid, atMs: 0, attitude: 'accepts' as const, strength: 'confident' as const, source: 'stated' as const });
+    const prop = (id: string, canonical: string) => [id, { id, canonical }] as const;
+    const v = {
+      props: new Map([prop('n', 'Independent auditors should verify frontier AI labs.'), prop('o', 'Frontier AI labs should be verified by independent auditors.'), prop('m', 'Independent auditors should check AI labs often.'), prop('x', 'Chip smuggling is widespread.')]),
+      holders: new Map([['n', new Map([['A', st('A', 'n')]])], ['o', new Map([['B', st('B', 'o')]])], ['m', new Map([['A', st('A', 'm')]])], ['x', new Map([['B', st('B', 'x')]])]]),
+    } as unknown as Parameters<typeof crossSpeakerCandidates>[0];
+    const c = crossSpeakerCandidates(v, ['n']);
+    expect(c.has('o')).toBe(true);
+    expect(c.has('m')).toBe(false);
+    expect(c.has('x')).toBe(false);
+  });
+});

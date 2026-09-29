@@ -87,7 +87,8 @@ export function mapL1Output(turn: Turn, out: L1Output, ctx: L1Context): DomainEv
     if (!adu || !pid) return;
     const stance: Stance = {
       id: `${turn.turnId}:s${i}`,
-      participantKey: s.participantKey,
+      // L1 extracts the speaker's attitudes only; the model sometimes writes a display name here.
+      participantKey: turn.participantKey,
       propositionId: pid,
       atMs: turn.endMs,
       viaAduId: adu.id,

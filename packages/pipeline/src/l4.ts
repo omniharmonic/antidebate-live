@@ -128,6 +128,13 @@ const accepted = (v: MapView, key: string, pid: string) => {
 /** Validated cards. Invalid parts are dropped, never repaired by guesswork. */
 export function insightCards(out: L4Output, v: MapView): { crux: CruxCard | null; higherGround: HigherGroundCard[]; prompts: PromptCard[] } {
   const keys = new Set(v.debaters.map((d) => d.key));
+  // The model often answers with display names ("Shereef Bishay") instead of keys ("A").
+  const byName = new Map(v.debaters.map((d) => [d.displayName.toLowerCase(), d.key]));
+  const toKey = (x: string): string | null => {
+    if (keys.has(x)) return x;
+    const n = x.toLowerCase().trim();
+    return byName.get(n) ?? [...byName].find(([full]) => full.split(' ')[0] === n.split(' ')[0])?.[1] ?? null;
+  };
   let crux: CruxCard | null = null;
   const cand = out.crux ? v.cruxCandidates.find((c) => c.propositionId === out.crux!.propositionId) : undefined;
   const prop = cand ? v.props.get(cand.propositionId) : undefined;
@@ -160,7 +167,7 @@ export function insightCards(out: L4Output, v: MapView): { crux: CruxCard | null
       propositionId: prop.id,
       statement: prop.canonical,
       sides,
-      updateConditions: Object.fromEntries(out.crux.updateConditions.filter((u) => keys.has(u.participantKey)).map((u) => [u.participantKey, u.wouldUpdateIf])),
+      updateConditions: Object.fromEntries(out.crux.updateConditions.flatMap((u) => { const k = toKey(u.participantKey); return k ? [[k, u.wouldUpdateIf]] : []; })),
       settlingEvidence: out.crux.settlingEvidence,
       valuesCrux: out.crux.valuesCrux,
       downstream,
@@ -173,9 +180,10 @@ export function insightCards(out: L4Output, v: MapView): { crux: CruxCard | null
   for (const h of out.higherGround.slice(0, 2)) {
     const derivation: Record<string, string[]> = {};
     for (const d of h.derivation) {
-      if (!keys.has(d.participantKey)) continue;
-      const ids = d.propositionIds.filter((id) => accepted(v, d.participantKey, id));
-      if (ids.length) derivation[d.participantKey] = ids;
+      const k = toKey(d.participantKey);
+      if (!k) continue;
+      const ids = d.propositionIds.filter((id) => accepted(v, k, id));
+      if (ids.length) derivation[k] = [...(derivation[k] ?? []), ...ids];
     }
     // Must integrate an element from each debater's own commitments (§4.4).
     if (Object.keys(derivation).length < Math.min(2, keys.size)) continue;
@@ -183,14 +191,12 @@ export function insightCards(out: L4Output, v: MapView): { crux: CruxCard | null
       text: h.text,
       construction: h.construction,
       derivation,
-      costs: Object.fromEntries(h.costs.filter((c) => keys.has(c.participantKey)).map((c) => [c.participantKey, c.gives])),
+      costs: Object.fromEntries(h.costs.flatMap((c) => { const k = toKey(c.participantKey); return k ? [[k, c.gives]] : []; })),
       reliesOnInferred: false,
     });
   }
 
-  // The model sometimes answers with a display name instead of a key.
-  const byName = new Map(v.debaters.map((d) => [d.displayName.toLowerCase(), d.key]));
-  const addressee = (a: string) => (keys.has(a) ? a : (byName.get(a.toLowerCase()) ?? [...byName].find(([n]) => n.split(' ')[0] === a.toLowerCase().split(' ')[0])?.[1] ?? 'both'));
+  const addressee = (a: string) => toKey(a) ?? 'both';
   const prompts: PromptCard[] = out.prompts.slice(0, 3).map((p) => ({
     text: p.text,
     addresseeKey: addressee(p.addresseeKey),

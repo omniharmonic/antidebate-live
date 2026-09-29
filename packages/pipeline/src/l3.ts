@@ -9,9 +9,9 @@ import { z } from 'zod';
 import type { DomainEvent } from '@adl/core';
 import { callStructured, type LlmCallLog } from '@adl/llm';
 import type { Attitude } from '@adl/ontology';
-import { focusIds, renderMap, type MapView } from './mapview';
+import { crossSpeakerCandidates, focusIds, renderMap, type MapView } from './mapview';
 
-export const L3_PROMPT_VERSION = 'l3-link-v0.2';
+export const L3_PROMPT_VERSION = 'l3-link-v0.3';
 
 export const L3Output = z.object({
   merges: z.array(
@@ -48,7 +48,8 @@ Relations are between contents, regardless of who holds them. Prefer links betwe
 Use only ids from the map. Return only the JSON object required by the schema.`;
 
 export function buildL3Input(v: MapView, newIds: Set<string>): string {
-  const focus = focusIds(v, newIds, 70);
+  const candidates = crossSpeakerCandidates(v, newIds);
+  const focus = focusIds(v, [...newIds, ...candidates], 80);
   const existingRel = v.relations
     .filter((r) => focus.has(r.fromId) && focus.has(r.toId))
     .map((r) => `${r.fromId} ${r.type} ${r.toId}${r.inferred ? ' (inferred)' : ''}`)

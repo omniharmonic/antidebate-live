@@ -15,6 +15,32 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-28 · Ingest 2: Gender-Affirming Care (Stephanie Lepp moderating; Layman Pascal × Shereef Bishay) · run gac-r1 · subscription, $0
+
+Prompts: l1 v0.4, l2 v0.2, round v0.2, l3 v0.2, l4 v0.1. 519 calls (rounds 79, L1 132, L2 113, L3 27, L4 29), all on the subscription, $0 billed.
+- **Rounds: 12/12 in order**, including the optional Check-In and Contemplation, even though this is the earlier trial-run version of the format.
+- **Cruxes:** 27 cards. The main axis ("permanent interventions on minors should require …" / "trustworthy experts aren't known to be in place") was stable from the rebuttals on.
+- **Higher ground: 0 cards emitted, a bug.** L4 proposed good candidates ("For now, no permanent medical intervention on a minor unless a check exists that the experts aren't captured…"), but it wrote display names instead of keys in `derivation`, and code discarded every one as coming from an unknown participant. Fixed (names → keys for derivation, costs and update conditions, with a test).
+- **Map:** 236 approved claims, still **0 stated disagreements / 2 shared**. Only 4 stances in the run cross speakers; one leaked a display name as its participant key. Fixes: the L1 mapper always uses the turn's speaker; l3-link-v0.3 gets up to 3 lexically similar claims from the *other* speaker for each new claim, from anywhere in the map (no model), so paraphrase merges aren't limited to the recent window.
+- **Critic:** 157 pass / 95 repair / 15 reject (35% repair; scope 38, hedge 24). High, but the repairs are narrowing, which is the intended direction.
+- **Subscription overhead:** each `claude -p` call carries ~5.8k tokens of fixed context, served from cache after the first call. `--disable-slash-commands` / `--setting-sources` don't reduce it.
+
+---
+
+## 2026-09-28 · Full run r1 (Opus 5.5, API) · Ball × Kokotajlo to minute 80 · stopped for cost
+
+308 calls, **$13.89 billed**: L1 $5.29 (the whole claim index re-cached on every call), L4 $3.68 and L3 $2.94 (whole map, uncached, every ~4 turns), L2 $1.90, rounds $0.09. It was stopped at minute 80 of 86 and saved (`ball-kokotajlo-r1`, pushed to Neon).
+**Changes since:** the subscription provider is the default ($0 API), Sonnet 5.5, a response cache, an API budget cap, a bounded L1 index (60) and L3/L4 map (~70), and insight passes every 6 turns.
+
+Diagnostics (`pnpm --filter @adl/worker diagnose -- --session ball-kokotajlo-r1 --fixture ball-kokotajlo-ai-governance`):
+- **Rounds:** 7 detected, in order, to Red-Teaming (45.6m); Exploring Integration, Closings and Outro were missed. Cause: the moderator's announcement spans several short turns and the detector saw one at a time. round-detect-v0.2 (previous moderator turns plus the usual order) found **all 11 rounds** in a rounds-only rerun (31 subscription calls, $0).
+- **Map:** 263 approved claims but **1 stated disagreement and 1 shared claim**. Responses became new claims instead of stances on the other side's claims, so the cockpit's "Already shared" quadrant was nearly empty and every crux was clash-based. Fixed in l1-extract-v0.4 (responses attach to existing claims; the index shows who holds each) and l3-link-v0.2 (paraphrase merges across speakers).
+- **Higher-ground recall (hand-judged): ~3 of 4** verified items. Auditing ("Independent auditing of frontier labs is worth building…", 41m), checks on concentrated power ("…whether it strengthens checks like courts, Congress and independent auditors rather than concentrating control in the federal executive", 48m), and partly verification under uncertainty ("Start now with transparency and independent verification…", 51m). Missing: US–China deal preconditions (discussed at ~44m and ~83m; the run ended at 80m).
+- **Crux history:** concentration of power should be regulated (18m) → checks and balances will spread power over AIs (28m) → automating AI research speeds it dramatically (36m). This matches reference cruxes 1 and 4.
+- **Critic:** 206 pass / 65 repair / 9 reject. **Prompts:** 93, 19 to both, all speakable.
+
+---
+
 ## 2026-09-28 · Engine test · Ball × Kokotajlo minutes 5–16
 
 `pnpm --filter @adl/worker run:session -- --fixture ball-kokotajlo-ai-governance --session bk-test1 --speed 8 --from 5 --to 16 --file`. The whole live path: feeder → log → turns → L1 → L2 → auto-approval → rounds → L3 + L4 in the background. Grader: Claude (session agent).
