@@ -24,7 +24,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 import { emitLog, type Caller, type LlmCallLog, type LlmResult, type Provider, type StructuredCall } from './core';
-import { passConfig, PRICES } from './models';
+import { costUsd, passConfig } from './models';
 
 const CACHE_DIR = fileURLToPath(new URL('../../../.cache/llm/', import.meta.url));
 const LEDGER = `${CACHE_DIR}api-spend.json`;
@@ -69,11 +69,6 @@ export function apiSpentUsd(): number {
 function addApiSpend(usd: number) {
   mkdirSync(CACHE_DIR, { recursive: true });
   writeFileSync(LEDGER, JSON.stringify({ usd: apiSpentUsd() + usd, updated: new Date().toISOString() }));
-}
-
-function apiCost(model: string, u: { input: number; cacheRead: number; cacheWrite: number; output: number }): number {
-  const p = PRICES[model] ?? { in: 5, out: 25, cacheRead: 0.5 }; // unknown model: price conservatively
-  return (u.input * p.in + u.cacheWrite * p.in * 1.25 + u.cacheRead * p.cacheRead + u.output * p.out) / 1e6;
 }
 
 // ---------- providers ----------
@@ -240,7 +235,7 @@ export const nodeCaller: Caller = async (call) => {
     await emitLog(l);
     return { ok: false, reason: 'provider_error', detail: (e as Error).message, log: l };
   }
-  const billedUsd = prov === 'api' ? apiCost(cfg.model, raw.usage) : 0;
+  const billedUsd = prov === 'api' ? costUsd(cfg.model, raw.usage) : 0;
   if (billedUsd) addApiSpend(billedUsd);
   const l = log({
     model: raw.model,

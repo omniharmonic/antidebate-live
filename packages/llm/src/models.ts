@@ -44,3 +44,9 @@ export const PRICES: Record<string, { in: number; out: number; cacheRead: number
   // platform.claude.com/docs/en/about-claude/pricing, checked 2026-09-28
   [SONNET]: { in: 2, out: 10, cacheRead: 0.2 },
 };
+
+/** Dollar cost of one call. Unknown models are priced conservatively; cache writes bill at 1.25x input. */
+export function costUsd(model: string, u: { input: number; cacheRead: number; cacheWrite: number; output: number }): number {
+  const p = PRICES[model] ?? { in: 5, out: 25, cacheRead: 0.5 };
+  return (u.input * p.in + u.cacheWrite * p.in * 1.25 + u.cacheRead * p.cacheRead + u.output * p.out) / 1e6;
+}

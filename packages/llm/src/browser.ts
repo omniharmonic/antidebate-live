@@ -7,12 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import type { z } from 'zod';
 import { emitLog, type Caller, type LlmCallLog, type StructuredCall } from './core';
-import { passConfig, PRICES } from './models';
-
-function cost(model: string, u: { input: number; cacheRead: number; cacheWrite: number; output: number }): number {
-  const p = PRICES[model] ?? { in: 5, out: 25, cacheRead: 0.5 };
-  return (u.input * p.in + u.cacheWrite * p.in * 1.25 + u.cacheRead * p.cacheRead + u.output * p.out) / 1e6;
-}
+import { costUsd, passConfig } from './models';
 
 export function browserCaller(apiKey: string, opts: { fetch?: typeof fetch } = {}): Caller {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 3, ...(opts.fetch ? { fetch: opts.fetch } : {}) });
@@ -34,7 +29,7 @@ export function browserCaller(apiKey: string, opts: { fetch?: typeof fetch } = {
         })
         .finalMessage();
       const u = { input: r.usage.input_tokens, cacheRead: r.usage.cache_read_input_tokens ?? 0, cacheWrite: r.usage.cache_creation_input_tokens ?? 0, output: r.usage.output_tokens };
-      const log: LlmCallLog = { ...base, model: r.model, inputTokens: u.input, cacheReadTokens: u.cacheRead, cacheCreationTokens: u.cacheWrite, outputTokens: u.output, latencyMs: Date.now() - started, stopReason: r.stop_reason, billedUsd: cost(r.model, u) };
+      const log: LlmCallLog = { ...base, model: r.model, inputTokens: u.input, cacheReadTokens: u.cacheRead, cacheCreationTokens: u.cacheWrite, outputTokens: u.output, latencyMs: Date.now() - started, stopReason: r.stop_reason, billedUsd: costUsd(r.model, u) };
       await emitLog(log);
       if (r.stop_reason === 'refusal') return { ok: false, reason: 'refusal', detail: 'The model declined this input.', log };
       if (r.stop_reason === 'max_tokens') return { ok: false, reason: 'max_tokens', detail: 'Output truncated', log };
