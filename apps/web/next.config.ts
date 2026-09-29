@@ -12,7 +12,7 @@ const ISOLATION = [
 
 const nextConfig: NextConfig = {
   async headers() {
-    return ['/host/:path*', '/_next/:path*', '/sherpa/:path*'].map((source) => ({ source, headers: ISOLATION }));
+    return ['/host/:path*', '/_next/:path*', '/sherpa/:path*', '/worklets/:path*'].map((source) => ({ source, headers: ISOLATION }));
   },
   // Workspace packages (@adl/*) ship TypeScript source; Turbopack compiles them automatically.
   reactStrictMode: true,
