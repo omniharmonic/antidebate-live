@@ -14,6 +14,8 @@ export interface VadOptions {
   minSpeechMs?: number;
   maxUtteranceMs?: number;
   marginDb?: number;
+  /** Audio kept from before the first speech frame, so a soft onset is not clipped. */
+  preRollMs?: number;
 }
 
 export interface Utterance {
@@ -30,7 +32,10 @@ export class EnergyVad {
   private readonly minSpeechMs: number;
   private readonly maxUtteranceMs: number;
   private readonly marginDb: number;
+  private readonly preRollFrames: number;
   private readonly history: number[] = [];
+  /** Frames since the last utterance closed (at most the pre-roll): never part of a previous utterance. */
+  private recent: Float32Array[] = [];
   private frames: Float32Array[] = [];
   private startMs = 0;
   private speechMs = 0;
@@ -43,6 +48,7 @@ export class EnergyVad {
     this.minSpeechMs = opts.minSpeechMs ?? 400;
     this.maxUtteranceMs = opts.maxUtteranceMs ?? 15_000;
     this.marginDb = opts.marginDb ?? 10;
+    this.preRollFrames = Math.round((opts.preRollMs ?? 200) / this.frameMs);
   }
 
   push(frame: Float32Array, atMs: number): Utterance | null {
@@ -54,12 +60,17 @@ export class EnergyVad {
     const speech = db > floor + this.marginDb;
 
     if (!this.open) {
-      if (!speech) return null;
+      if (!speech) {
+        this.recent.push(frame);
+        if (this.recent.length > this.preRollFrames) this.recent.shift();
+        return null;
+      }
       this.open = true;
-      this.startMs = atMs;
+      this.startMs = atMs - this.recent.length * this.frameMs;
       this.speechMs = 0;
       this.silenceMs = 0;
-      this.frames = [];
+      this.frames = this.recent;
+      this.recent = [];
     }
     this.frames.push(frame);
     if (speech) {
@@ -82,6 +93,7 @@ export class EnergyVad {
     const frames = this.frames;
     this.open = false;
     this.frames = [];
+    this.recent = [];
     if (!keep) return null;
     const pcm = new Float32Array(frames.length * (frames[0]?.length ?? 0));
     frames.forEach((f, i) => pcm.set(f, i * f.length));

@@ -29,7 +29,7 @@ describe('Segmenter', () => {
     expect(mine).toHaveLength(1);
     const [u] = mine as [Segmented];
     expect(u.channel).toBe('d0c0');
-    expect(u.u.startMs).toBe(62_000);
+    expect(u.u.startMs).toBe(61_800); // 200 ms pre-roll
     expect(u.u.endMs).toBeGreaterThan(64_000);
     expect(u.endedAtWallMs).toBe(1_000_000 + (u.u.endMs - 60_000));
     expect(u.rms.d0c0! - u.rms.d0c1!).toBeGreaterThan(15);

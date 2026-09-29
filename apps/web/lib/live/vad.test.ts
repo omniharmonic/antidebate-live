@@ -12,9 +12,24 @@ describe('EnergyVad', () => {
     for (let i = 0; i < 100; i++, t += 20) { const r = v.push(frame(0.2), t); if (r) out.push(r); }  // 2 s speech
     for (let i = 0; i < 60; i++, t += 20) { const r = v.push(frame(0.001), t); if (r) out.push(r); }  // 1.2 s silence
     expect(out).toHaveLength(1);
-    expect(out[0]!.startMs).toBe(3000);
+    // 200 ms of pre-roll before the first speech frame, so a soft onset is not clipped.
+    expect(out[0]!.startMs).toBe(2800);
+    expect(out[0]!.pcm.length).toBe(((out[0]!.endMs - out[0]!.startMs) / 1000) * 16_000);
     expect(out[0]!.endMs).toBeGreaterThanOrEqual(5000);
     expect(out[0]!.pcm.length).toBeGreaterThan(16_000 * 1.9);
+  });
+  it('pre-roll never reaches back into the previous utterance', () => {
+    const v = new EnergyVad();
+    const out = [];
+    let t = 0;
+    for (let i = 0; i < 150; i++, t += 20) v.push(frame(0.001), t);
+    // The first utterance closes after 700 ms of silence; speech resumes 60 ms later.
+    for (const quietFrames of [38, 60]) {
+      for (let i = 0; i < 50; i++, t += 20) { const r = v.push(frame(0.2), t); if (r) out.push(r); }
+      for (let i = 0; i < quietFrames; i++, t += 20) { const r = v.push(frame(0.001), t); if (r) out.push(r); }
+    }
+    expect(out).toHaveLength(2);
+    expect(out[1]!.startMs).toBeGreaterThanOrEqual(out[0]!.endMs);
   });
   it('ignores a click shorter than minSpeechMs', () => {
     const v = new EnergyVad();
