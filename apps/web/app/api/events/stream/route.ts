@@ -18,6 +18,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 const DB_POLL_MS = 400;
+/** Rows per Neon query. Large so a finished session loads in one or two round trips. */
+const CATCH_UP_BATCH = 3000;
 const FILE_POLL_MS = 500;
 const KEEPALIVE_MS = 15_000;
 const BATCH = 1500;
@@ -121,7 +123,7 @@ export async function GET(req: Request) {
             close();
             return;
           }
-          const rows = await readEvents(session, cursor);
+          const rows = await readEvents(session, cursor, CATCH_UP_BATCH);
           if (rows.length) {
             cursor = rows.at(-1)!.cursor;
             push(rows.map((r) => r.event));
@@ -129,7 +131,7 @@ export async function GET(req: Request) {
           }
           keepalive();
           // a full page means more is waiting: read again immediately
-          if (rows.length < 500) await new Promise((r) => setTimeout(r, DB_POLL_MS));
+          if (rows.length < CATCH_UP_BATCH) await new Promise((r) => setTimeout(r, DB_POLL_MS));
         }
       } catch (err) {
         send(sse('error', { message: err instanceof Error ? err.message : String(err) }));
