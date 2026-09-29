@@ -15,6 +15,14 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-29 · End-to-end loop 2 (final pipeline reruns + browser review)
+
+- **gender-affirming-care-r2:** 376 calls (r1: 519) thanks to the 6-turn cadence and card stability; rounds 12/12; 14 distinct higher-ground ideas. The crux path is sharper and reaches the real crux: "In the world as it currently is, the people doing science are not free of ideological capture" (Bishay accepts / Pascal rejects), then "A trustworthy health professional would have to not believe that gender and sex are different".
+- **belief-in-god-r2:** rounds 12/12, 19 clashes, 24 distinct higher-ground ideas. **The crux ping-pongs** A→B→A ("God is a valuable thing to attune to" 24m→65.6m; "may contain an objective co-creative element" 43m→62m; "martial arts…" 51m→67m). Fix: crux hysteresis. No return to any of the last 3 cruxes while another is current (tested).
+- **Browser review (production):** the cockpit showed a stale round mid-catch-up under "Connected". Fix: a server `caughtup` event; the UI says "Catching up. Not yet current." until then (verified: Connecting → Catching up → Connected at the Outro in 2.8 s). Shared `?t=` links are clamped to the session length (verified).
+
+---
+
 ## 2026-09-29 · End-to-end loop 1 (production, all sessions)
 
 - **Browser sweep** (Playwright against https://antidebate-live.vercel.app): 6 sessions × 5 views (spatial, timeline, positions, cockpit, console) all render with **0 console errors**. Warm loads are 0.6–1.6 s; a cold first load is ~5 s (Vercel function + Neon waking). Fix for the day: Neon autosuspend off and a warm-up request before doors open; the cockpit should say it is connecting, not only show empty quadrants (it does show "Connecting").

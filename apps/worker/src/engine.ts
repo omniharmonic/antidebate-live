@@ -59,7 +59,7 @@ export class SessionEngine {
   private linkedIds = new Set<string>();
   private previous: PreviousCards = {};
   private previousShared = '';
-  private recentCards: { cruxPropositionId?: string; higherGround: string[]; prompts: string[] } = { higherGround: [], prompts: [] };
+  private recentCards: { cruxPropositionId?: string; cruxHistory: string[]; higherGround: string[]; prompts: string[] } = { cruxHistory: [], higherGround: [], prompts: [] };
   private readonly opts: Required<Omit<EngineOptions, 'onCall' | 'say'>> & Pick<EngineOptions, 'onCall' | 'say'>;
 
   constructor(opts: EngineOptions) {
@@ -255,7 +255,10 @@ export class SessionEngine {
       for (const e of l4.events) {
         if (e.type !== 'insight.proposed') continue;
         const b = e.payload.insight.body as { statement?: string; text?: string; propositionId?: string };
-        if (e.payload.insight.kind === 'crux') this.recentCards.cruxPropositionId = b.propositionId;
+        if (e.payload.insight.kind === 'crux') {
+          if (this.recentCards.cruxPropositionId) this.recentCards.cruxHistory = [...this.recentCards.cruxHistory.slice(-2), this.recentCards.cruxPropositionId];
+          this.recentCards.cruxPropositionId = b.propositionId;
+        }
         if (e.payload.insight.kind === 'higher_ground') this.recentCards.higherGround = [...this.recentCards.higherGround.slice(-5), b.text ?? ''];
         if (e.payload.insight.kind === 'prompt') this.recentCards.prompts = [...this.recentCards.prompts.slice(-8), b.text ?? ''];
         if (e.payload.insight.kind === 'crux') this.previous.crux = b.statement;

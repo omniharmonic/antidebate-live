@@ -231,12 +231,13 @@ export function sharedCard(v: MapView): SharedCard {
  */
 export function stableCards(
   cards: { crux: CruxCard | null; higherGround: HigherGroundCard[]; prompts: PromptCard[] },
-  recent: { cruxPropositionId?: string; higherGround: string[]; prompts: string[] },
+  recent: { cruxPropositionId?: string; cruxHistory?: string[]; higherGround: string[]; prompts: string[] },
 ): { crux: CruxCard | null; higherGround: HigherGroundCard[]; prompts: PromptCard[] } {
   const fresh = (text: string, seen: string[]) => !seen.some((s) => similarity(s, text) >= 0.7);
   const prompts = cards.prompts.filter((p) => fresh(p.text, recent.prompts));
   return {
-    crux: cards.crux && cards.crux.propositionId === recent.cruxPropositionId ? null : cards.crux,
+    // Hysteresis: no repeat of the current crux, and no return to one of the last few (A → B → A ping-pong).
+    crux: cards.crux && (cards.crux.propositionId === recent.cruxPropositionId || (recent.cruxHistory ?? []).includes(cards.crux.propositionId)) ? null : cards.crux,
     higherGround: cards.higherGround.filter((h) => fresh(h.text, recent.higherGround)),
     // Prompts come as a set of up to three; keep the set only if something in it is new.
     prompts: prompts.length ? cards.prompts : [],
@@ -274,7 +275,7 @@ export async function runL4(
     recent: { speaker: string; text: string }[];
     previous: PreviousCards;
     previousShared: string;
-    recentCards?: { cruxPropositionId?: string; higherGround: string[]; prompts: string[] };
+    recentCards?: { cruxPropositionId?: string; cruxHistory?: string[]; higherGround: string[]; prompts: string[] };
     wallTs: () => string;
   },
 ): Promise<{ events: DomainEvent[]; log: LlmCallLog | null; error?: string; sharedKey: string }> {
