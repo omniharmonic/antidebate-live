@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AsrClient, readiness } from '@/lib/asr/client';
+import { sizeLabel, type AsrVariant } from '@/lib/asr/variant';
 import { DiarizeClient } from '@/lib/diarize/client';
 
 type Status = 'ready' | 'attention' | 'progress' | 'waiting';
@@ -45,6 +46,7 @@ function SpeakerSeparationRow({ n, state, onLoad, disabled }: { n: number; state
 
 export function Prepare() {
   const [browserOk, setBrowserOk] = useState<boolean | null>(null);
+  const [variant, setVariant] = useState<AsrVariant | null>(null);
   const [model, setModel] = useState<ModelState>({ kind: 'idle' });
   const [speed, setSpeed] = useState<SpeedState>({ kind: 'idle' });
   const [separation, setSeparation] = useState<SeparationState>({ kind: 'idle' });
@@ -80,6 +82,7 @@ export function Prepare() {
     void readiness().then((r) => {
       if (!live) return;
       setBrowserOk(r.browserOk);
+      setVariant(r.variant);
       // Files already stored on this laptop load without a download.
       if (r.browserOk && r.modelCached) void loadModel();
     });
@@ -141,13 +144,13 @@ export function Prepare() {
           {model.kind === 'idle' && <p>The transcription model runs inside this browser. It is downloaded once and kept on this laptop.</p>}
           {model.kind === 'loading' && (
             <>
-              <p>{model.fileNumber === 0 ? 'Starting the download.' : `Downloading file ${model.fileNumber} (${Math.round(model.bytes / 1_000_000)} MB so far). This can take several minutes.`}</p>
+              <p>{model.fileNumber === 0 ? 'Starting the download.' : `Downloading file ${model.fileNumber} (${Math.round(model.bytes / 1_000_000)} MB so far${variant ? ` of ${sizeLabel(variant.bytes)}` : ''}). This can take several minutes.`}</p>
             </>
           )}
           {model.kind === 'error' && <p role="alert">The download stopped. Choose Download again to resume.</p>}
           {(model.kind === 'idle' || model.kind === 'error') && (
-            <button className={button} disabled={browserOk !== true} onClick={() => void loadModel()}>
-              {model.kind === 'error' ? 'Download again' : 'Download (about 700 MB, once)'}
+            <button className={button} disabled={browserOk !== true || !variant} onClick={() => void loadModel()}>
+              {model.kind === 'error' ? 'Download again' : `Download (${variant ? sizeLabel(variant.bytes) : 'checking size'}, once)`}
             </button>
           )}
         </Row>
@@ -155,11 +158,11 @@ export function Prepare() {
         <Row n={3} title="Speed test" status={speedStatus}>
           {speed.kind === 'done' && (
             <>
-              <p>This laptop transcribes about {speed.factor.toFixed(1)}× faster than real time.</p>
+              <p>This laptop transcribes about {speed.factor.toFixed(1)}× faster than real time (measured on this laptop).</p>
               {speed.factor < 2 && <p>Recordings will take longer than their own length here; live sessions need a faster laptop.</p>}
             </>
           )}
-          {speed.kind === 'running' && <p>Transcribing 30 seconds of test audio.</p>}
+          {speed.kind === 'running' && <p>Transcribing 5 seconds of test audio to warm up, then 30 seconds timed.</p>}
           {speed.kind === 'error' && <p role="alert">The speed test did not finish. Choose Run the speed test to try again.</p>}
           {(speed.kind === 'idle' || speed.kind === 'error') && (
             <>

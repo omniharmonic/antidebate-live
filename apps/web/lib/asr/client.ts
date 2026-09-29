@@ -1,6 +1,11 @@
 import type { Word } from './chunks';
 import { browserSupport } from './browser-support';
 import type { DownloadReport } from './progress';
+import { chooseVariant, isCached, type AsrVariant } from './variant';
+
+type NavigatorGpu = { gpu?: Parameters<typeof chooseVariant>[0] };
+/** The Parakeet build for this laptop (see variant.ts). */
+export const laptopVariant = () => chooseVariant(typeof navigator === 'undefined' ? undefined : (navigator as NavigatorGpu).gpu);
 
 export type AsrProgress = DownloadReport;
 
@@ -34,10 +39,11 @@ export class AsrClient {
   }
 
   static async load(onProgress?: (p: AsrProgress) => void): Promise<AsrClient> {
+    const variant = await laptopVariant();
     const worker = new Worker(new URL('./asr.worker.ts', import.meta.url), { type: 'module' });
     const c = new AsrClient(worker);
     try {
-      const r = await c.send<{ backend: 'webgpu' | 'wasm' }>({ kind: 'load' }, [], onProgress);
+      const r = await c.send<{ backend: 'webgpu' | 'wasm' }>({ kind: 'load', variant }, [], onProgress);
       c.backend = r.backend;
       return c;
     } catch (err) {
@@ -51,13 +57,21 @@ export class AsrClient {
     return (await this.send<{ words: Word[] }>({ kind: 'transcribe', pcm: copy, offsetMs }, [copy.buffer])).words;
   }
 
-  /** 30 s of a steady tone: measures the real-time factor on this laptop. */
+  /**
+   * Measures the real-time factor on this laptop: 5 s untimed first (the first run compiles
+   * shaders and allocates buffers), then 30 s timed. A steady tone, so no speech is needed.
+   */
   async benchmark(): Promise<{ realtimeFactor: number }> {
-    const pcm = new Float32Array(16_000 * 30);
-    for (let i = 0; i < pcm.length; i++) pcm[i] = 0.05 * Math.sin((2 * Math.PI * 220 * i) / 16_000);
+    const tone = (seconds: number) => {
+      const pcm = new Float32Array(16_000 * seconds);
+      for (let i = 0; i < pcm.length; i++) pcm[i] = 0.05 * Math.sin((2 * Math.PI * 220 * i) / 16_000);
+      return pcm;
+    };
+    await this.transcribe(tone(5), 0);
+    const timed = tone(30);
     const t0 = performance.now();
-    await this.transcribe(pcm, 0);
-    return { realtimeFactor: 30_000 / (performance.now() - t0) };
+    await this.transcribe(timed, 0);
+    return { realtimeFactor: 30_000 / Math.max(1, performance.now() - t0) };
   }
 
   terminate() {
@@ -65,8 +79,8 @@ export class AsrClient {
   }
 }
 
-/** True when parakeet.js has already stored the model files in this browser (its IndexedDB cache). */
-async function modelIsCached(): Promise<boolean> {
+/** True when parakeet.js has already stored this variant's files in this browser (its IndexedDB cache). */
+async function modelIsCached(variant: AsrVariant): Promise<boolean> {
   if (typeof indexedDB === 'undefined') return false;
   return new Promise<boolean>((resolve) => {
     const req = indexedDB.open('parakeet-cache-db');
@@ -77,7 +91,7 @@ async function modelIsCached(): Promise<boolean> {
       try {
         if (!db.objectStoreNames.contains('file-store')) return resolve(false);
         const keys = db.transaction('file-store', 'readonly').objectStore('file-store').getAllKeys();
-        keys.onsuccess = () => resolve(keys.result.filter((k) => String(k).startsWith('hf-ysdede/parakeet-tdt-0.6b-v3')).length >= 3);
+        keys.onsuccess = () => resolve(isCached(variant, keys.result.map(String)));
         keys.onerror = () => resolve(false);
       } catch {
         resolve(false);
@@ -89,10 +103,10 @@ async function modelIsCached(): Promise<boolean> {
   });
 }
 
-export async function readiness(): Promise<{ browserOk: boolean; webgpu: boolean; modelCached: boolean; persisted: boolean }> {
+export async function readiness(): Promise<{ browserOk: boolean; variant: AsrVariant; modelCached: boolean; persisted: boolean }> {
   const browserOk = browserSupport(navigator.userAgent);
-  const webgpu = 'gpu' in navigator;
+  const variant = await laptopVariant();
   const persisted = (await navigator.storage?.persisted?.()) ?? false;
-  const modelCached = await modelIsCached();
-  return { browserOk, webgpu, modelCached, persisted };
+  const modelCached = await modelIsCached(variant);
+  return { browserOk, variant, modelCached, persisted };
 }

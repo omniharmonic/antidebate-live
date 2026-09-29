@@ -1,14 +1,13 @@
 import { fromHub } from 'parakeet.js';
 import { aggregateProgress, emptyProgress } from './progress';
+import type { AsrVariant } from './variant';
 
-type Req = { id: number; kind: 'load' } | { id: number; kind: 'transcribe'; pcm: Float32Array; offsetMs: number };
-type Gpu = { requestAdapter(): Promise<unknown> };
+type Req = { id: number; kind: 'load'; variant: AsrVariant } | { id: number; kind: 'transcribe'; pcm: Float32Array; offsetMs: number };
 
 // The DOM lib is on for this package, so type the worker global by hand rather than pulling in the webworker lib.
 const ctx = self as unknown as {
   onmessage: ((e: MessageEvent<Req>) => void) | null;
   postMessage(msg: unknown): void;
-  navigator: { gpu?: Gpu };
 };
 
 let model: Awaited<ReturnType<typeof fromHub>> | null = null;
@@ -17,13 +16,13 @@ ctx.onmessage = async (e) => {
   const m = e.data;
   try {
     if (m.kind === 'load') {
-      const hasGpu = Boolean(ctx.navigator.gpu && (await ctx.navigator.gpu.requestAdapter()));
-      const backend = hasGpu ? 'webgpu' : 'wasm';
+      // Chosen on the page (variant.ts): the fp16 encoder on WebGPU with shader-f16, else int8 on WASM.
+      const { backend, encoderQuant, decoderQuant } = m.variant;
       let progress = emptyProgress();
       model = await fromHub('parakeet-tdt-0.6b-v3', {
         backend,
-        encoderQuant: hasGpu ? 'fp32' : 'int8',
-        decoderQuant: 'int8',
+        encoderQuant,
+        decoderQuant,
         progress: (p) => {
           const r = aggregateProgress(progress, p);
           progress = r.state;
