@@ -23,7 +23,7 @@ pnpm dev                    # http://localhost:3000 → /play/dt
 ```
 
 ## Status (2026-09-29)
-Live: **https://antidebate-live.vercel.app** (Neon event log). Demo session: `ball-kokotajlo-r5`.
+Live: **https://antidebate.xyz** (also antidebate-live.vercel.app; Neon event log). Demo session: `ball-kokotajlo-r5`.
 
 | Area | State |
 |---|---|

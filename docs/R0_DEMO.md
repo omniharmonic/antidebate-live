@@ -65,7 +65,7 @@ pnpm --filter @adl/worker ingest -- --url https://youtu.be/… --slug <slug>    
 
 ## Runbook
 
-Deployed: **https://antidebate-live.vercel.app** (reads Neon). Locally: `pnpm dev` → http://localhost:3000 (reads Neon if `apps/web/.env.local` has `DATABASE_URL`, else `.data/`).
+Deployed: **https://antidebate.xyz** (also https://antidebate-live.vercel.app; reads Neon). DNS: Namecheap → Vercel nameservers (ns1/ns2.vercel-dns.com). Locally: `pnpm dev` → http://localhost:3000 (reads Neon if `apps/web/.env.local` has `DATABASE_URL`, else `.data/`).
 
 ### A. Replay a recorded debate through the live path
 ```bash
