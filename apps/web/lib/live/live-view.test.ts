@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DomainEvent } from '@adl/core';
-import { mappingComplete, noticeLine, pendingFromLog, statusLine, transcriptLines, visibleNotices } from './live-view';
+import { listenChannels, mappingComplete, noticeLine, pendingFromLog, statusLine, transcriptLines, visibleNotices } from './live-view';
 
 const ctx = { channels: { d0c0: 'A', d0c1: 'B' }, names: { A: 'Ann', B: 'Bo' } };
 
@@ -33,6 +33,11 @@ describe('live view helpers', () => {
       { kind: 'dead_channel' as const, channel: 'd0c1', participantKey: 'B' },
     ];
     expect(visibleNotices(list, new Set([1])).map((n) => n.index)).toEqual([3, 4]);
+  });
+
+  it('segments each mapped mic in the tracks setup, else the one feed', () => {
+    expect(listenChannels({ kind: 'tracks', channels: { d0c1: 'B', d0c0: 'A' } })).toEqual(['d0c0', 'd0c1']);
+    expect(listenChannels({ kind: 'room', channels: {} })).toEqual(['d0c0']);
   });
 
   it('needs every debater on exactly one input', () => {

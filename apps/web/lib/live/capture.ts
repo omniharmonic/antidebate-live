@@ -95,3 +95,53 @@ export function onStreamEnded(stream: MediaStream, cb: () => void): void {
     }, { once: true });
   }
 }
+
+/** How a live session's audio is opened, stored so a reload or "Resume audio" opens the same thing. */
+export type CaptureSpec = { kind: 'mic'; devices: { deviceId: string; channels: 1 | 2 }[] } | { kind: 'tab' };
+
+/** Opens every stream the spec names, in order. `tab` shows the browser's share picker (needs a click). */
+export async function openCapture(spec: CaptureSpec): Promise<MediaStream[]> {
+  if (spec.kind === 'tab') return [await openTabAudio()];
+  const streams: MediaStream[] = [];
+  try {
+    for (const d of spec.devices) streams.push(await openMicDevice(d.deviceId, d.channels));
+  } catch (e) {
+    stopStreams(streams);
+    throw e;
+  }
+  return streams;
+}
+
+export function stopStreams(streams: MediaStream[]): void {
+  for (const s of streams) s.getTracks().forEach((t) => t.stop());
+}
+
+/** Taps every stream; channel ids are `d<stream index>c<channel index>`. */
+export async function tapAll(streams: MediaStream[], onFrame: (channel: string, frame: Float32Array, atMs: number) => void): Promise<() => void> {
+  const stops: (() => void)[] = [];
+  try {
+    for (const [i, s] of streams.entries()) stops.push(await tapChannels(s, (c, f, at) => onFrame(`d${i}c${c}`, f, at)));
+  } catch (e) {
+    stops.forEach((stop) => stop());
+    throw e;
+  }
+  return () => stops.forEach((stop) => stop());
+}
+
+/** Audio inputs with their names (the browser only names them once the microphone is allowed). */
+export async function listInputs(): Promise<MediaDeviceInfo[]> {
+  const inputs = async () => (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
+  let list = await inputs();
+  if (list.length === 0 || list.some((d) => !d.label)) {
+    stopStreams([await navigator.mediaDevices.getUserMedia({ audio: true })]);
+    list = await inputs();
+  }
+  return list;
+}
+
+/** A microphone error in words, with the next step. */
+export function micError(e: unknown): string {
+  if (e instanceof Error && e.name === 'NotAllowedError') return 'The microphone is blocked for this site. Allow it from the icon in the address bar, then try again.';
+  if (e instanceof Error && e.name === 'NotFoundError') return 'That device is not connected. Plug it in and choose it again.';
+  return e instanceof Error ? e.message : String(e);
+}

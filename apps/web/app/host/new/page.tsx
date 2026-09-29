@@ -11,9 +11,8 @@ export default async function HostNewPage({ searchParams }: { searchParams: Prom
       <HostBar />
       <div className="mx-auto max-w-2xl px-6 pb-20 pt-12">
         <h1 className="text-[30px] leading-tight text-ink">New session</h1>
-        {kind === 'live' && <p className="mt-3 text-[15px] text-ink-2">Live capture is coming next. For now, sessions are processed from a recording.</p>}
         <div className="mt-8">
-          <HostNewForm />
+          <HostNewForm {...(typeof kind === 'string' ? { kind } : {})} />
         </div>
       </div>
     </main>

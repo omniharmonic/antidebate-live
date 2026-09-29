@@ -23,10 +23,7 @@ export function HostHome() {
     <div className="mt-8 space-y-10">
       <div className="flex flex-wrap gap-3">
         <Link href="/host/new?kind=recording" className={action}>Process a recording</Link>
-        <span className="flex flex-col">
-          <button type="button" disabled className={`${action} disabled:opacity-50`}>New live session</button>
-          <span className="mt-1 text-xs text-ink-3">Coming next: live capture</span>
-        </span>
+        <Link href="/host/new?kind=live" className={action}>New live session</Link>
         <Link href="/host/prepare" className={prepared ? action : `${action} border-ink bg-field-deep`}>
           Prepare this laptop
         </Link>

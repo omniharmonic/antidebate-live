@@ -7,6 +7,7 @@ import { idbCheckpoint, type RecordingMeta } from '@/lib/recording/checkpoint';
 import { HOST_SESSIONS_KEY, hostSessions, markHostSession, parseHostSessions, pendingFiles } from '@/lib/recording/host-sessions';
 import { useStored } from '@/lib/use-stored';
 import type { Stage } from '@/lib/recording/pipeline';
+import { LiveRunner } from './LiveRunner';
 import { button, DoneLinks, KeyRejected, Publish, UploadWaiting } from './RunnerParts';
 import { startRecording, uploadOutbox, type NamingRequest } from './start-recording';
 import { PAUSE_NOTE, useProcessingGuards } from './use-processing-guards';
@@ -29,7 +30,16 @@ function stageLine(s: Stage, elapsedMs: number): string {
   }
 }
 
+/** Routes by the session's source: live sessions get the live host view, recordings the processing view. */
 export function Runner({ id }: { id: string }) {
+  const raw = useStored(HOST_SESSIONS_KEY);
+  const entry = useMemo(() => parseHostSessions(raw).find((s) => s.id === id) ?? null, [raw, id]);
+  if (raw === undefined) return null;
+  if (entry?.kind === 'live') return <LiveRunner id={id} title={entry.title} />;
+  return <RecordingRunner id={id} />;
+}
+
+function RecordingRunner({ id }: { id: string }) {
   const key = useStored(KEY_STORAGE);
   const raw = useStored(HOST_SESSIONS_KEY);
   const entry = useMemo(() => parseHostSessions(raw).find((s) => s.id === id) ?? null, [raw, id]);

@@ -1,13 +1,15 @@
 /**
  * The enrollment anchors and setup for one live session, kept on this device so a reload
  * mid-debate resumes with the same voices and channel map. Same one-database-per-session
- * pattern as recording/checkpoint.ts, with the keys `anchors` and `setup`.
+ * pattern as recording/checkpoint.ts, with the keys `anchors`, `setup`, `capture` and `startedAt`.
  */
 import type { Anchor } from '../attribution/anchors';
+import type { CaptureSpec } from './capture';
 import type { LiveSetup } from './runner';
 
 type StoredAnchor = { key: string; pcm: ArrayBuffer };
-export type LiveState = { setup: LiveSetup; anchors: Anchor[] };
+/** `startedAt` (epoch ms) is session time zero: capture after a pause or reload continues from wall time. */
+export type LiveState = { setup: LiveSetup; anchors: Anchor[]; capture?: CaptureSpec; startedAt?: number };
 
 function open(sessionId: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -42,12 +44,16 @@ export async function idbAnchorsStore(sessionId: string) {
       await put(db, 'setup', s.setup);
       // Copy each clip so the stored buffer is exactly its samples, not a view onto a larger one.
       await put(db, 'anchors', s.anchors.map((a): StoredAnchor => ({ key: a.key, pcm: a.pcm.slice().buffer })));
+      if (s.capture) await put(db, 'capture', s.capture);
+      if (s.startedAt !== undefined) await put(db, 'startedAt', s.startedAt);
     },
     load: async (): Promise<LiveState | null> => {
       const setup = await get<LiveSetup>(db, 'setup');
       const anchors = await get<StoredAnchor[]>(db, 'anchors');
       if (!setup || !anchors) return null;
-      return { setup, anchors: anchors.map((a) => ({ key: a.key, pcm: new Float32Array(a.pcm) })) };
+      const capture = await get<CaptureSpec>(db, 'capture');
+      const startedAt = await get<number>(db, 'startedAt');
+      return { setup, anchors: anchors.map((a) => ({ key: a.key, pcm: new Float32Array(a.pcm) })), ...(capture ? { capture } : {}), ...(startedAt !== null ? { startedAt } : {}) };
     },
     close: () => db.close(),
   };

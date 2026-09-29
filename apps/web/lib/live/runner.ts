@@ -18,6 +18,9 @@ export type LiveStatus = {
   failed: { channel: string; startMs: number; endMs: number; reason: string }[];
 };
 
+/** The utterance id the runner writes for a cut: stable, so the view can find its audio. */
+export const utteranceId = (channel: string, startMs: number) => `u${channel}-${startMs}`;
+
 type Job = { channel: string; u: { startMs: number; endMs: number; pcm: Float32Array }; rms: Record<string, number>; overlap: boolean; arrivedAt: number; endedAt?: number };
 
 /** Temporary voices are only for grouping; a match this good joins one. */
@@ -177,7 +180,7 @@ export class LiveRunner {
     });
     if (decision.drop) return;
 
-    const id = `u${channel}-${u.startMs}`;
+    const id = utteranceId(channel, u.startMs);
     const text = words.map((w) => w.text).join(' ').replace(/\s+([.,!?;:])/g, '$1');
     const wallTs = this.wallTs();
     const events: DomainEvent[] = [];

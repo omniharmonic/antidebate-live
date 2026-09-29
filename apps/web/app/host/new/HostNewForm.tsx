@@ -6,15 +6,17 @@ import { FORMATS } from '@adl/core';
 import { checkSession, defaultRows, field, labelCls, ParticipantRows, type Row } from '@/app/new/NewSessionForm';
 import { getKey } from '@/lib/anthropic-key';
 import { pendingFiles, rememberHostSession } from '@/lib/recording/host-sessions';
+import { LiveFlow, type LiveDraft, type LiveSource } from './setups/LiveFlow';
 
 const SOURCES = [
-  { id: 'mics', label: 'Each speaker has their own mic', enabled: false },
-  { id: 'call', label: 'A video call', enabled: false },
-  { id: 'room', label: 'One mic in the room', enabled: false },
-  { id: 'recording', label: 'A recording', enabled: true },
+  { id: 'mics', label: 'Each speaker has their own mic' },
+  { id: 'call', label: 'A video call' },
+  { id: 'room', label: 'One mic in the room' },
+  { id: 'recording', label: 'A recording' },
 ] as const;
+type Source = (typeof SOURCES)[number]['id'];
 
-export function HostNewForm() {
+export function HostNewForm({ kind }: { kind?: string }) {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [format, setFormat] = useState('anti-debate');
@@ -22,6 +24,8 @@ export function HostNewForm() {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [source, setSource] = useState<Source>(kind === 'live' ? 'mics' : 'recording');
+  const [live, setLive] = useState<LiveDraft | null>(null);
   const setRow = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
   useEffect(() => {
@@ -33,6 +37,9 @@ export function HostNewForm() {
     setError(null);
     const checked = checkSession(title, format, rows);
     if ('error' in checked) return setError(checked.error);
+    if (source !== 'recording') {
+      return setLive({ title: title.trim(), format, participants: checked.participants, seats: checked.seats, source: source as LiveSource });
+    }
     if (!file) return setError('Choose the recording file.');
     setBusy(true);
     try {
@@ -52,6 +59,7 @@ export function HostNewForm() {
     }
   };
 
+  if (live) return <LiveFlow draft={live} />;
   return (
     <form onSubmit={submit} className="space-y-6">
       <div>
@@ -69,24 +77,23 @@ export function HostNewForm() {
         <legend className={labelCls}>How will the audio reach this laptop?</legend>
         <div className="mt-3 space-y-2">
           {SOURCES.map((s) => (
-            <label key={s.id} className={`flex min-h-11 items-center gap-3 text-[15px] ${s.enabled ? 'text-ink' : 'text-ink-3'}`}>
-              <input type="radio" name="source" value={s.id} disabled={!s.enabled} defaultChecked={s.enabled} />
+            <label key={s.id} className="flex min-h-11 items-center gap-3 text-[15px] text-ink">
+              <input type="radio" name="source" value={s.id} checked={source === s.id} onChange={() => setSource(s.id)} />
               {s.label}
-              {!s.enabled && <span className="text-xs">Coming next</span>}
             </label>
           ))}
         </div>
       </fieldset>
-      <div>
+      {source === 'recording' && <div>
         <label htmlFor="file" className={labelCls}>Recording file</label>
         <input id="file" type="file" accept="audio/*,video/*" className="mt-2 block text-[15px] text-ink" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         <p className="mt-2 text-sm text-ink-3">
           YouTube links can&apos;t be processed here: YouTube blocks servers from downloading. Download the video first (for example with yt-dlp or the creator&apos;s own copy), then choose the file.
         </p>
-      </div>
+      </div>}
       {error && <p role="alert" className="text-sm text-ink">{error}</p>}
       <button type="submit" disabled={busy} className="min-h-11 rounded-[3px] bg-ink px-5 py-2 text-sm text-field hover:bg-ink-2 disabled:opacity-40">
-        {busy ? 'Creating…' : 'Create and start'}
+        {source !== 'recording' ? 'Continue' : busy ? 'Creating…' : 'Create and start'}
       </button>
     </form>
   );

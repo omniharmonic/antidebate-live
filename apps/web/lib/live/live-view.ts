@@ -6,6 +6,11 @@ import type { ChannelMap, Notice } from '../attribution/attributor';
 export type NoticeContext = { channels: ChannelMap; names: Record<string, string> };
 export type PendingLine = { utteranceId: string; text: string; candidates: Record<string, number> };
 
+/** The channels a setup segments: each mapped mic in the tracks setup, else the one feed. */
+export function listenChannels(setup: { kind: string; channels: ChannelMap }): string[] {
+  return setup.kind === 'tracks' ? Object.keys(setup.channels).sort() : ['d0c0'];
+}
+
 /** Inputs are numbered in channel-id order (d0c0, d0c1, d1c0, …), from 1. */
 export function inputNumber(channels: ChannelMap, channel: string): number {
   return Object.keys(channels).sort().indexOf(channel) + 1;
