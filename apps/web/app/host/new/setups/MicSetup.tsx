@@ -62,6 +62,7 @@ export function MicSetup({ people, onDone }: { people: Person[]; onDone: (r: Set
       {error && <p role="alert" className="text-[15px] text-ink">{error}</p>}
       {tapError && <p role="alert" className="text-[15px] text-ink">{tapError}</p>}
       <Problems list={problems} />
+      {devices.some((d) => d.channels === 1) && <p className="text-[15px] text-ink-2">This device gives one channel. If it is a recorder mixing several mics, use the one-mic setup instead.</p>}
       {inputs.length > 0 && (
         <div className="space-y-4">
           <p className={step}>Ask each person to say their name. Choose who is speaking into each input.</p>

@@ -21,6 +21,20 @@ export function statusLine(inputs: number, latencyMs: number | null): string {
   return latencyMs === null ? head : `${head} · transcript about ${(latencyMs / 1000).toFixed(1)} s behind`;
 }
 
+export type LivePhase = 'loading' | 'live' | 'ending' | 'ending-failed' | 'ended' | 'elsewhere';
+export type LiveControl = 'resume-listening' | 'resume-audio' | 'pause' | 'resume' | 'end' | 'try-end-again';
+
+/**
+ * The buttons the live view offers. Once End has started, capture never comes back (the runner is
+ * stopped), so a failed End offers only "Try ending again".
+ */
+export function liveControls(phase: LivePhase, capture: 'waiting' | 'on' | 'paused' | 'stopped'): LiveControl[] {
+  if (phase === 'ending-failed') return ['try-end-again'];
+  if (phase !== 'live') return [];
+  const first: Record<typeof capture, LiveControl> = { waiting: 'resume-listening', on: 'pause', paused: 'resume', stopped: 'resume-audio' };
+  return [first[capture], 'end'];
+}
+
 const SLOW_MS = 4_000;
 const SLOW_STREAK = 3;
 

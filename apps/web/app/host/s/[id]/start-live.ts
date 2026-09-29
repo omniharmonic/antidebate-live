@@ -10,6 +10,7 @@ import { getKey } from '@/lib/anthropic-key';
 import { AsrClient } from '@/lib/asr/client';
 import { DiarizeClient } from '@/lib/diarize/client';
 import { idbAnchorsStore, type LiveState } from '@/lib/live/anchors-store';
+import { finisher } from '@/lib/live/finisher';
 import type { LiveHandoff } from '@/lib/live/handoff';
 import { LiveRunner, type LiveStatus } from '@/lib/live/runner';
 import { idbCheckpoint } from '@/lib/recording/checkpoint';
@@ -31,7 +32,10 @@ export type LiveSession = {
   ended: boolean;
   runner: LiveRunner | null;
   events: () => Promise<DomainEvent[]>;
-  /** Drain the runner, let the engine finish (final cards, session.ended), deliver the outbox. */
+  /**
+   * Drain the runner, let the engine finish (final cards, session.ended), deliver the outbox. After a
+   * failure, calling it again re-runs only the delivery: the runner and engine are already finished.
+   */
   finish: () => Promise<void>;
   /** Stop everything without ending the session (page left or reloaded). */
   dispose: () => void;
@@ -99,20 +103,25 @@ export async function openLiveSession(sessionId: string, handoff: LiveHandoff | 
     ended: false,
     runner,
     events,
-    finish: async () => {
-      await runner.stop();
-      engine.finishSource();
-      await running;
-      // The engine writes session.ended when it finishes; stopped by a refused key it cannot, so End writes it
-      // (same id, so it is never doubled).
-      const all = await events();
-      if (!all.some((e) => e.type === 'session.ended')) {
-        const mediaMs = all.reduce((m, e) => Math.max(m, e.mediaMs), 0);
-        await log.append([{ eventId: `${sessionId}:end`, sessionId, type: 'session.ended', actor: 'system', mediaMs, wallTs: new Date().toISOString(), payload: {} } as DomainEvent]);
-      }
-      await log.close();
-      release();
-    },
+    finish: finisher(
+      async () => {
+        await runner.stop();
+        engine.finishSource();
+        await running;
+      },
+      async () => {
+        // The engine writes session.ended when it finishes; stopped by a refused key it cannot, so End writes it
+        // (same id, so it is never doubled).
+        const all = await events();
+        if (!all.some((e) => e.type === 'session.ended')) {
+          const mediaMs = all.reduce((m, e) => Math.max(m, e.mediaMs), 0);
+          await log.append([{ eventId: `${sessionId}:end`, sessionId, type: 'session.ended', actor: 'system', mediaMs, wallTs: new Date().toISOString(), payload: {} } as DomainEvent]);
+        }
+        const waiting = await log.close();
+        if (waiting > 0) throw new Error(`${waiting} ${waiting === 1 ? 'event is' : 'events are'} still waiting to upload. Check the connection and try again.`);
+        release();
+      },
+    ),
     dispose: () => {
       engine.stop();
       void runner.stop().then(() => running).then(() => log.close()).finally(release);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DomainEvent } from '@adl/core';
-import { deviceAction, latencyWarning, listenChannels, mappingComplete, noticeLine, pendingFromLog, statusLine, transcriptLines, visibleNotices } from './live-view';
+import { deviceAction, liveControls, latencyWarning, listenChannels, mappingComplete, noticeLine, pendingFromLog, statusLine, transcriptLines, visibleNotices } from './live-view';
 
 const ctx = { channels: { d0c0: 'A', d0c1: 'B' }, names: { A: 'Ann', B: 'Bo' } };
 
@@ -23,6 +23,16 @@ describe('live view helpers', () => {
     expect(latencyWarning([4100, 3900, 4500])).toBeNull();
     expect(latencyWarning([5000, 5000])).toBeNull();
     expect(latencyWarning([1000, 5000, 5000, 5000])).toBe(line);
+  });
+
+  it('offers only "Try ending again" after a failed End, never Resume audio', () => {
+    expect(liveControls('ending-failed', 'stopped')).toEqual(['try-end-again']);
+    expect(liveControls('live', 'stopped')).toEqual(['resume-audio', 'end']);
+    expect(liveControls('live', 'waiting')).toEqual(['resume-listening', 'end']);
+    expect(liveControls('live', 'on')).toEqual(['pause', 'end']);
+    expect(liveControls('live', 'paused')).toEqual(['resume', 'end']);
+    expect(liveControls('ending', 'stopped')).toEqual([]);
+    expect(liveControls('ended', 'stopped')).toEqual([]);
   });
 
   it('words each notice with input numbers and names', () => {
