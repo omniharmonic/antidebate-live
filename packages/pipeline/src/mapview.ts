@@ -20,6 +20,8 @@ export interface MapView {
   disagreements: Disagreement[];
   clashes: Disagreement[];
   commonGround: string[];
+  /** §4.3a: cross-speaker `agrees` pairs where each side accepts its own claim. */
+  convergences: { ids: [string, string]; holders: [string, string]; relationId: string; inferred: boolean }[];
   cruxCandidates: { propositionId: string; score: number; forDisagreements: string[]; basis: 'stated' | 'clash' }[];
   /** stanceId → verbatim quote of its ADU */
   quotes: Map<string, string>;
@@ -76,8 +78,19 @@ export function buildMapView(s: SessionState): MapView {
     if (adu) quotes.set(st.id, adu.spans.map((x) => x.quote).join(' … '));
   }
 
+  const convergences: MapView['convergences'] = [];
+  for (const r of relations) {
+    if (r.type !== 'agrees') continue;
+    const a = [...(holders.get(r.fromId)?.values() ?? [])].find(accepts);
+    const b = [...(holders.get(r.toId)?.values() ?? [])].find((s) => accepts(s) && s.participantKey !== a?.participantKey);
+    if (!a || !b) continue;
+    if ([...(holders.get(r.toId)?.keys() ?? [])].includes(a.participantKey)) continue; // same person on both sides
+    convergences.push({ ids: [r.fromId, r.toId], holders: [a.participantKey, b.participantKey], relationId: r.id, inferred: r.inferred });
+  }
+
   return {
     debaters,
+    convergences,
     props,
     stances,
     relations,
@@ -134,7 +147,7 @@ export function focusIds(v: MapView, must: Iterable<string> = [], limit = 70): S
 }
 
 const STOP = new Set('a an the of to in on for and or but is are be been being was were will would should could can may might that this these those it its as at by with from than then so if not no do does did have has had their there they them we our you your i he she his her who which what whether about into over under more most less least very just also only both each other such any all some'.split(' '));
-const words = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w)));
+export const words = (t: string) => new Set(t.toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w)));
 
 /**
  * For each new proposition, the most similar propositions held only by *other*
@@ -163,4 +176,14 @@ export function crossSpeakerCandidates(v: MapView, newIds: Iterable<string>, per
     scored.sort((a, b) => b[1] - a[1]).slice(0, perNew).forEach(([o]) => out.add(o));
   }
   return out;
+}
+
+/** Word-overlap similarity (0–1) between two sentences; used to keep cards stable across passes. */
+export function similarity(a: string, b: string): number {
+  const x = words(a);
+  const y = words(b);
+  if (!x.size || !y.size) return 0;
+  let inter = 0;
+  for (const w of x) if (y.has(w)) inter += 1;
+  return inter / Math.min(x.size, y.size);
 }

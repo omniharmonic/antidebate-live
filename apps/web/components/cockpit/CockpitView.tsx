@@ -239,8 +239,9 @@ export function SharedBody({ s, meta, size }: { s: SessionState; meta: SessionMe
     groups = ids.length ? [{ label: '', ids }] : [];
     computed = ids.length > 0;
   }
-  if (groups.length === 0) return <Quiet size={size}>Nothing both have accepted yet.</Quiet>;
-  const max = size === 'full' ? 5 : 3;
+  const converging = (card?.body.converging ?? []).slice(-3).reverse();
+  if (groups.length === 0 && converging.length === 0) return <Quiet size={size}>Nothing both have accepted yet.</Quiet>;
+  const max = size === 'full' ? (converging.length ? 3 : 5) : 3;
   let shown = 0;
   return (
     <div key={card?.insight.id ?? 'computed'} className="arrive">
@@ -265,6 +266,22 @@ export function SharedBody({ s, meta, size }: { s: SessionState; meta: SessionMe
         <p className={`text-ink-3 ${size === 'full' ? 'text-[17px]' : 'text-xs'}`}>and {groups.reduce((n, g) => n + g.ids.length, 0) - max} more</p>
       ) : null}
       {computed ? <p className={`mt-2 text-ink-3 ${size === 'full' ? 'text-[15px]' : 'text-xs'}`}>Both accept these, from their stated stances.</p> : null}
+      {converging.length ? (
+        <div className="mt-3">
+          <p className={`text-ink-3 ${size === 'full' ? 'text-[17px]' : 'text-xs'}`}>Converging (inferred from related claims)</p>
+          <ul className={`mt-1 space-y-2 ${size === 'full' ? 'text-[19px] leading-snug' : 'text-sm'}`}>
+            {converging.map((c) => (
+              <li key={c.relationId} className="border-l border-border-2 pl-3">
+                {c.ids.map((id, i) => (
+                  <span key={id} className="block">
+                    <span className="text-ink-3">{meta.people.find((p) => p.key === c.holders[i])?.displayName.split(' ')[0] ?? c.holders[i]}:</span> {canonical(s, id) ?? id}
+                  </span>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }

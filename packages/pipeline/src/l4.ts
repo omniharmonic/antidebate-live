@@ -16,9 +16,9 @@ import {
   type PromptCard,
   type SharedCard,
 } from '@adl/ontology';
-import { focusIds, renderMap, type MapView } from './mapview';
+import { focusIds, renderMap, similarity, type MapView } from './mapview';
 
-export const L4_PROMPT_VERSION = 'l4-insight-v0.1';
+export const L4_PROMPT_VERSION = 'l4-insight-v0.2';
 
 export const L4Output = z.object({
   crux: z
@@ -61,7 +61,7 @@ export const L4_INSTRUCTIONS = `You support the facilitator of an Anti-Debate: a
 
 3. TRY ASKING (0–3). Questions the facilitator could ask next, best first. Short, speakable, neutral, addressed to one debater or both. Draw them from: the crux (what evidence would move you?), unanswered critical questions of an argument, a term the two seem to use differently, a synthesis worth testing ("Could you both sign: …?"), or an inconsistency. Fit the current round: positions and clash early; steelman, update conditions and synthesis later. Never a verdict, never loaded.
 
-Keep continuity: if the previous card is still the best, keep it (same proposition, refined wording is fine). Use only ids from the map. Return only the JSON object required by the schema.`;
+Keep continuity: the facilitator is reading the tablet. If a previous card is still the best, return it with its text unchanged; only change a card when the conversation has actually moved. Use only ids from the map. Return only the JSON object required by the schema.`;
 
 export interface PreviousCards {
   crux?: string;
@@ -209,7 +209,12 @@ export function insightCards(out: L4Output, v: MapView): { crux: CruxCard | null
 
 /** Shared ground split by kind (§4.3). No model. */
 export function sharedCard(v: MapView): SharedCard {
-  const card: SharedCard = { ends: [], facts: [], framings: [] };
+  const card: SharedCard = {
+    ends: [],
+    facts: [],
+    framings: [],
+    converging: v.convergences.map((c) => ({ ids: [...c.ids], holders: [...c.holders], relationId: c.relationId, inferred: c.inferred })),
+  };
   for (const id of v.commonGround) {
     const t = v.props.get(id)?.type;
     if (t === 'normative' || t === 'prescriptive') card.ends.push(id);
@@ -217,6 +222,25 @@ export function sharedCard(v: MapView): SharedCard {
     else card.facts.push(id);
   }
   return card;
+}
+
+/**
+ * Keep cards stable across passes (the facilitator reads a tablet): drop a crux on the
+ * proposition already shown, and higher ground or prompts nearly identical (word
+ * overlap ≥ 0.7) to one emitted recently. The earlier card simply stays current.
+ */
+export function stableCards(
+  cards: { crux: CruxCard | null; higherGround: HigherGroundCard[]; prompts: PromptCard[] },
+  recent: { cruxPropositionId?: string; higherGround: string[]; prompts: string[] },
+): { crux: CruxCard | null; higherGround: HigherGroundCard[]; prompts: PromptCard[] } {
+  const fresh = (text: string, seen: string[]) => !seen.some((s) => similarity(s, text) >= 0.7);
+  const prompts = cards.prompts.filter((p) => fresh(p.text, recent.prompts));
+  return {
+    crux: cards.crux && cards.crux.propositionId === recent.cruxPropositionId ? null : cards.crux,
+    higherGround: cards.higherGround.filter((h) => fresh(h.text, recent.higherGround)),
+    // Prompts come as a set of up to three; keep the set only if something in it is new.
+    prompts: prompts.length ? cards.prompts : [],
+  };
 }
 
 /** insight.proposed + item.approved events (cards passed code validation). */
@@ -250,6 +274,7 @@ export async function runL4(
     recent: { speaker: string; text: string }[];
     previous: PreviousCards;
     previousShared: string;
+    recentCards?: { cruxPropositionId?: string; higherGround: string[]; prompts: string[] };
     wallTs: () => string;
   },
 ): Promise<{ events: DomainEvent[]; log: LlmCallLog | null; error?: string; sharedKey: string }> {
@@ -270,6 +295,6 @@ export async function runL4(
     const events = sharedChanged ? insightEvents({ crux: null, higherGround: [], prompts: [], shared }, base) : [];
     return { events, log: result.log, error: `${result.reason}: ${result.detail}`, sharedKey };
   }
-  const cards = insightCards(result.data, v);
+  const cards = ctx.recentCards ? stableCards(insightCards(result.data, v), ctx.recentCards) : insightCards(result.data, v);
   return { events: insightEvents({ ...cards, ...(sharedChanged ? { shared } : {}) }, base), log: result.log, sharedKey };
 }

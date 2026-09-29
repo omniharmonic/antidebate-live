@@ -122,3 +122,17 @@ describe('crossSpeakerCandidates', () => {
     expect(c.has('x')).toBe(false);
   });
 });
+
+describe('card stability', () => {
+  it('drops a repeated crux and near-duplicate higher ground', async () => {
+    const { stableCards } = await import('./l4');
+    const hg = (text: string) => ({ text, construction: 'value_lift' as const, derivation: { A: ['p1'], B: ['p2'] }, costs: {}, reliesOnInferred: false });
+    const crux = { propositionId: 'p9', statement: 'x', sides: [], updateConditions: {}, settlingEvidence: 'empirical' as const, valuesCrux: false, downstream: [], score: 1, basis: 'stated' as const } as never;
+    const out = stableCards(
+      { crux, higherGround: [hg('The hole left by the death of God is real and needs up-to-date practices.'), hg('Audits of labs should begin now.')], prompts: [] },
+      { cruxPropositionId: 'p9', higherGround: ['The hole left by the death of God is real, and it needs up-to-date practices.'], prompts: [] },
+    );
+    expect(out.crux).toBeNull();
+    expect(out.higherGround.map((h) => h.text)).toEqual(['Audits of labs should begin now.']);
+  });
+});

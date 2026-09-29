@@ -15,6 +15,17 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-29 · Ingest 3: The Value of Belief in God (Stephanie Lepp moderating; Jim Rutt × Layman Pascal) · belief-in-god-r1 · subscription, $0
+
+Prompts: l1 v0.4, l2 v0.2, round v0.2, l3 v0.3, l4 v0.1 (+ name→key fix). 503 calls, $0 billed.
+- **Rounds 12/12.** Clashes 15 (Gender-Affirming Care had 9).
+- **Higher ground now flows** (the name→key fix), and it's the best output so far, e.g. "The hole left by the death of God is real, and it is cognitive, psychological and cultural. It is best filled by well-crafted, up-to-date practices… whether the word 'God' is the right name for what fills it is a separate question." That is the format's higher-ground move exactly (a `value_lift` / naming split).
+- **Crux:** moves through "anchoring effects of religion are now destructive" → "whatever fills the God-shaped hole is the definition of God" (a *stated* disagreement: Rutt rejects, Pascal accepts) → "the God experience gives some information through perception". A sensible path.
+- **Problems:** (1) **card churn**: 28 higher-ground variants of ~8 ideas, reworded every pass; (2) **shared ground** still 2 stated and 1 merge. Agreement shows up as cross-speaker `agrees` relations instead (8 here, 3 in Gender-Affirming Care, 2 in Ball × Kokotajlo).
+- **Round-3 fixes:** ONTOLOGY §4.3a **convergence** (cross-speaker `agrees` pairs, each side accepting its own claim; inferred; shown as "converging" under Already shared, never counted as common ground). **Card stability** in code: a crux on the same proposition, or higher ground / prompts with word overlap ≥ 0.7 to a recent card, are not re-emitted. l4-insight-v0.2 returns still-valid cards unchanged.
+
+---
+
 ## 2026-09-28 · Ingest 2: Gender-Affirming Care (Stephanie Lepp moderating; Layman Pascal × Shereef Bishay) · run gac-r1 · subscription, $0
 
 Prompts: l1 v0.4, l2 v0.2, round v0.2, l3 v0.2, l4 v0.1. 519 calls (rounds 79, L1 132, L2 113, L3 27, L4 29), all on the subscription, $0 billed.

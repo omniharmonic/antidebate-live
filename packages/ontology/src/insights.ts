@@ -64,6 +64,8 @@ export const SharedCard = z.object({
   ends: z.array(Id),
   facts: z.array(Id),
   framings: z.array(Id),
+  /** §4.3a: cross-speaker `agrees` pairs, each side accepting its own claim. Inferred; shown as "converging". */
+  converging: z.array(z.object({ ids: z.array(Id).length(2), holders: z.array(Key).length(2), relationId: Id, inferred: z.boolean() })).default([]),
 });
 export type SharedCard = z.infer<typeof SharedCard>;
 

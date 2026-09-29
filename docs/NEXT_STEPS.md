@@ -6,9 +6,9 @@ Ordered by the critical path in [IMPLEMENTATION_PLAN §4](./IMPLEMENTATION_PLAN.
 1. [ ] **Ingest loop** over every playlist debate (subscription only, $0 API): run the full pipeline → `diagnose` → write the findings and an improvement plan in `evals/results.md` → implement → verify on the next ingest.
    - [x] Ball × Kokotajlo (r1 on Opus/API, stopped at 80m; r2 on Sonnet, full)
    - [x] Gender-Affirming Care (gac-r1)
-   - [ ] Belief in God (belief-in-god-r1). Running
-   - [ ] Destiny × Shermer (co-moderated)
-   - [ ] Open-Source AI (co-moderated, ~2h15)
+   - [x] Belief in God (belief-in-god-r1)
+   - [ ] Destiny × Shermer (co-moderated). Running
+   - [ ] Open-Source AI (co-moderated, ~2h15). Running with the round-3 fixes
    - [ ] Ignite talk (one-speaker edge case)
 2. [ ] **Frontend UX pass**, plus new form factors: a 4D view (3D agreement/disagreement/depth space across time) and anything else that makes the output compelling for audiences and moderators.
    - **Additive only (Benjamin, 2026-09-28):** the 4D view is an *additional* view. Keep the existing timeline/arc, cockpit and console views; improve them, never remove or replace them.

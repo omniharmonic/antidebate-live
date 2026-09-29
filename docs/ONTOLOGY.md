@@ -176,6 +176,9 @@ A crux whose settling evidence is "value clarification" is labeled a **values cr
 ### 4.3 Common ground
 Propositions both participants accept (stated or conceded), with strength ≥ leaning. It's separated into **shared ends** (normative, prescriptive), **shared facts** (empirical), and **shared framings** (definitional).
 
+### 4.3a Convergence (inferred; added 2026-09-28)
+Two participants often agree without stating the same sentence. A **convergence** is a pair of propositions, each accepted by a different participant, linked by an `agrees` relation (usually proposed by the linker, so `inferred`). Convergences are shown with shared ground but labelled as inferred ("converging"). They never count as common ground for scoring, disagreement or ledgers until one participant accepts the other's proposition or the two are merged.
+
 ### 4.4 Higher ground (synthesis)
 A proposition or action H that both participants could accept, **consistent with their current commitment stores**, and that integrates at least one element from each side's position. Every candidate carries:
 - a `construction` (below)
