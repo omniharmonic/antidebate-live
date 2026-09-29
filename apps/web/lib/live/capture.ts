@@ -59,7 +59,13 @@ export async function tapChannels(
   const track = stream.getAudioTracks()[0];
   const n = track?.getSettings().channelCount ?? 1;
   const ctx = new AudioContext();
-  await ctx.audioWorklet.addModule('/worklets/tap.js');
+  try {
+    await ctx.audioWorklet.addModule('/worklets/tap.js');
+    await ctx.resume(); // the browser may start the context suspended outside a gesture
+  } catch (e) {
+    void ctx.close();
+    throw e;
+  }
   const source = ctx.createMediaStreamSource(stream);
   const node = new AudioWorkletNode(ctx, 'tap', { channelCount: n, channelCountMode: 'explicit', numberOfInputs: 1 });
   const frames: number[] = [];

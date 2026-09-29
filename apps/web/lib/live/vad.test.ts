@@ -33,5 +33,15 @@ describe('EnergyVad', () => {
     expect(out).toHaveLength(1);
     expect(out[0]!.endMs - out[0]!.startMs).toBe(15_000);
   });
+  it('recovers from a sustained +20 dB noise step instead of chaining max-length utterances', () => {
+    const v = new EnergyVad();
+    const out = [];
+    let t = 0;
+    for (let i = 0; i < 150; i++, t += 20) v.push(frame(0.001), t);
+    const step = t;
+    for (let i = 0; i < 3000; i++, t += 20) { const r = v.push(frame(0.01), t); if (r) out.push(r); } // 60 s of fan
+    expect(out.length).toBeLessThanOrEqual(1);
+    for (const u of out) expect(u.startMs).toBeLessThan(step + 3000);
+  });
   it('rmsDb of silence is very low', () => expect(rmsDb(new Float32Array(320))).toBeLessThan(-90));
 });
