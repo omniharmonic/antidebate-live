@@ -19,7 +19,10 @@ Build a real-time mapping instrument for facilitated debate. Its first live use 
 6. `docs/NEXT_STEPS.md`: the running checklist (keep it current)
 7. Skim as needed: `ARCHITECTURE.md`, `UX.md`, `QUALITY.md`, `PRD.md`, `REUSE_AUDIT.md`
 
-## 3. Current state (verified 2026-09-28, commit `be12069`)
+## 2b. Update (2026-09-29): read this first
+The build moved far past the table below in the first local session. Current truth: `README.md` Status, `docs/R0_DEMO.md` (architecture + runbook), `docs/NEXT_STEPS.md` §0, and `evals/results.md` (every run, what broke, what was fixed). Key rules added since: dev runs use the **subscription** provider, never the API, without Benjamin's approval; new views are **additive**; the UX follows `design-explorations/2026-09-28-conversation-instrument/`.
+
+## 3. Current state as of the scaffold (2026-09-28, commit `be12069`; superseded, see 2b)
 
 | Area | State | Verified how |
 |---|---|---|

@@ -22,14 +22,16 @@ pnpm replay:dt              # replay the Marcus × Demartini fixture into .data/
 pnpm dev                    # http://localhost:3000 → /play/dt
 ```
 
-## Status (2026-09-28)
+## Status (2026-09-29)
+Live: **https://antidebate-live.vercel.app** (Neon event log). Demo session: `ball-kokotajlo-r5`.
+
 | Area | State |
 |---|---|
-| Docs | Complete v1 |
-| Ontology schemas + validators | ✅ with tests |
-| Event log, projections, snapshots, audience filter | ✅ with tests |
-| Crux ranking, commitment stores | ✅ with tests |
-| L0 turns, L1 extraction (prompt, mapper, validators) | ✅ mapper tested; **L1 not yet run against the API** |
-| Web: playback skeleton, stage skeleton, SSE, ingest API | ✅ builds; cockpit, console and setup not built |
-| Capture: gate, fusion, merge, emit, offline | ✅ pure parts tested; offline needs a Mac run; live loop not built |
-| Evals / gold sets | not started (WS2) |
+| Pipeline | Rounds → L1 extract → L2 critic + auto-approval → L3 link → L4 insight (crux, higher ground, prompts, shared/converging), all code-validated; one engine for live rooms and replays (`run:session`) |
+| Cost | Default provider is the Claude **subscription** (headless Claude Code, $0 API); the API needs `LLM_PROVIDER=api` + `LLM_API_BUDGET_USD`; every response is cached |
+| Library | All six playlist recordings ingested (`ingest`), transcribed and diarized locally (FluidAudio), and run through the full pipeline; `diagnose` per run; graded in `evals/results.md` (Ball × Kokotajlo higher-ground recall 4/4, then ≥3/4 on the latest run) |
+| Web | Sessions, Explore (4D Spatial / Timeline / Positions), Facilitate (cockpit), Operate (console), `/new`; Section design; writes need a key |
+| Capture | Offline (FluidAudio) ✅; live loop `live.py` (per-person mics → Parakeet) tested on synthetic and recorded audio; **not yet tried with real mics** |
+| Evals | Hand-graded runs and diagnostics; human gold sets still to build |
+
+See `docs/NEXT_STEPS.md` §0 and `docs/R0_DEMO.md` (runbook).
