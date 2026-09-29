@@ -16,7 +16,7 @@ import {
   type PromptCard,
   type SharedCard,
 } from '@adl/ontology';
-import { renderMap, type MapView } from './mapview';
+import { focusIds, renderMap, type MapView } from './mapview';
 
 export const L4_PROMPT_VERSION = 'l4-insight-v0.1';
 
@@ -80,7 +80,11 @@ export function buildL4Input(
     list.map((d) => `${label} on ${d.propositionId} between ${d.participants.map((k) => name.get(k) ?? k).join(' and ')}`).join('\n');
   const cands = v.cruxCandidates.map((c) => `${c.propositionId} (score ${c.score}; ${c.basis}; grounds ${c.forDisagreements.length} disagreement(s))`).join('\n');
   const shared = v.commonGround.map((id) => `${id} ${v.props.get(id)?.canonical ?? ''}`).join('\n');
-  const rels = v.relations.map((r) => `${r.fromId} ${r.type} ${r.toId}${r.inferred ? ' (inferred)' : ''}`).join('\n');
+  const focus = focusIds(v, [], 70);
+  const rels = v.relations
+    .filter((r) => focus.has(r.fromId) && focus.has(r.toId))
+    .map((r) => `${r.fromId} ${r.type} ${r.toId}${r.inferred ? ' (inferred)' : ''}`)
+    .join('\n');
   const recent = ctx.recent.map((t) => `[${t.speaker}] ${t.text}`).join('\n');
   const prev = [
     ctx.previous.crux ? `crux: ${ctx.previous.crux}` : '',
@@ -92,8 +96,8 @@ export function buildL4Input(
   return `DEBATERS: ${v.debaters.map((d) => `${d.key} = ${d.displayName}`).join('; ')}
 FORMAT: ${getFormat(ctx.formatId).name}; ROUND NOW: ${round ? `${round.name} (${phase}; emphasis: ${round.pipelineEmphasis.join(', ') || 'none'})` : 'not detected'}
 
-MAP (id [type/stratum] proposition — holders):
-${renderMap(v) || '(empty)'}
+MAP (id [type/stratum] proposition — holders; the live part of the map):
+${renderMap(v, { onlyIds: focus }) || '(empty)'}
 
 RELATIONS:
 ${rels || '(none)'}

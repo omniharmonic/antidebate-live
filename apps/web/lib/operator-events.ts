@@ -1,10 +1,7 @@
 /**
- * Event types a browser (operator console, /new) may write without the ingest
- * secret. Utterances, extraction and insights come only from capture and the
- * worker, which hold ROLE_LINK_SECRET.
- *
- * AUTH GAP (R0): these writes are unauthenticated. Per-role signed links (WS3)
- * must gate them before any public deployment.
+ * Event types a browser (operator console, /new) may write, with the operator key
+ * (`Authorization: Bearer <OPERATOR_KEY>`). Utterances, extraction and insights come
+ * only from capture (CAPTURE_TOKEN) and the worker (ROLE_LINK_SECRET).
  */
 import type { DomainEvent, EventType } from '@adl/core';
 
@@ -44,4 +41,36 @@ export function checkOperatorEvent(e: unknown): string | null {
 /** Client helper: a unique operator event id. */
 export function operatorEventId(sessionId: string): string {
   return `${sessionId}:op:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+}
+
+const KEY_STORAGE = 'adl.operatorKey';
+
+/** The operator key: taken once from `?key=` in the URL, then kept in this browser. */
+export function operatorKey(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const fromUrl = new URL(window.location.href).searchParams.get('key');
+    if (fromUrl) {
+      window.localStorage.setItem(KEY_STORAGE, fromUrl);
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete('key');
+      window.history.replaceState(null, '', clean.toString());
+      return fromUrl;
+    }
+    return window.localStorage.getItem(KEY_STORAGE);
+  } catch {
+    return null;
+  }
+}
+
+/** POST operator events with the key. Throws a readable error on 401. */
+export async function postOperatorEvents(events: DomainEvent[]): Promise<Response> {
+  const key = operatorKey();
+  const res = await fetch('/api/events', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) },
+    body: JSON.stringify({ events }),
+  });
+  if (res.status === 401) throw new Error('This action needs the operator key. Open the operator link (…?key=…) once on this device.');
+  return res;
 }

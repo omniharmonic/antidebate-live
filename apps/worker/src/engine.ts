@@ -60,7 +60,7 @@ export class SessionEngine {
   private readonly opts: Required<Omit<EngineOptions, 'onCall' | 'say'>> & Pick<EngineOptions, 'onCall' | 'say'>;
 
   constructor(opts: EngineOptions) {
-    this.opts = { silenceMs: 3500, insightEveryTurns: 4, insightEveryMs: 150_000, pollMs: 400, ...opts };
+    this.opts = { silenceMs: 3500, insightEveryTurns: 6, insightEveryMs: 240_000, pollMs: 400, ...opts };
     this.state = emptyState(opts.sessionId);
     this.buffer = new TurnBuffer(opts.sessionId);
   }
@@ -112,10 +112,29 @@ export class SessionEngine {
     return ids;
   }
 
+  /** Every live proposition (for the critic's lookups; not sent to L1 in full). */
   private indexForL1() {
     return [...this.state.propositions.values()]
       .filter((p) => p.state !== 'rejected' && p.state !== 'merged')
       .map((p) => ({ id: p.value.id, canonical: p.value.canonical }));
+  }
+
+  /**
+   * The bounded index L1 sees: the other debaters' most recent claims (what this
+   * turn may answer or repeat) and the speaker's own recent claims. Flat cost per
+   * turn instead of growing with the debate; L3 catches duplicates beyond it.
+   */
+  private boundedIndexFor(speakerKey: string, limit = 60) {
+    const heldBy = new Map<string, Set<string>>();
+    for (const s of this.state.stances.values()) {
+      if (s.state === 'rejected' || s.state === 'merged') continue;
+      if (!heldBy.has(s.value.propositionId)) heldBy.set(s.value.propositionId, new Set());
+      heldBy.get(s.value.propositionId)!.add(s.value.participantKey);
+    }
+    const all = this.indexForL1().reverse(); // newest first
+    const others = all.filter((p) => ![...(heldBy.get(p.id) ?? [])].every((k) => k === speakerKey));
+    const own = all.filter((p) => !others.includes(p));
+    return [...others.slice(0, Math.round(limit * 0.66)), ...own.slice(0, limit - Math.round(limit * 0.66))].reverse();
   }
 
   private logCall(l: LlmCallLog | null) {
@@ -160,7 +179,7 @@ export class SessionEngine {
       participants,
       round: this.state.round?.name ?? null,
       recentTurns: recent,
-      propositionIndex: this.indexForL1(),
+      propositionIndex: this.boundedIndexFor(turn.participantKey),
       utterances: this.state.utterances,
       wallTs: now,
     });

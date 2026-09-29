@@ -18,9 +18,8 @@ export interface EventLog {
   logCall(log: LlmCallLog): Promise<void>;
 }
 
-// Opus 5.5 list prices per MTok (ARCHITECTURE §10). Cache writes billed as input here.
-export const callCostUsd = (l: LlmCallLog) =>
-  (l.inputTokens + l.cacheCreationTokens) * 4e-6 + l.cacheReadTokens * 0.2e-6 + l.outputTokens * 20e-6;
+/** Dollars billed to the API for this call: 0 on the subscription provider and for cache hits. */
+export const callCostUsd = (l: LlmCallLog) => l.billedUsd;
 
 class FileLog implements EventLog {
   readonly kind = 'file' as const;

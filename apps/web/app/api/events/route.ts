@@ -5,8 +5,9 @@
  * - `Authorization: Bearer <ROLE_LINK_SECRET>` (worker): any event type.
  * - `Authorization: Bearer <CAPTURE_TOKEN>` (capture service): CAPTURE_EVENT_TYPES and operator types.
  *   Capture types (utterances, attribution) are rejected with 401 without it, or when CAPTURE_TOKEN is unset.
- * - No token (operator console, /new): OPERATOR_EVENT_TYPES with actor 'operator' only.
- *   Unauthenticated in R0; per-role signed links replace this in R1 (WS3).
+ * - `Authorization: Bearer <OPERATOR_KEY>` (operator console, /new): OPERATOR_EVENT_TYPES with actor 'operator'.
+ * - No token: nothing. Every write needs one of the three secrets; with a secret unset, its tier is closed.
+ * The web app never calls a model, so no request here can spend LLM credits.
  *
  * Idempotent by eventId. Without DATABASE_URL, events append to .data/<session>.events.jsonl.
  */
@@ -24,6 +25,8 @@ function bearer(req: Request, secret: string | undefined): boolean {
 export async function POST(req: Request) {
   const worker = bearer(req, process.env.ROLE_LINK_SECRET);
   const capture = bearer(req, process.env.CAPTURE_TOKEN);
+  const operator = bearer(req, process.env.OPERATOR_KEY);
+  if (!worker && !capture && !operator) return Response.json({ error: 'operator key required' }, { status: 401 });
 
   let body: { events?: unknown };
   try {

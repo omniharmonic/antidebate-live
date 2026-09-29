@@ -74,8 +74,7 @@ for (const [i, turn] of selected.entries()) {
   console.log(`${turn.turnId} ${turn.participantKey}: ${props} props, ${fails} validation fails, ${res.log.latencyMs} ms${res.error ? ` ERROR ${res.error}` : ''}`);
 }
 
-// Opus 5.5 list prices per MTok: $4 in, $20 out, $0.20 cache read (ARCHITECTURE §10). Cache writes billed ~as input here.
-const cost = logs.reduce((c, l) => c + (l.inputTokens + l.cacheCreationTokens) * 4e-6 + l.cacheReadTokens * 0.2e-6 + l.outputTokens * 20e-6, 0);
+const cost = logs.reduce((c, l) => c + l.billedUsd, 0);
 const lat = logs.map((l) => l.latencyMs).sort((a, b) => a - b);
 const pct = (q: number) => lat[Math.min(lat.length - 1, Math.floor(lat.length * q))] ?? 0;
-console.log(`\n${logs[0]?.promptVersion ?? ''} · ${logs.length} calls · p50 ${pct(0.5)} ms · p90 ${pct(0.9)} ms · est $${cost.toFixed(2)} · cache reads ${logs.reduce((n, l) => n + l.cacheReadTokens, 0)} tok → ${out}`);
+console.log(`\n${logs[0]?.promptVersion ?? ''} · ${logs.length} calls · p50 ${pct(0.5)} ms · p90 ${pct(0.9)} ms · billed $${cost.toFixed(2)} · cache reads ${logs.reduce((n, l) => n + l.cacheReadTokens, 0)} tok → ${out}`);

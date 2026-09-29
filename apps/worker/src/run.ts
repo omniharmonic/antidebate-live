@@ -14,6 +14,7 @@
 import { parseArgs } from 'node:util';
 import { config } from 'dotenv';
 import type { DomainEvent } from '@adl/core';
+import { provider } from '@adl/llm';
 import { SessionEngine } from './engine';
 import { callCostUsd, openLog } from './log';
 import { fixtureMeta, loadFixture, REPO_ROOT } from './sources';
@@ -55,7 +56,7 @@ const engine = new SessionEngine({
     calls += 1;
   },
 });
-console.log(`session ${sessionId} → ${log.where}`);
+console.log(`session ${sessionId} → ${log.where} · LLM provider: ${provider()}${provider() === 'api' ? ` (budget $${process.env.LLM_API_BUDGET_USD ?? 'UNSET'})` : ' (no API billing)'}`);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -125,4 +126,4 @@ process.on('SIGINT', () => {
 if (values.live) await ensureLiveSession();
 const feeding = values.fixture && !values.live ? feed(values.fixture) : Promise.resolve();
 await Promise.all([feeding, engine.run()]);
-console.log(`${clock()}  done · ${calls} model calls · est $${cost.toFixed(2)} · ${log.where}`);
+console.log(`${clock()}  done · ${calls} model calls · billed to API $${cost.toFixed(2)} (provider ${provider()}) · ${log.where}`);

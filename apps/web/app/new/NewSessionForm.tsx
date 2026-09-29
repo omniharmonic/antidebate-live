@@ -1,5 +1,7 @@
 'use client';
 
+import { postOperatorEvents } from '@/lib/operator-events';
+
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FORMATS, type DomainEvent } from '@adl/core';
@@ -81,7 +83,7 @@ export function NewSessionForm() {
     };
     setBusy(true);
     try {
-      const res = await fetch('/api/events', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ events: [ev] }) });
+      const res = await postOperatorEvents([ev]);
       if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${res.status}`);
       router.push(`/s/${encodeURIComponent(id)}/console`);
     } catch (err) {

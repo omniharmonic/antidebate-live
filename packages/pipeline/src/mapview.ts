@@ -103,3 +103,32 @@ export function renderMap(v: MapView, opts: { onlyIds?: Set<string> } = {}): str
   }
   return lines.join('\n');
 }
+
+/**
+ * A bounded slice of the map for L3/L4 prompts, so input stays flat as a debate
+ * grows (evals/results.md 2026-09-28: whole-map prompts dominated cost). Always keeps
+ * everything that is structurally live (disagreements, clashes, shared ground, crux
+ * candidates, `must`), then fills with the newest propositions up to `limit`.
+ */
+export function focusIds(v: MapView, must: Iterable<string> = [], limit = 70): Set<string> {
+  const keep = new Set<string>();
+  const add = (id: string) => {
+    if (v.props.has(id)) keep.add(id);
+  };
+  for (const d of [...v.disagreements, ...v.clashes]) add(d.propositionId);
+  for (const r of v.relations) {
+    if (['rebuts', 'undercuts', 'undermines'].includes(r.type)) {
+      add(r.fromId);
+      add(r.toId);
+    }
+  }
+  v.commonGround.forEach(add);
+  v.cruxCandidates.forEach((c) => add(c.propositionId));
+  for (const id of must) add(id);
+  const newest = [...v.props.keys()].reverse(); // Map keeps insertion (= event) order
+  for (const id of newest) {
+    if (keep.size >= limit) break;
+    keep.add(id);
+  }
+  return keep;
+}

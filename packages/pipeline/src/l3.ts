@@ -9,7 +9,7 @@ import { z } from 'zod';
 import type { DomainEvent } from '@adl/core';
 import { callStructured, type LlmCallLog } from '@adl/llm';
 import type { Attitude } from '@adl/ontology';
-import { renderMap, type MapView } from './mapview';
+import { focusIds, renderMap, type MapView } from './mapview';
 
 export const L3_PROMPT_VERSION = 'l3-link-v0.1';
 
@@ -48,8 +48,12 @@ Relations are between contents, regardless of who holds them. Prefer links betwe
 Use only ids from the map. Return only the JSON object required by the schema.`;
 
 export function buildL3Input(v: MapView, newIds: Set<string>): string {
-  const existingRel = v.relations.map((r) => `${r.fromId} ${r.type} ${r.toId}${r.inferred ? ' (inferred)' : ''}`).join('\n');
-  const all = renderMap(v)
+  const focus = focusIds(v, newIds, 70);
+  const existingRel = v.relations
+    .filter((r) => focus.has(r.fromId) && focus.has(r.toId))
+    .map((r) => `${r.fromId} ${r.type} ${r.toId}${r.inferred ? ' (inferred)' : ''}`)
+    .join('\n');
+  const all = renderMap(v, { onlyIds: focus })
     .split('\n')
     .map((l) => (newIds.has(l.split(' ')[0]!) ? `NEW ${l}` : `    ${l}`))
     .join('\n');

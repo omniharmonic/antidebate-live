@@ -11,14 +11,14 @@ import type { DomainEvent, Insight, SessionState, Tracked } from '@adl/core';
 import type { CruxCard, HigherGroundCard, PromptCard, Proposition, SharedCard } from '@adl/ontology';
 import { SessionBar } from '@/components/SessionBar';
 import { ATTITUDE_LABEL, clock, personOf, voiceColor, type SessionMeta } from '@/lib/derive';
-import { operatorEventId } from '@/lib/operator-events';
+import { operatorEventId, postOperatorEvents } from '@/lib/operator-events';
 import { useSession } from '@/lib/use-session';
 
 type Action = 'item.approved' | 'item.rejected' | 'item.sent_to_facilitator';
 
 async function postEvents(events: DomainEvent[]): Promise<string | null> {
   try {
-    const res = await fetch('/api/events', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ events }) });
+    const res = await postOperatorEvents(events);
     if (!res.ok) return ((await res.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${res.status}`;
     return null;
   } catch (err) {

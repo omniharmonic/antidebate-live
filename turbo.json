@@ -14,7 +14,8 @@
       "env": [
         "DATABASE_URL",
         "CAPTURE_TOKEN",
-        "ROLE_LINK_SECRET"
+        "ROLE_LINK_SECRET",
+        "OPERATOR_KEY"
       ]
     },
     "typecheck": {
