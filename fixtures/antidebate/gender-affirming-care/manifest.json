@@ -1,0 +1,47 @@
+{
+  "slug": "gender-affirming-care",
+  "title": "ANTI-DEBATE: Gender-Affirming Care (Layman Pascal vs. Shereef Bishay)",
+  "format": "anti-debate",
+  "participants": [
+    {
+      "key": "A",
+      "displayName": "Shereef Bishay"
+    },
+    {
+      "key": "B",
+      "displayName": "Layman Pascal"
+    }
+  ],
+  "moderator": {
+    "key": "MOD",
+    "displayName": "Stephanie Lepp"
+  },
+  "seats": {
+    "MOD": "moderator",
+    "A": "neg",
+    "B": "aff"
+  },
+  "speakerMap": {
+    "S1": "MOD",
+    "S2": "A",
+    "S3": "B"
+  },
+  "speakerMapEvidence": {
+    "method": "model proposal from self-identification and metadata (speaker-id-v0.1)",
+    "Shereef Bishay": "S2: Moderator: \"Sharif, we are going to start with your personal story\" (S2 responds, ~5.2m); opens second with \"I have a legal argument and a medical argument for my position... we don't allow minors to alter their bodies\" (11.9m); thanks \"Lehman\" (11.8m).",
+    "Layman Pascal": "S3: Moderator: \"layman, I'm actually gonna give you three minutes\" (5.4m), S3 then tells the Japanese restaurant/pride parade story (5.7m); opens first with \"So under what conditions should gender-affirming biological interventions be legal?\" (9.1m); S2 says \"Layman, I appreciated in your opening statement\" (19.8m).",
+    "confirmedBy": "Claude, as operator delegate (evidence reviewed 2026-09-28; host self-introduces; names from the video title)",
+    "Stephanie Lepp": "S1: \"I am your host today, Stephanie Leph, and our anti-debaters today will be Lehman Pascal and Sharif Fichet.\" (0.8m); also assigns time: \"Sharif, you now have three minutes to give your opening statement.\""
+  },
+  "sources": {
+    "video": "https://www.youtube.com/watch?v=3TxiIyCZXdE"
+  },
+  "media": {
+    "audio": "audio.m4a",
+    "transcript": "transcript.utterances.json",
+    "status": "transcribed"
+  },
+  "programStartMs": 26000,
+  "programStartNote": "0:00-0:26 is a narrated preface explaining that this is an early trial run of the format; the host's welcome starts at ~0:26.",
+  "formatNote": "Trial run of an earlier version of the Anti-Debate (per the preface); round structure differs from the current guide."
+}

@@ -34,6 +34,7 @@ const manifestPath = `${dir}/manifest.json`;
 
 interface Manifest {
   slug: string;
+  programStartMs?: number;
   title: string;
   format: string;
   moderator?: { key: string; displayName: string };
@@ -86,6 +87,7 @@ const firstLines = utterances.slice(0, 40).map((u) => `[${u.speaker}] ${u.text.s
 
 const SpeakerOut = z.object({
   title: z.string().describe('Short title for the debate'),
+  programStartMinute: z.number().nullable().describe('Minute where the event itself begins, after any teaser montage, trailer or narrated preface; null if it begins immediately'),
   speakers: z.array(
     z.object({
       label: z.string(),
@@ -99,7 +101,7 @@ const SpeakerOut = z.object({
 const res = await callStructured({
   pass: 'speaker_id',
   promptVersion: 'speaker-id-v0.1',
-  instructions: `You identify speakers in a diarized transcript of a moderated debate. Speaker labels (S1, S2, …) come from automatic diarization. For each label, decide who it is from what they say about themselves, how others address them, and the video metadata. Moderators introduce the debaters and keep time; audience members ask short questions late. Several labels can be the same person. Give verbatim evidence. If the evidence is weak, set displayName null and role unknown. Return only the JSON object required by the schema.`,
+  instructions: `You identify speakers in a diarized transcript of a moderated debate. Speaker labels (S1, S2, …) come from automatic diarization. For each label, decide who it is from what they say about themselves, how others address them, and the video metadata. Moderators introduce the debaters and keep time; audience members ask short questions late. Several labels can be the same person. Spell names as the video title/description do (ASR often misspells them). Give verbatim evidence. Also give the minute where the event itself starts, if the recording opens with a teaser, trailer or narrated preface. If the evidence is weak, set displayName null and role unknown. Return only the JSON object required by the schema.`,
   input: `VIDEO TITLE: ${info.title ?? '(none)'}\nVIDEO DESCRIPTION: ${(info.description ?? '').slice(0, 1500)}\n\nOPENING OF THE TRANSCRIPT:\n${firstLines}\n\nSAMPLES PER LABEL:\n${sample}`,
   schema: SpeakerOut,
 });
@@ -127,6 +129,7 @@ const manifest: Manifest = {
   seats: Object.fromEntries([...people.values()].filter((p) => p.seat !== 'none').map((p) => [p.key, p.seat as 'aff' | 'neg' | 'moderator'])),
   speakerMap: Object.fromEntries([...people.values()].flatMap((p) => p.labels.map((l) => [l, p.key]))),
   speakerMapEvidence: { method: 'model proposal from self-identification and metadata (speaker-id-v0.1)', ...Object.fromEntries([...people].map(([name, p]) => [name, p.evidence.join(' | ')])), confirmedBy: null },
+  ...(res.data.programStartMinute ? { programStartMs: Math.max(0, Math.round(res.data.programStartMinute * 60_000) - 5000) } : {}),
   sources: { ...(values.url ? { video: values.url } : info.webpage_url ? { video: info.webpage_url } : {}) },
   media: { audio: 'audio.m4a', transcript: 'transcript.utterances.json', status: 'transcribed' },
 };

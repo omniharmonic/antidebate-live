@@ -51,6 +51,8 @@ export class SessionEngine {
   // insight cadence
   private turnsSinceInsight = 0;
   private lastInsightMediaMs = 0;
+  /** End of the last processed turn: at --speed max the log runs far ahead of processing. */
+  private processedMediaMs = 0;
   private insightSeq = 0;
   private insightRunning: Promise<void> | null = null;
   private insightWanted = false;
@@ -150,6 +152,7 @@ export class SessionEngine {
   private async processTurn(turn: Turn) {
     const role = this.roleOf(turn.participantKey);
     if (this.turns.length === 0) this.lastInsightMediaMs = turn.startMs; // cadence starts with the session, not at 0
+    this.processedMediaMs = Math.max(this.processedMediaMs, turn.endMs);
     this.turns.push(turn);
     await this.append([
       {
@@ -216,7 +219,7 @@ export class SessionEngine {
     this.insightWanted = false;
     this.turnsSinceInsight = 0;
     const seq = this.insightSeq++;
-    const mediaMs = this.state.lastMediaMs;
+    const mediaMs = this.processedMediaMs;
     this.lastInsightMediaMs = mediaMs;
     this.insightRunning = (async () => {
       const t0 = Date.now();
