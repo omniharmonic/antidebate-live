@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { checkTrackSettings, micError, openMicDevice, stopStreams } from '@/lib/live/capture';
-import { mappingComplete } from '@/lib/live/live-view';
-import { DeviceSelect, Meter, primary, Problems, step, useLevels, type Person, type SetupResult } from './shared';
+import { deviceAction, mappingComplete } from '@/lib/live/live-view';
+import { button, DeviceSelect, Meter, primary, Problems, step, useLevels, type Person, type SetupResult } from './shared';
 
-type Opened = { deviceId: string; stream: MediaStream; channels: number; problems: string[] };
+type Opened = { deviceId: string; stream: MediaStream; channels: 1 | 2; problems: string[] };
 
 /** "Each speaker has their own mic": one or more 2-input interfaces (or USB mics), each input mapped to a person. */
 export function MicSetup({ people, onDone }: { people: Person[]; onDone: (r: SetupResult) => void }) {
@@ -23,18 +23,19 @@ export function MicSetup({ people, onDone }: { people: Person[]; onDone: (r: Set
   useEffect(() => { latest.current = devices; }, [devices]);
   useEffect(() => () => { if (!handed.current) stopStreams(latest.current.map((d) => d.stream)); }, []);
 
+  const action = deviceAction(devices.map((d) => ({ channels: d.channels, problems: d.problems.length })), debaters.length);
   const use = async (deviceId: string) => {
     setBusy(true);
     setError(null);
     try {
+      // Ask for two inputs; a USB mic gives one, and is checked (and stored) as one.
       const stream = await openMicDevice(deviceId, 2);
       const settings = stream.getAudioTracks()[0]?.getSettings() ?? {};
-      const opened: Opened = { deviceId, stream, channels: settings.channelCount ?? 1, problems: checkTrackSettings(settings, { channels: 2 }) };
-      // A device with problems is replaced; otherwise a second device is added only when more than two people debate.
-      const last = devices.at(-1);
-      const replace = last !== undefined && (last.problems.length > 0 || debaters.length <= 2);
-      if (replace) stopStreams([last.stream]);
-      setDevices(replace ? [...devices.slice(0, -1), opened] : [...devices, opened]);
+      const channels: 1 | 2 = settings.channelCount === 2 ? 2 : 1;
+      const opened: Opened = { deviceId, stream, channels, problems: checkTrackSettings(settings, { channels }) };
+      const keep = action === 'add' ? devices : devices.slice(0, -1);
+      if (action === 'replace') stopStreams([devices.at(-1)!.stream]);
+      setDevices([...keep, opened]);
       setMap({});
     } catch (e) {
       setError(micError(e));
@@ -44,18 +45,20 @@ export function MicSetup({ people, onDone }: { people: Person[]; onDone: (r: Set
   };
 
   const problems = devices.flatMap((d) => d.problems);
+  const startOver = () => { stopStreams(devices.map((d) => d.stream)); setDevices([]); setMap({}); };
   const ready = devices.length > 0 && problems.length === 0 && mappingComplete(map, debaters.map((p) => p.key));
   const done = () => {
     handed.current = true;
     const channels = Object.fromEntries(Object.entries(map).filter(([, k]) => k));
-    onDone({ kind: 'tracks', spec: { kind: 'mic', devices: devices.map((d) => ({ deviceId: d.deviceId, channels: 2 })) }, streams, channels });
+    onDone({ kind: 'tracks', spec: { kind: 'mic', devices: devices.map((d) => ({ deviceId: d.deviceId, channels: d.channels })) }, streams, channels });
   };
 
   return (
     <div className="space-y-6">
       <h2 className="text-[20px] text-ink">Each speaker has their own mic</h2>
       <p className={step}>Plug the audio interface into this laptop. Put each debater&apos;s mic in its own input (debater 1 in input 1, debater 2 in input 2). Turn off any auto-gain or &lsquo;Air&rsquo; setting on the interface.</p>
-      <DeviceSelect action={devices.length > 0 && debaters.length > 2 && problems.length === 0 ? 'Add this device' : 'Use this device'} onUse={(id) => void use(id)} busy={busy} />
+      <DeviceSelect action={action === 'add' ? 'Add this device' : 'Use this device'} onUse={(id) => void use(id)} busy={busy} />
+      {devices.length > 1 && <button type="button" className={button} onClick={startOver}>Start over</button>}
       {error && <p role="alert" className="text-[15px] text-ink">{error}</p>}
       {tapError && <p role="alert" className="text-[15px] text-ink">{tapError}</p>}
       <Problems list={problems} />

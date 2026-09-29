@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DomainEvent } from '@adl/core';
-import { listenChannels, mappingComplete, noticeLine, pendingFromLog, statusLine, transcriptLines, visibleNotices } from './live-view';
+import { deviceAction, latencyWarning, listenChannels, mappingComplete, noticeLine, pendingFromLog, statusLine, transcriptLines, visibleNotices } from './live-view';
 
 const ctx = { channels: { d0c0: 'A', d0c1: 'B' }, names: { A: 'Ann', B: 'Bo' } };
 
@@ -15,6 +15,14 @@ describe('live view helpers', () => {
   it('says how many inputs and how far behind, to one decimal', () => {
     expect(statusLine(2, 1340)).toBe('Listening · 2 inputs · transcript about 1.3 s behind');
     expect(statusLine(1, null)).toBe('Listening · 1 input');
+  });
+
+  it('warns when the last three utterances were each more than 4 s behind', () => {
+    const line = 'Transcription is running more than 4 seconds behind on this laptop. Close other apps, or switch to a faster laptop.';
+    expect(latencyWarning([4100, 5000, 4500])).toBe(line);
+    expect(latencyWarning([4100, 3900, 4500])).toBeNull();
+    expect(latencyWarning([5000, 5000])).toBeNull();
+    expect(latencyWarning([1000, 5000, 5000, 5000])).toBe(line);
   });
 
   it('words each notice with input numbers and names', () => {
@@ -38,6 +46,15 @@ describe('live view helpers', () => {
   it('segments each mapped mic in the tracks setup, else the one feed', () => {
     expect(listenChannels({ kind: 'tracks', channels: { d0c1: 'B', d0c0: 'A' } })).toEqual(['d0c0', 'd0c1']);
     expect(listenChannels({ kind: 'room', channels: {} })).toEqual(['d0c0']);
+  });
+
+  it('adds devices until every debater can have an input, and replaces a device with problems', () => {
+    expect(deviceAction([], 2)).toBe('use');
+    expect(deviceAction([{ channels: 2, problems: 0 }], 2)).toBe('replace');
+    expect(deviceAction([{ channels: 1, problems: 0 }], 2)).toBe('add');
+    expect(deviceAction([{ channels: 1, problems: 0 }, { channels: 1, problems: 0 }], 2)).toBe('replace');
+    expect(deviceAction([{ channels: 2, problems: 0 }], 3)).toBe('add');
+    expect(deviceAction([{ channels: 1, problems: 0 }, { channels: 2, problems: 1 }], 2)).toBe('replace');
   });
 
   it('needs every debater on exactly one input', () => {

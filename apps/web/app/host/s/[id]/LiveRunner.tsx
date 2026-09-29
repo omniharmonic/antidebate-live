@@ -6,7 +6,7 @@ import type { ChannelMap } from '@/lib/attribution/attributor';
 import { KEY_STORAGE } from '@/lib/anthropic-key';
 import { idbAnchorsStore } from '@/lib/live/anchors-store';
 import { pendingLive } from '@/lib/live/handoff';
-import { listenChannels, pendingFromLog, statusLine, transcriptLines, type PendingLine } from '@/lib/live/live-view';
+import { latencyWarning, listenChannels, pendingFromLog, statusLine, transcriptLines, type PendingLine } from '@/lib/live/live-view';
 import type { LiveStatus } from '@/lib/live/runner';
 import { markHostSession } from '@/lib/recording/host-sessions';
 import { useStored } from '@/lib/use-stored';
@@ -134,7 +134,7 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
         {phase === 'loading' && !error && <p className="text-[20px] text-ink">Opening the session</p>}
         {phase === 'elsewhere' && <p className="text-[20px] text-ink">This session was set up on another laptop. Open it there to keep listening.</p>}
         {phase === 'ending' && <p className="text-[20px] text-ink" aria-live="polite">Ending…</p>}
-        {phase === 'ended' && !rejected && <p className="text-[20px] text-ink">Session ended. Open the map.</p>}
+        {phase === 'ended' && <p className="text-[20px] text-ink">Session ended. Open the map.</p>}
         {phase === 'live' && setup && (
           <div className="space-y-3">
             {capture.state === 'on' && <p className="text-[20px] text-ink" aria-live="polite">{statusLine(listenChannels(setup).length, status?.lastLatencyMs ?? null)}</p>}
@@ -148,6 +148,7 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
             )}
           </div>
         )}
+        {phase === 'live' && capture.state === 'on' && status && latencyWarning(status.recentLatencyMs) && <p role="status" className="text-[15px] text-ink">{latencyWarning(status.recentLatencyMs)}</p>}
         {model && <p className="text-[15px] text-ink-2">{model}</p>}
         {error && <p role="alert" className="text-[15px] text-ink">{error}</p>}
         {hidden && phase === 'live' && <p role="status" className="text-[15px] text-ink">This tab is in the background. Keep it in front so capture isn&apos;t slowed.</p>}
@@ -168,7 +169,7 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
         )}
         {upload.pending > 0 && <p className="text-[15px] text-ink-2">{upload.pending} {upload.pending === 1 ? 'event' : 'events'} waiting to upload{upload.lastError ? `: ${upload.lastError}` : ''}</p>}
         {spend > 0 && <p className="text-sm text-ink-3">Estimated spend: ${spend.toFixed(2)}</p>}
-        {phase !== 'loading' && <DoneLinks id={id} />}
+        {phase !== 'loading' && <DoneLinks id={id} newTab={phase !== 'ended'} />}
         {phase === 'ended' && <Publish id={id} />}
       </div>
     </div>

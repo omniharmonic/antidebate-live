@@ -10,6 +10,8 @@ export type LiveStatus = {
   audio: 'ok' | 'stopped';
   queue: number;
   lastLatencyMs: number | null;
+  /** Latency of the last three utterances, oldest first. */
+  recentLatencyMs: number[];
   notices: Notice[];
   unconfirmed: { utteranceId: string; text: string; candidates: Record<string, number> }[];
   /** Voices nobody enrolled, in the order they were heard, with the utterances to confirm together. */
@@ -50,6 +52,7 @@ export class LiveRunner {
   private queued = 0;
   private stopped = false;
   private lastLatencyMs: number | null = null;
+  private recentLatencyMs: number[] = [];
   private notices: Notice[] = [];
   private readonly unconfirmed = new Map<string, { text: string; candidates: Record<string, number>; endMs: number }>();
   private readonly newVoices: { label: string; utteranceIds: string[] }[] = [];
@@ -218,6 +221,7 @@ export class LiveRunner {
       else if (!matchFailed) this.groupNewVoice(id, u.pcm, tempBest);
     }
     this.lastLatencyMs = this.now() - (job.endedAt ?? job.arrivedAt);
+    this.recentLatencyMs = [...this.recentLatencyMs, this.lastLatencyMs].slice(-3);
     this.publish();
   }
 
@@ -254,6 +258,7 @@ export class LiveRunner {
       audio: this.stopped ? 'stopped' : 'ok',
       queue: this.queued,
       lastLatencyMs: this.lastLatencyMs,
+      recentLatencyMs: [...this.recentLatencyMs],
       notices: [...this.notices],
       unconfirmed: [...this.unconfirmed].map(([utteranceId, v]) => ({ utteranceId, text: v.text, candidates: v.candidates })),
       newVoices: this.newVoices.map((v) => ({ label: v.label, utteranceIds: [...v.utteranceIds] })),

@@ -7,12 +7,14 @@ import { setPublished } from './start-recording';
 
 export const button = 'min-h-11 rounded border border-border-2 px-4 text-[15px] text-ink hover:bg-field-deep disabled:opacity-50';
 
-export function DoneLinks({ id }: { id: string }) {
+/** `newTab` while a live session runs: leaving this page would stop capture and the analysis. */
+export function DoneLinks({ id, newTab = false }: { id: string; newTab?: boolean }) {
   const s = encodeURIComponent(id);
+  const tab = newTab ? { target: '_blank', rel: 'noopener' } : {};
   return (
     <div className="flex flex-wrap gap-3">
-      <Link className={`${button} inline-flex items-center`} href={`/s/${s}/spatial`}>Open the map</Link>
-      <Link className={`${button} inline-flex items-center`} href={`/s/${s}/cockpit`}>Open the cockpit</Link>
+      <Link className={`${button} inline-flex items-center`} href={`/s/${s}/spatial`} {...tab}>Open the map</Link>
+      <Link className={`${button} inline-flex items-center`} href={`/s/${s}/cockpit`} {...tab}>Open the cockpit</Link>
     </div>
   );
 }

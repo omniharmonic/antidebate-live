@@ -103,6 +103,13 @@ export async function openLiveSession(sessionId: string, handoff: LiveHandoff | 
       await runner.stop();
       engine.finishSource();
       await running;
+      // The engine writes session.ended when it finishes; stopped by a refused key it cannot, so End writes it
+      // (same id, so it is never doubled).
+      const all = await events();
+      if (!all.some((e) => e.type === 'session.ended')) {
+        const mediaMs = all.reduce((m, e) => Math.max(m, e.mediaMs), 0);
+        await log.append([{ eventId: `${sessionId}:end`, sessionId, type: 'session.ended', actor: 'system', mediaMs, wallTs: new Date().toISOString(), payload: {} } as DomainEvent]);
+      }
       await log.close();
       release();
     },
@@ -111,4 +118,15 @@ export async function openLiveSession(sessionId: string, handoff: LiveHandoff | 
       void runner.stop().then(() => running).then(() => log.close()).finally(release);
     },
   };
+}
+
+/** The session's title and source kind from its session.started event (for a session this browser did not start). */
+export async function sessionSource(sessionId: string): Promise<{ title: string; kind: 'live' | 'recording' } | null> {
+  const token = await sessionToken(sessionId);
+  const res = await fetch(`/api/events?sessionId=${encodeURIComponent(sessionId)}&after=0`, { headers: { authorization: `Bearer ${token}` } });
+  if (!res.ok) return null;
+  const { events } = (await res.json()) as { events: DomainEvent[] };
+  const started = events.find((e) => e.type === 'session.started');
+  if (started?.type !== 'session.started') return null;
+  return { title: started.payload.title, kind: started.payload.source?.kind === 'live' ? 'live' : 'recording' };
 }

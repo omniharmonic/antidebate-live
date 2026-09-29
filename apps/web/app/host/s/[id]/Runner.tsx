@@ -9,6 +9,7 @@ import { useStored } from '@/lib/use-stored';
 import type { Stage } from '@/lib/recording/pipeline';
 import { LiveRunner } from './LiveRunner';
 import { button, DoneLinks, KeyRejected, Publish, UploadWaiting } from './RunnerParts';
+import { sessionSource } from './start-live';
 import { startRecording, uploadOutbox, type NamingRequest } from './start-recording';
 import { PAUSE_NOTE, useProcessingGuards } from './use-processing-guards';
 import { VoiceNaming } from './VoiceNaming';
@@ -30,12 +31,26 @@ function stageLine(s: Stage, elapsedMs: number): string {
   }
 }
 
-/** Routes by the session's source: live sessions get the live host view, recordings the processing view. */
+/**
+ * Routes by the session's source: live sessions get the live host view, recordings the processing
+ * view. A session this browser did not start is looked up from its session.started event.
+ */
 export function Runner({ id }: { id: string }) {
   const raw = useStored(HOST_SESSIONS_KEY);
   const entry = useMemo(() => parseHostSessions(raw).find((s) => s.id === id) ?? null, [raw, id]);
-  if (raw === undefined) return null;
-  if (entry?.kind === 'live') return <LiveRunner id={id} title={entry.title} />;
+  const [remote, setRemote] = useState<{ title: string; kind: 'live' | 'recording' } | null | 'unknown'>(null);
+  const missing = raw !== undefined && !entry;
+
+  useEffect(() => {
+    if (!missing) return;
+    let live = true;
+    sessionSource(id).then((s) => { if (live) setRemote(s ?? 'unknown'); }, () => { if (live) setRemote('unknown'); });
+    return () => { live = false; };
+  }, [missing, id]);
+
+  if (raw === undefined || (missing && remote === null)) return null;
+  const found = entry ?? (remote !== 'unknown' ? remote : null);
+  if (found?.kind === 'live') return <LiveRunner id={id} title={found.title} />;
   return <RecordingRunner id={id} />;
 }
 

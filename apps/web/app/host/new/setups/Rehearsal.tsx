@@ -69,7 +69,7 @@ export function Rehearsal({ people, setup, anchors, onStart }: { people: Person[
     let live = true;
     runnerRef.current = runner;
     listen({ streams: setup.streams, channels: listenChannels(setup), runner, startedAt: Date.now() })
-      .then((s) => { if (live) stopRef.current = s; else s(); }, (e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+      .then((s) => { if (live) stopRef.current = s; else s(); }, (e: unknown) => { if (live) setError(e instanceof Error ? e.message : String(e)); });
     const t = setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000);
     return () => {
       live = false;

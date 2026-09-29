@@ -21,6 +21,16 @@ export function statusLine(inputs: number, latencyMs: number | null): string {
   return latencyMs === null ? head : `${head} · transcript about ${(latencyMs / 1000).toFixed(1)} s behind`;
 }
 
+const SLOW_MS = 4_000;
+const SLOW_STREAK = 3;
+
+/** The warning when each of the last three utterances came through more than 4 s after it ended. */
+export function latencyWarning(recentMs: number[]): string | null {
+  const last = recentMs.slice(-SLOW_STREAK);
+  if (last.length < SLOW_STREAK || !last.every((ms) => ms > SLOW_MS)) return null;
+  return 'Transcription is running more than 4 seconds behind on this laptop. Close other apps, or switch to a faster laptop.';
+}
+
 /** The channel a participant is mapped to, if any. */
 export function channelOf(channels: ChannelMap, key: string): string | undefined {
   return Object.keys(channels).find((c) => channels[c] === key);
@@ -55,6 +65,17 @@ export function visibleNotices(notices: Notice[], dismissed: Set<number>): { ind
       if (notice.kind === 'dead_channel') return !notices.some((m, j) => j > index && m.kind === 'channel_recovered' && m.channel === notice.channel);
       return true;
     });
+}
+
+/**
+ * What choosing a device does in the mics setup: the first one is used; a device with problems is
+ * replaced; otherwise devices are added until there is an input for every debater, then replaced.
+ */
+export function deviceAction(devices: { channels: number; problems: number }[], debaters: number): 'use' | 'add' | 'replace' {
+  const last = devices.at(-1);
+  if (!last) return 'use';
+  if (last.problems > 0) return 'replace';
+  return devices.reduce((n, d) => n + d.channels, 0) < debaters ? 'add' : 'replace';
 }
 
 /** Every debater is on exactly one input (others, such as the moderator, may have one too). */

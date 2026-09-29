@@ -75,10 +75,12 @@ export function useLiveCapture(session: LiveSession | null, onError: (message: s
 
   const pause = useCallback(() => { halt(); setState('paused'); }, [halt]);
   const resume = useCallback(() => void begin(streams.current), [begin]);
+  /** Stops the tap and closes the audio. The state is 'stopped', so a failed End still offers "Resume audio". */
   const end = useCallback(() => {
     halt();
     stopStreams(streams.current);
     streams.current = [];
+    setState('stopped');
   }, [halt]);
   const clip = useCallback((id: string) => clips.current.get(id)?.pcm, []);
 

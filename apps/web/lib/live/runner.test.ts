@@ -193,4 +193,11 @@ describe('LiveRunner', () => {
     await r.retryAt('mono', 9999);
     expect(statuses.at(-1)!.failed).toHaveLength(1);
   });
+  it('keeps the last three latencies, one per utterance', async () => {
+    const statuses: import('./runner').LiveStatus[] = [];
+    const t = 10_000;
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.99 }) }, log: new Mem(), onStatus: (s) => statuses.push(s), now: () => t });
+    for (const [i, lag] of [1000, 5000, 6000, 7000].entries()) await r.onUtterance('mono', { startMs: i * 2000, endMs: i * 2000 + 900, pcm }, {}, false, t - lag);
+    expect(statuses.at(-1)!.recentLatencyMs).toEqual([5000, 6000, 7000]);
+  });
 });
