@@ -60,4 +60,15 @@ describe('DiarizeClient', () => {
     expect(sent.transfer).toEqual([sent.msg.samples.buffer]);
     expect(mono.length).toBe(3);
   });
+
+  it('matchVoices asks the worker for anchors + 1 clusters and scores the reply', async () => {
+    const { client, worker } = await loaded();
+    const p = client.matchVoices([{ key: 'A', pcm: new Float32Array(32_000) }, { key: 'B', pcm: new Float32Array(32_000) }], new Float32Array(16_000));
+    const sent = worker.posted[0]!.msg as unknown as { id: number; type?: string; numClusters?: number };
+    expect(sent.type).toBe('match');
+    expect(sent.numClusters).toBe(3);
+    const segments = [{ startMs: 0, endMs: 2000, label: 'S0', confidence: 1 }, { startMs: 2500, endMs: 4500, label: 'S1', confidence: 1 }, { startMs: 5000, endMs: 6000, label: 'S1', confidence: 1 }];
+    worker.onmessage!({ data: { id: sent.id, ok: true, segments } });
+    expect(await p).toEqual({ A: 0, B: 1 });
+  });
 });

@@ -23,11 +23,22 @@ self.Module = {
   },
 };
 importScripts('/sherpa/sherpa-onnx-speaker-diarization.js', '/sherpa/sherpa-onnx-wasm-main-speaker-diarization.js');
+const toSegments = (segs) => segs.map((s) => ({ startMs: Math.round(s.start * 1000), endMs: Math.round(s.end * 1000), label: `S${s.speaker}`, confidence: SEGMENT_CONFIDENCE }));
 self.onmessage = (e) => {
-  const { id, samples } = e.data;
+  const { id, samples, type, numClusters } = e.data;
   try {
-    const segs = sd.process(samples);
-    self.postMessage({ id, ok: true, segments: segs.map((s) => ({ startMs: Math.round(s.start * 1000), endMs: Math.round(s.end * 1000), label: `S${s.speaker}`, confidence: SEGMENT_CONFIDENCE })) });
+    if (type === 'match') {
+      // Voice matching: anchors + one extra cluster so an unknown voice can stand apart. The
+      // recording clustering is restored afterwards, even when process throws.
+      sd.setConfig({ clustering: { numClusters, threshold: CONFIG.clustering.threshold } });
+      try {
+        self.postMessage({ id, ok: true, segments: toSegments(sd.process(samples)) });
+      } finally {
+        sd.setConfig({ clustering: CONFIG.clustering });
+      }
+      return;
+    }
+    self.postMessage({ id, ok: true, segments: toSegments(sd.process(samples)) });
   } catch (err) {
     self.postMessage({ id, ok: false, error: String(err && err.message ? err.message : err) });
   }
