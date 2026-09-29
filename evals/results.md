@@ -15,6 +15,19 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-29 · Ingest 5: Open-Source AI (Stephanie Lepp hosting, Jenny Stefanotti moderating; Jeremy Nixon × Daniel Barcay) · open-source-ai-r1 · 2h16 · subscription, $0
+
+Round-3 code (convergence, card stability, l4 v0.2, l3 v0.3). 767 calls, $0 billed.
+- **Richest structure so far:** 573 approved claims, 22 clashes, **6 shared** (stated + converging), 4 merges. Stated disagreements are still 0: in this format debaters rarely restate each other's claims, so disagreement surfaces as clashes, which the crux card labels as inferred from opposing claims.
+- **Card stability works:** 18 distinct higher-ground ideas over 136 minutes (Belief in God had 28 variants in 94). Crux changed 6 times, each at a real turn in the argument ("open source keeps powerful forces honest" → "open source AI is central to avoiding centralization" → "a lot of behavior nobody understands can be smuggled into AI systems").
+- **Higher ground, examples:** "'Open' in AI is a spectrum… claims should be tested at each point, not for 'open source AI' as one label" (domain_partition); "Risks that fall mainly on the person who chooses them can be left to individual choice, while risks that spread to people who never opted in warrant shared standards"; closing: "Open source AI is on net good but is not the cure-all it was promised to be…".
+- **Rounds:** 11 named, but they jitter (Steel-Manning 36.0 → Open Debate 36.3 → Steel-Manning 50.0). Fix: a code-level sequence guard (never back to an earlier phase; a within-phase step back only after 3 minutes), with tests.
+- 18 unattributed utterances (audience Q&A); they never enter the map.
+
+**Ingest loop complete: all six playlist videos processed, $0 API.**
+
+---
+
 ## 2026-09-29 · Ingest 4: Destiny × Michael Shermer (Alexander Beiner facilitating, Stephanie Lepp hosting) · destiny-shermer-r1 · subscription, $0
 
 Run with the round-2 code (it started before the round-3 fixes). 513 approved claims, 10 clashes, 1 shared; both co-moderators attributed correctly (MOD, MOD2); 0 unattributed utterances.

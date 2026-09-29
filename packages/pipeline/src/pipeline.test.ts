@@ -136,3 +136,13 @@ describe('card stability', () => {
     expect(out.higherGround.map((h) => h.text)).toEqual(['Audits of labs should begin now.']);
   });
 });
+
+describe('round sequence guard', () => {
+  it('never returns to an earlier phase; allows a within-phase step back only after 3 minutes', async () => {
+    const { acceptRoundChange } = await import('./rounds');
+    expect(acceptRoundChange('anti-debate', 'steelman', 36 * 60000, 'open_debate', 36.3 * 60000)).toBe(false);
+    expect(acceptRoundChange('anti-debate', 'rebuttals', 26 * 60000, 'steelman', 36 * 60000)).toBe(true);
+    expect(acceptRoundChange('anti-debate', 'openings', 9.6 * 60000, 'connection', 10 * 60000)).toBe(false);
+    expect(acceptRoundChange('anti-debate', 'openings', 9.6 * 60000, 'connection', 14 * 60000)).toBe(true);
+  });
+});

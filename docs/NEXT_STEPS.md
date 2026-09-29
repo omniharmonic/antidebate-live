@@ -3,14 +3,14 @@
 Ordered by the critical path in [IMPLEMENTATION_PLAN §4](./IMPLEMENTATION_PLAN.md). Check items off in PRs.
 
 ## 0. The long-running build loop (Benjamin, 2026-09-28). Work through in order in one session
-1. [ ] **Ingest loop** over every playlist debate (subscription only, $0 API): run the full pipeline → `diagnose` → write the findings and an improvement plan in `evals/results.md` → implement → verify on the next ingest.
+1. [x] **Ingest loop** over every playlist debate (subscription only, $0 API): run the full pipeline → `diagnose` → write the findings and an improvement plan in `evals/results.md` → implement → verify on the next ingest.
    - [x] Ball × Kokotajlo (r1 on Opus/API, stopped at 80m; r2 on Sonnet, full)
    - [x] Gender-Affirming Care (gac-r1)
    - [x] Belief in God (belief-in-god-r1)
    - [x] Destiny × Shermer (co-moderated)
-   - [ ] Open-Source AI (co-moderated, ~2h15). Running with the round-3 fixes
+   - [x] Open-Source AI (co-moderated, ~2h15)
    - [x] Ignite talk (one-speaker edge case)
-2. [ ] **Frontend UX pass**, plus new form factors: a 4D view (3D agreement/disagreement/depth space across time) and anything else that makes the output compelling for audiences and moderators.
+2. [ ] **Frontend UX pass** (in progress: Section design direction, 4D spatial view, Positions lens), plus new form factors: a 4D view (3D agreement/disagreement/depth space across time) and anything else that makes the output compelling for audiences and moderators.
    - **Start from the design samples** in `design-explorations/2026-09-28-conversation-instrument/` (README, DIRECTION, COPY, PROMPTS, REVIEW, and mockups of the spatial field, timeline and cockpit), made by another agent to guide visual design.
    - **Additive only (Benjamin, 2026-09-28):** the 4D view is an *additional* view. Keep the existing timeline/arc, cockpit and console views; improve them, never remove or replace them.
 3. [ ] **Comprehensive end-to-end testing loop(s)** across ALL ingested sessions and their results, for high-quality multi-dimensional insights and stunning visualizations. Several evaluate → fix → re-verify iterations: rerun sessions with the final pipeline, check every surface (cockpit, arc, 4D, console) on every session in a browser, and grade insight quality against the references. Only then wrap the session.

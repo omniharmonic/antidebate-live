@@ -170,7 +170,7 @@ export class SessionEngine {
     if (role === 'moderator') {
       const before = this.state.round?.roundId ?? null;
       const previousModeratorTurns = this.turns.filter((t) => t !== turn && this.roleOf(t.participantKey) === 'moderator').slice(-3).map((t) => t.text);
-      const r = await detectRound(turn, { sessionId: this.opts.sessionId, formatId: this.formatId, currentRoundId: before, previousModeratorTurns, wallTs: now });
+      const r = await detectRound(turn, { sessionId: this.opts.sessionId, formatId: this.formatId, currentRoundId: before, currentRoundStartedMs: this.state.round?.startedMediaMs ?? null, previousModeratorTurns, wallTs: now });
       this.logCall(r.log);
       await this.append(r.events);
       if (r.events.some((e) => e.type === 'round.started')) {

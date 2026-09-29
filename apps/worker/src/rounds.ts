@@ -29,14 +29,16 @@ if (last) turns.push(last);
 const mod = new Set(state.participants.filter((p) => p.role === 'moderator').map((p) => p.key));
 console.log(`${values.fixture}: ${turns.length} turns, ${turns.filter((t) => mod.has(t.participantKey)).length} moderator turns · provider ${provider()}`);
 let current: string | null = null;
+let startedMs: number | null = null;
 const prev: string[] = [];
 for (const t of turns) {
   if (!mod.has(t.participantKey)) continue;
-  const r = await detectRound(t, { sessionId, formatId: meta.format, currentRoundId: current, previousModeratorTurns: prev.slice(-3), wallTs: () => new Date().toISOString() });
+  const r = await detectRound(t, { sessionId, formatId: meta.format, currentRoundId: current, currentRoundStartedMs: startedMs, previousModeratorTurns: prev.slice(-3), wallTs: () => new Date().toISOString() });
   if (r.error) console.log(`  ${(t.startMs / 60000).toFixed(1)}m error ${r.error}`);
   const started = r.events.find((e) => e.type === 'round.started');
   if (started?.type === 'round.started') {
     current = started.payload.roundId;
+    startedMs = started.mediaMs;
     console.log(`  ${(t.startMs / 60000).toFixed(1).padStart(5)}m → ${started.payload.name}`);
   }
   prev.push(t.text);

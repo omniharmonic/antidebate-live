@@ -35,14 +35,35 @@ export function buildRoundInput(formatId: string, currentRoundId: string | null,
   return `FORMAT: ${f.name}\nROUNDS (usual order):\n${rounds}\n\nCURRENT ROUND: ${currentRoundId ?? 'none yet'}\n\nMODERATOR'S PREVIOUS TURNS (context):\n${prev}\n\nMODERATOR'S LATEST TURN:\n"""\n${turnText}\n"""`;
 }
 
+const PHASE_ORDER = ['clarifying_difference', 'exploring_synthesis', 'taking_stock'];
+
+/**
+ * Sequence guard (code, not model): rounds never move back to an earlier phase, and
+ * move back within a phase only after the current round has run 3 minutes. This stops
+ * jitter such as Steel-Manning → Open Debate → Steel-Manning within a few seconds.
+ */
+export function acceptRoundChange(formatId: string, currentRoundId: string | null, currentStartedMs: number | null, nextRoundId: string, atMs: number): boolean {
+  const rounds = getFormat(formatId).rounds;
+  const cur = currentRoundId ? rounds.find((r) => r.id === currentRoundId) : undefined;
+  const next = rounds.find((r) => r.id === nextRoundId);
+  if (!next) return false;
+  if (!cur) return true;
+  const phaseDelta = PHASE_ORDER.indexOf(next.phase) - PHASE_ORDER.indexOf(cur.phase);
+  if (phaseDelta < 0) return false;
+  if (phaseDelta > 0) return true;
+  const backwards = rounds.indexOf(next) < rounds.indexOf(cur);
+  return !backwards || currentStartedMs === null || atMs - currentStartedMs >= 180_000;
+}
+
 /** round.ended + round.started when the moderator opens a different round. */
 export function roundEvents(
   turn: Turn,
   out: RoundOutput,
-  ctx: { sessionId: string; formatId: string; currentRoundId: string | null; wallTs: string },
+  ctx: { sessionId: string; formatId: string; currentRoundId: string | null; currentRoundStartedMs?: number | null; wallTs: string },
 ): DomainEvent[] {
   const def = out.opensRound ? getFormat(ctx.formatId).rounds.find((r) => r.id === out.opensRound) : undefined;
   if (!def || !out.certain || def.id === ctx.currentRoundId) return [];
+  if (!acceptRoundChange(ctx.formatId, ctx.currentRoundId, ctx.currentRoundStartedMs ?? null, def.id, turn.startMs)) return [];
   const base = { sessionId: ctx.sessionId, actor: 'system' as const, mediaMs: turn.startMs, wallTs: ctx.wallTs, causedBy: [turn.turnId] };
   const events: DomainEvent[] = [];
   if (ctx.currentRoundId) events.push({ ...base, eventId: `${turn.turnId}:round-end`, type: 'round.ended', payload: { roundId: ctx.currentRoundId } });
@@ -52,7 +73,7 @@ export function roundEvents(
 
 export async function detectRound(
   turn: Turn,
-  ctx: { sessionId: string; formatId: string; currentRoundId: string | null; previousModeratorTurns?: string[]; wallTs: () => string },
+  ctx: { sessionId: string; formatId: string; currentRoundId: string | null; currentRoundStartedMs?: number | null; previousModeratorTurns?: string[]; wallTs: () => string },
 ): Promise<{ events: DomainEvent[]; log: LlmCallLog; error?: string }> {
   const result = await callStructured({
     pass: 'round_detect',
