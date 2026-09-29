@@ -32,6 +32,8 @@ export interface EngineOptions {
   insightEveryTurns?: number;
   insightEveryMs?: number;
   pollMs?: number;
+  /** Hold utterances awaiting host confirmation out of the map until confirmed (default true). */
+  holdPending?: boolean;
   onCall?: (l: LlmCallLog) => void;
   /** Called once per loop tick. */
   onProgress?: (p: { processedMediaMs: number; queued: number; insightRunning: boolean }) => void;
@@ -50,6 +52,8 @@ export class SessionEngine {
   private queue: Turn[] = [];
   private turns: Turn[] = [];
   private own = new Set<string>();
+  /** Unconfirmed utterances, held out of the turn buffer until `attribution.confirmed`. */
+  private parked = new Map<string, SessionState['utterances'] extends Map<string, infer U> ? U : never>();
   /** Turns a previous run closed, in order (resume after a reload). */
   private closedBefore: string[] = [];
   /** Ids of L1 events a previous run wrote (`<turnId>:<ref>:…`). */
@@ -72,7 +76,7 @@ export class SessionEngine {
   private readonly opts: Required<Omit<EngineOptions, 'onCall' | 'onProgress' | 'say'>> & Pick<EngineOptions, 'onCall' | 'onProgress' | 'say'>;
 
   constructor(opts: EngineOptions) {
-    this.opts = { silenceMs: 3500, insightEveryTurns: 6, insightEveryMs: 240_000, pollMs: 400, ...opts };
+    this.opts = { silenceMs: 3500, insightEveryTurns: 6, insightEveryMs: 240_000, pollMs: 400, holdPending: true, ...opts };
     this.state = emptyState(opts.sessionId);
     this.buffer = new TurnBuffer(opts.sessionId);
   }
@@ -112,7 +116,18 @@ export class SessionEngine {
       this.resumeInsight(e);
       if (e.type === 'utterance.final') {
         this.lastUtteranceWall = Date.now();
-        for (const t of this.buffer.push(e.payload.utterance)) this.queue.push(t);
+        const u = e.payload.utterance;
+        if (this.opts.holdPending && this.state.pendingAttribution.has(u.id)) {
+          this.parked.set(u.id, u);
+          continue;
+        }
+        for (const t of this.buffer.push(u)) this.queue.push(t);
+      }
+      if (e.type === 'attribution.confirmed' && this.parked.has(e.payload.utteranceId)) {
+        const u = this.state.utterances.get(e.payload.utteranceId)!; // the reducer already applied the confirmed speaker
+        this.parked.delete(u.id);
+        this.lastUtteranceWall = Date.now();
+        for (const t of this.buffer.push(u)) this.queue.push(t);
       }
     }
   }

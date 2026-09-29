@@ -190,3 +190,65 @@ describe('SessionEngine with an injected caller', () => {
     expect(log.events.filter((e) => e.type === 'insight.proposed' && !before.has(e.eventId))).toEqual([]);
   });
 });
+
+describe('holdPending', () => {
+  const start = (id: string): DomainEvent => ({ eventId: `${id}:start`, sessionId: id, type: 'session.started', actor: 'operator', mediaMs: 0, wallTs: w, payload: { title: 'T', format: 'open', participants: [{ key: 'A', displayName: 'Ann', role: 'debater' }, { key: 'B', displayName: 'Bo', role: 'debater' }] } });
+  const pending = (id: string, uttId: string): DomainEvent => ({ eventId: `${id}:${uttId}:pending`, sessionId: id, type: 'attribution.pending', actor: 'system', mediaMs: 0, wallTs: w, payload: { utteranceId: uttId, candidates: {} } });
+  const confirm = (uttId: string, key: string, mediaMs: number): DomainEvent => ({ eventId: `${sid}:${uttId}:confirm`, sessionId: sid, type: 'attribution.confirmed', actor: 'operator', mediaMs, wallTs: w, payload: { utteranceId: uttId, participantKey: key } });
+  const offline = (seen: string[]) => setCaller(async (c) => { seen.push(c.input); return { ok: false, reason: 'provider_error', detail: 'x', log: { pass: c.pass } as never }; });
+
+  for (const key of ['UNK', 'A']) {
+    it(`a pending line (key ${key}) never reaches L1 unless confirmed, and does not block later turns`, async () => {
+      const seen: string[] = [];
+      offline(seen);
+      const log = new MemLog();
+      await log.append([start(sid), pending(sid, 'u1'), utt('u1', key, 0, 'Unsure speaker line.'), utt('u2', 'B', 3000, 'Bo speaks clearly here.')]);
+      const engine = new SessionEngine({ sessionId: sid, log, pollMs: 5, silenceMs: 1 });
+      engine.finishSource();
+      await engine.run();
+      expect(seen.some((s) => s.includes('Unsure speaker line.'))).toBe(false);
+      expect(seen.some((s) => s.includes('Bo speaks clearly here.'))).toBe(true);
+      expect(log.events.at(-1)!.type).toBe('session.ended');
+    });
+  }
+
+  it('a confirmed line is processed as the confirmed speaker', async () => {
+    const seen: string[] = [];
+    offline(seen);
+    const log = new MemLog();
+    await log.append([start(sid), pending(sid, 'u1'), utt('u1', 'UNK', 0, 'Ann said this.'), confirm('u1', 'A', 2000)]);
+    const engine = new SessionEngine({ sessionId: sid, log, pollMs: 5, silenceMs: 1 });
+    engine.finishSource();
+    await engine.run();
+    expect(seen.some((s) => s.includes('Ann said this.'))).toBe(true);
+    const closed = log.events.find((e) => e.type === 'turn.closed');
+    expect(closed?.type === 'turn.closed' && closed.payload.participantKey).toBe('A');
+  });
+
+  it('a line confirmed after later turns were processed is still processed', async () => {
+    const seen: string[] = [];
+    offline(seen);
+    const log = new MemLog();
+    await log.append([start(sid), pending(sid, 'u1'), utt('u1', 'UNK', 0, 'Late confirmed line.'), utt('u2', 'B', 3000, 'Bo goes first.'), utt('u3', 'A', 9000, 'Ann follows up.')]);
+    const engine = new SessionEngine({ sessionId: sid, log, pollMs: 5, silenceMs: 1 });
+    const running = engine.run();
+    await new Promise((r) => setTimeout(r, 100));
+    await log.append([confirm('u1', 'A', 12000)]);
+    await new Promise((r) => setTimeout(r, 100));
+    engine.finishSource();
+    await running;
+    expect(seen.some((s) => s.includes('Bo goes first.'))).toBe(true);
+    expect(seen.some((s) => s.includes('Late confirmed line.'))).toBe(true);
+  });
+
+  it('holdPending: false restores the old behaviour', async () => {
+    const seen: string[] = [];
+    offline(seen);
+    const log = new MemLog();
+    await log.append([start(sid), pending(sid, 'u1'), utt('u1', 'A', 0, 'Guessed speaker line.')]);
+    const engine = new SessionEngine({ sessionId: sid, log, pollMs: 5, silenceMs: 1, holdPending: false });
+    engine.finishSource();
+    await engine.run();
+    expect(seen.some((s) => s.includes('Guessed speaker line.'))).toBe(true);
+  });
+});
