@@ -51,13 +51,18 @@ export class TurnBuffer {
     return closed;
   }
 
-  /** Close whatever is open (end of session or round). */
-  flush(): Turn | null {
+  /** New turns number after `seq` (resume: a logged turn already holds that number). */
+  resumeAfter(seq: number): void {
+    this.seq = Math.max(this.seq, seq + 1);
+  }
+
+  /** Close whatever is open (end of session or round). `turnId` replays a turn a log already names. */
+  flush(turnId?: string): Turn | null {
     if (this.open.length === 0) return null;
     const us = this.open;
     this.open = [];
     return {
-      turnId: `${this.sessionId}:t${String(this.seq++).padStart(4, '0')}`,
+      turnId: turnId ?? `${this.sessionId}:t${String(this.seq++).padStart(4, '0')}`,
       participantKey: us[0]!.participantKey,
       utterances: us,
       startMs: us[0]!.startMs,

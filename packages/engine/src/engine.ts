@@ -23,6 +23,8 @@ import {
 } from '@adl/pipeline';
 import type { EventLog } from './types';
 
+type Utterance = SessionState['utterances'] extends Map<string, infer U> ? U : never;
+
 export interface EngineOptions {
   sessionId: string;
   log: EventLog;
@@ -53,11 +55,14 @@ export class SessionEngine {
   private turns: Turn[] = [];
   private own = new Set<string>();
   /** Unconfirmed utterances, held out of the turn buffer until `attribution.confirmed`. */
-  private parked = new Map<string, SessionState['utterances'] extends Map<string, infer U> ? U : never>();
+  private parked = new Map<string, Utterance>();
   /** Turns a previous run closed, in order (resume after a reload). */
   private closedBefore: string[] = [];
   /** Ids of L1 events a previous run wrote (`<turnId>:<ref>:…`). */
   private l1Before: string[] = [];
+  /** Logged turn boundaries (resume): utterance id → the turn it opens / closes. */
+  private loggedStart = new Map<string, string>();
+  private loggedEnd = new Map<string, string>();
   private lastUtteranceWall = Date.now();
   private sourceDone = false;
   private stopped = false;
@@ -107,7 +112,39 @@ export class SessionEngine {
     await this.opts.log.append(events);
   }
 
+  /**
+   * Turn boundaries a previous run logged. Replaying the log through the buffer alone would merge
+   * turns that closed on silence, so their ids would shift onto different lines and new turns would
+   * reuse logged ids (and be skipped as finished). Fresh logs (the worker's replay) have none.
+   */
+  private scanLoggedTurns(events: DomainEvent[]) {
+    for (const e of events) {
+      if (e.type !== 'turn.closed' || this.own.has(e.eventId)) continue;
+      const { turnId, utteranceIds } = e.payload;
+      if (utteranceIds.length === 0) continue;
+      this.loggedStart.set(utteranceIds[0]!, turnId);
+      this.loggedEnd.set(utteranceIds.at(-1)!, turnId);
+      const seq = /:t(\d+)$/.exec(turnId);
+      if (seq) this.buffer.resumeAfter(Number(seq[1]));
+    }
+  }
+
+  /** Into the turn buffer, closing turns where a previous run closed them. */
+  private pushUtterance(u: Utterance) {
+    if (this.loggedStart.has(u.id)) {
+      const t = this.buffer.flush();
+      if (t) this.queue.push(t);
+    }
+    for (const t of this.buffer.push(u)) this.queue.push(t);
+    const end = this.loggedEnd.get(u.id);
+    if (end) {
+      const t = this.buffer.flush(end);
+      if (t) this.queue.push(t);
+    }
+  }
+
   private ingest(events: DomainEvent[]) {
+    this.scanLoggedTurns(events);
     for (const e of events) {
       if (this.own.has(e.eventId)) continue;
       this.state = apply(this.state, e);
@@ -121,13 +158,13 @@ export class SessionEngine {
           this.parked.set(u.id, u);
           continue;
         }
-        for (const t of this.buffer.push(u)) this.queue.push(t);
+        this.pushUtterance(u);
       }
       if (e.type === 'attribution.confirmed' && this.parked.has(e.payload.utteranceId)) {
         const u = this.state.utterances.get(e.payload.utteranceId)!; // the reducer already applied the confirmed speaker
         this.parked.delete(u.id);
         this.lastUtteranceWall = Date.now();
-        for (const t of this.buffer.push(u)) this.queue.push(t);
+        this.pushUtterance(u);
       }
     }
   }
