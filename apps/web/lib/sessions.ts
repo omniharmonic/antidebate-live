@@ -155,6 +155,11 @@ export async function listSessions(): Promise<SessionSummary[]> {
   return hasDb() ? listNeon() : listLocal();
 }
 
+/** The public home page lists finished debates only; a live session is reachable by its link (spec §3). */
+export function publicSessions(all: SessionSummary[]): SessionSummary[] {
+  return all.filter((s) => s.ended);
+}
+
 /** "In progress" = not ended and something was appended in the last few minutes. */
 export function isActive(s: SessionSummary, now = Date.now(), windowMs = 3 * 60_000): boolean {
   if (s.ended || !s.lastActivityAt) return false;

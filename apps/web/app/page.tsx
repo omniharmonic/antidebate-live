@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getFormat } from '@adl/core';
-import { isActive, listSessions, type SessionSummary } from '@/lib/sessions';
+import { isActive, listSessions, publicSessions, type SessionSummary } from '@/lib/sessions';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,12 +73,12 @@ export default async function Home() {
   let sessions: SessionSummary[] = [];
   let failed = false;
   try {
-    sessions = await listSessions();
+    sessions = publicSessions(await listSessions());
   } catch (err) {
     console.error('[home] listSessions', err);
     failed = true;
   }
-  const active = sessions.filter((s) => isActive(s));
+  const active: SessionSummary[] = [];
   // Recordings are replayed several times as the pipeline improves: show one row per
   // recording (its newest non-test run) and keep earlier runs one click away.
   const groups = new Map<string, SessionSummary[]>();
@@ -98,8 +98,8 @@ export default async function Home() {
     <main className="min-h-dvh bg-field">
       <header className="flex h-14 items-center justify-between border-b border-border px-6">
         <span className="label-caps !text-[13px] !tracking-[0.24em] text-ink">Anti-Debate</span>
-        <Link href="/new" className="inline-flex h-11 items-center rounded-[3px] border border-border-2 px-4 text-[13px] text-ink hover:bg-field-deep">
-          Start a session
+        <Link href="/host" className="text-[13px] text-ink hover:text-ink-2">
+          Host a session
         </Link>
       </header>
 
@@ -109,27 +109,9 @@ export default async function Home() {
 
         {failed ? <p className="mt-10 text-[14px] text-ink-2">Sessions could not be loaded. Try again.</p> : null}
 
-        <section className="mt-12" aria-labelledby="h-active">
-          <h2 id="h-active" className="label-caps mb-4 text-ink-3">
-            In progress
-          </h2>
-          {active.length ? (
-            <>
-              <Head />
-              <ul>
-                {active.map((s) => (
-                  <Row key={s.id} s={s} active />
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p className="border-y border-border py-5 text-[14px] text-ink-3">No live sessions. Explore a recording below or start a new conversation.</p>
-          )}
-        </section>
-
-        <section className="mt-14" aria-labelledby="h-past">
+        <section className="mt-12" aria-labelledby="h-past">
           <h2 id="h-past" className="label-caps mb-4 text-ink-3">
-            Recorded and earlier
+            Sessions
           </h2>
           {past.length ? (
             <>
@@ -160,7 +142,7 @@ export default async function Home() {
               </ul>
             </>
           ) : (
-            <p className="border-y border-border py-5 text-[14px] text-ink-3">No recordings yet. Start a session to map your first conversation.</p>
+            <p className="border-y border-border py-5 text-[14px] text-ink-3">No finished sessions yet. Host a session to map your first conversation.</p>
           )}
         </section>
 
