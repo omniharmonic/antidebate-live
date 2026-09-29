@@ -2,6 +2,17 @@
 
 Ordered by the critical path in [IMPLEMENTATION_PLAN §4](./IMPLEMENTATION_PLAN.md). Check items off in PRs.
 
+## 0. The long-running build loop (Benjamin, 2026-09-28). Work through in order in one session
+1. [ ] **Ingest loop** over every playlist debate (subscription only, $0 API): run the full pipeline → `diagnose` → write the findings and an improvement plan in `evals/results.md` → implement → verify on the next ingest.
+   - [x] Ball × Kokotajlo (r1 on Opus/API, stopped at 80m; r2 on Sonnet, full)
+   - [x] Gender-Affirming Care (gac-r1)
+   - [ ] Belief in God (belief-in-god-r1). Running
+   - [ ] Destiny × Shermer (co-moderated)
+   - [ ] Open-Source AI (co-moderated, ~2h15)
+   - [ ] Ignite talk (one-speaker edge case)
+2. [ ] **Frontend UX pass**, plus new form factors: a 4D view (3D agreement/disagreement/depth space across time) and anything else that makes the output compelling for audiences and moderators.
+3. [ ] **Comprehensive end-to-end testing loop(s)** across ALL ingested sessions and their results, for high-quality multi-dimensional insights and stunning visualizations. Several evaluate → fix → re-verify iterations: rerun sessions with the final pipeline, check every surface (cockpit, arc, 4D, console) on every session in a browser, and grade insight quality against the references. Only then wrap the session.
+
 ## A. In a LOCAL Claude Code session (needs network access the cloud container lacks)
 1. ✅ **Read the Anti-Debate how-to guide** (shorter and longer versions): https://www.anti-debate.org/how-to-guide.html
    → Saved as `docs/client/anti-debate-how-to-guide.md`. **Still to do:** encode the rounds as the Anti-Debate template (PRD §7) in `packages/core/src/formats.ts`.
