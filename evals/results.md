@@ -15,6 +15,14 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-29 · End-to-end loop 4 · ball-kokotajlo-r4 (l1 v0.5)
+
+- 488 calls, $0; 401 claims (cleaner with v0.5); rounds 11/11; **higher-ground recall still 4/4** (e.g. "build the preconditions for a US–China deal, meaning enforceability (tracking chips) and enough balance to give both sides a reason to deal", 44.5m).
+- **Regression found: no new crux after 34m.** L4 proposed the same earlier crux ("After the pace of AI research speeds up, AI reaches superintelligence…", shown at 28.6m) 22 passes running. Hysteresis blocked each one, so the card froze at the 33.7m crux. Early claims also pile up ranking score and crowd out later cruxes (alignment, which r3 found at 61m).
+- **Fixes (l4-insight-v0.3):** (1) persistence overrides hysteresis: an earlier crux proposed twice running is a considered return and is allowed (tested); (2) each crux candidate carries "last engaged at N min", and L4 is told the crux is what is at stake *now*. Verification: r5.
+
+---
+
 ## 2026-09-29 · End-to-end loop 3
 
 - **Timeline and Positions review (belief-in-god-r2):** the timeline reads well (dense clarifying lanes, then the shared-ground corridor filling with higher-ground rings and crux diamonds). Positions exposed noise: autobiographical asides extracted as claims ("Layman Pascal would be happy to go along with the commandments if God came to him personally…").

@@ -18,7 +18,7 @@ import {
 } from '@adl/ontology';
 import { focusIds, renderMap, similarity, type MapView } from './mapview';
 
-export const L4_PROMPT_VERSION = 'l4-insight-v0.2';
+export const L4_PROMPT_VERSION = 'l4-insight-v0.3';
 
 export const L4Output = z.object({
   crux: z
@@ -55,7 +55,7 @@ export type L4Output = z.infer<typeof L4Output>;
 
 export const L4_INSTRUCTIONS = `You support the facilitator of an Anti-Debate: a format that first clarifies where two people really differ, then explores synthesis. You see the current argument map (every item is quote-anchored and was checked for faithfulness), the computed disagreements and crux candidates, and where the conversation is now. The facilitator reads your output on a tablet mid-conversation, at a glance. Clarity is the only goal; a card that muddles is worse than no card.
 
-1. THE CRUX NOW. From CRUX CANDIDATES only, pick the one proposition that, if the two resolved it, would most move the rest of their disagreement. Prefer deep (values, epistemic) over surface, and stated over clash-based when close. For each debater, say what would make them update toward the other side, in their own terms and from what they have said (especially in red-teaming); if they haven't said, write "not stated". Classify the settling evidence: empirical, forecast_resolution, value_clarification, definition. valuesCrux=true when it is value_clarification. Never choose a claim about a debater's own character, motives or biography; the crux is about the question being debated. Return null if no candidate is a real crux yet.
+1. THE CRUX NOW. From CRUX CANDIDATES only, pick the one proposition that, if the two resolved it, would most move the rest of their disagreement as it stands now. Weigh how recently it was engaged: a crux settled or left behind earlier in the conversation is not the crux now. Prefer deep (values, epistemic) over surface, and stated over clash-based when close. For each debater, say what would make them update toward the other side, in their own terms and from what they have said (especially in red-teaming); if they haven't said, write "not stated". Classify the settling evidence: empirical, forecast_resolution, value_clarification, definition. valuesCrux=true when it is value_clarification. Never choose a claim about a debater's own character, motives or biography; the crux is about the question being debated. Return null if no candidate is a real crux yet.
 
 2. HIGHER GROUND (0–2). A sentence both debaters could sign, consistent with what each has committed to, integrating at least one element from each side. Name the construction (domain_partition, conditionalization, value_lift, incompletely_theorized_agreement, sequencing, pareto_move). derivation: for each debater, the ids of propositions THEY accept that the candidate relies on (at least one each; only ids listed as accepted by that person). costs: what each would have to qualify or give up, or "nothing". No candidate is better than a forced one.
 
@@ -78,7 +78,7 @@ export function buildL4Input(
   const phase = round ? getFormat(ctx.formatId).phases.find((p) => p.id === round.phase)?.name : undefined;
   const dis = (list: MapView['disagreements'], label: string) =>
     list.map((d) => `${label} on ${d.propositionId} between ${d.participants.map((k) => name.get(k) ?? k).join(' and ')}`).join('\n');
-  const cands = v.cruxCandidates.map((c) => `${c.propositionId} (score ${c.score}; ${c.basis}; grounds ${c.forDisagreements.length} disagreement(s))`).join('\n');
+  const cands = v.cruxCandidates.map((c) => `${c.propositionId} (score ${c.score}; ${c.basis}; grounds ${c.forDisagreements.length} disagreement(s); last engaged at ${Math.round(c.lastEngagedMs / 60000)} min)`).join('\n');
   const shared = v.commonGround.map((id) => `${id} ${v.props.get(id)?.canonical ?? ''}`).join('\n');
   const focus = focusIds(v, [], 70);
   const rels = v.relations
@@ -231,13 +231,19 @@ export function sharedCard(v: MapView): SharedCard {
  */
 export function stableCards(
   cards: { crux: CruxCard | null; higherGround: HigherGroundCard[]; prompts: PromptCard[] },
-  recent: { cruxPropositionId?: string; cruxHistory?: string[]; higherGround: string[]; prompts: string[] },
+  recent: { cruxPropositionId?: string; cruxHistory?: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] },
 ): { crux: CruxCard | null; higherGround: HigherGroundCard[]; prompts: PromptCard[] } {
   const fresh = (text: string, seen: string[]) => !seen.some((s) => similarity(s, text) >= 0.7);
   const prompts = cards.prompts.filter((p) => fresh(p.text, recent.prompts));
   return {
     // Hysteresis: no repeat of the current crux, and no return to one of the last few (A → B → A ping-pong).
-    crux: cards.crux && (cards.crux.propositionId === recent.cruxPropositionId || (recent.cruxHistory ?? []).includes(cards.crux.propositionId)) ? null : cards.crux,
+    // …unless the model proposes the same earlier crux twice running: then it is a considered return, not ping-pong.
+    crux:
+      cards.crux &&
+      (cards.crux.propositionId === recent.cruxPropositionId ||
+        ((recent.cruxHistory ?? []).includes(cards.crux.propositionId) && recent.lastBlockedCrux !== cards.crux.propositionId))
+        ? null
+        : cards.crux,
     higherGround: cards.higherGround.filter((h) => fresh(h.text, recent.higherGround)),
     // Prompts come as a set of up to three; keep the set only if something in it is new.
     prompts: prompts.length ? cards.prompts : [],
@@ -275,7 +281,7 @@ export async function runL4(
     recent: { speaker: string; text: string }[];
     previous: PreviousCards;
     previousShared: string;
-    recentCards?: { cruxPropositionId?: string; cruxHistory?: string[]; higherGround: string[]; prompts: string[] };
+    recentCards?: { cruxPropositionId?: string; cruxHistory?: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] };
     wallTs: () => string;
   },
 ): Promise<{ events: DomainEvent[]; log: LlmCallLog | null; error?: string; sharedKey: string }> {
@@ -296,6 +302,8 @@ export async function runL4(
     const events = sharedChanged ? insightEvents({ crux: null, higherGround: [], prompts: [], shared }, base) : [];
     return { events, log: result.log, error: `${result.reason}: ${result.detail}`, sharedKey };
   }
-  const cards = ctx.recentCards ? stableCards(insightCards(result.data, v), ctx.recentCards) : insightCards(result.data, v);
+  const raw = insightCards(result.data, v);
+  const cards = ctx.recentCards ? stableCards(raw, ctx.recentCards) : raw;
+  if (ctx.recentCards) ctx.recentCards.lastBlockedCrux = raw.crux && !cards.crux && raw.crux.propositionId !== ctx.recentCards.cruxPropositionId ? raw.crux.propositionId : undefined;
   return { events: insightEvents({ ...cards, ...(sharedChanged ? { shared } : {}) }, base), log: result.log, sharedKey };
 }

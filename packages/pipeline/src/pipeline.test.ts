@@ -136,6 +136,9 @@ describe('card stability', () => {
     expect(out.higherGround.map((h) => h.text)).toEqual(['Audits of labs should begin now.']);
     const pingPong = stableCards({ crux, higherGround: [], prompts: [] }, { cruxPropositionId: 'p2', cruxHistory: ['p9'], higherGround: [], prompts: [] });
     expect(pingPong.crux).toBeNull();
+    // proposed again right after being blocked: a considered return, allowed
+    const persistent = stableCards({ crux, higherGround: [], prompts: [] }, { cruxPropositionId: 'p2', cruxHistory: ['p9'], lastBlockedCrux: 'p9', higherGround: [], prompts: [] });
+    expect(persistent.crux?.propositionId).toBe('p9');
   });
 });
 

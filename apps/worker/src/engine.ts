@@ -59,7 +59,7 @@ export class SessionEngine {
   private linkedIds = new Set<string>();
   private previous: PreviousCards = {};
   private previousShared = '';
-  private recentCards: { cruxPropositionId?: string; cruxHistory: string[]; higherGround: string[]; prompts: string[] } = { cruxHistory: [], higherGround: [], prompts: [] };
+  private recentCards: { cruxPropositionId?: string; cruxHistory: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] } = { cruxHistory: [], higherGround: [], prompts: [] };
   private readonly opts: Required<Omit<EngineOptions, 'onCall' | 'say'>> & Pick<EngineOptions, 'onCall' | 'say'>;
 
   constructor(opts: EngineOptions) {

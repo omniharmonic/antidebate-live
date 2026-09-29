@@ -22,7 +22,7 @@ export interface MapView {
   commonGround: string[];
   /** §4.3a: cross-speaker `agrees` pairs where each side accepts its own claim. */
   convergences: { ids: [string, string]; holders: [string, string]; relationId: string; inferred: boolean }[];
-  cruxCandidates: { propositionId: string; score: number; forDisagreements: string[]; basis: 'stated' | 'clash' }[];
+  cruxCandidates: { propositionId: string; score: number; forDisagreements: string[]; basis: 'stated' | 'clash'; lastEngagedMs: number }[];
   /** stanceId → verbatim quote of its ADU */
   quotes: Map<string, string>;
 }
@@ -77,6 +77,12 @@ export function buildMapView(s: SessionState): MapView {
     .filter((c) => !statedIds.has(c.propositionId) && !aboutADebater(c.propositionId))
     .map((c) => ({ ...c, basis: 'clash' as const }));
 
+  // When each candidate was last engaged: the latest stance on it or on a claim attacking it.
+  const lastStance = new Map<string, number>();
+  for (const st of stances) lastStance.set(st.propositionId, Math.max(lastStance.get(st.propositionId) ?? 0, st.atMs));
+  const lastEngaged = (pid: string) =>
+    Math.max(lastStance.get(pid) ?? 0, ...relations.filter((r) => r.toId === pid && ATTACKS.has(r.type)).map((r) => lastStance.get(r.fromId) ?? 0));
+
   const quotes = new Map<string, string>();
   for (const st of stances) {
     const adu = st.viaAduId ? s.adus.get(st.viaAduId)?.value : undefined;
@@ -103,7 +109,7 @@ export function buildMapView(s: SessionState): MapView {
     disagreements: dis,
     clashes,
     commonGround: debaters.length >= 2 ? commonGround(stores, debaters.map((d) => d.key)) : [],
-    cruxCandidates: [...stated, ...fromClash].slice(0, 8),
+    cruxCandidates: [...stated, ...fromClash].slice(0, 8).map((c) => ({ ...c, lastEngagedMs: lastEngaged(c.propositionId) })),
     quotes,
   };
 }
