@@ -14,7 +14,7 @@ import {
   Stratum,
 } from '@adl/ontology';
 
-export const L1_PROMPT_VERSION = 'l1-extract-v0.3';
+export const L1_PROMPT_VERSION = 'l1-extract-v0.4';
 
 export const L1Output = z.object({
   adus: z.array(
@@ -79,7 +79,7 @@ RULES (violations make the output unusable)
 3. Canonical sentences add nothing: no names, numbers, dates, causes or domains that aren't in the quotes or the provided context.
 4. Never widen scope. "Some labs" never becomes "labs". A report about particular people or cases (a story, "my clients found…") stays about them; it is not a general claim. Keep time frames, conditions, comparatives ("less likely" is not "unlikely") and modals.
 5. Keep loaded wording out of canonical text. The quotes preserve the speaker's words.
-6. Reuse an existing proposition id (sameAs) ONLY when truth conditions and scope are identical after polarity normalization.
+6. Responses attach to what they respond to. When the speaker agrees with, concedes, denies, doubts or answers a claim already in the PROPOSITION INDEX (especially one held by another participant), put the stance on that existing id (stance.propositionRef = the existing id) instead of creating a new proposition, provided the speaker's words commit them to that same claim after polarity normalization ("I agree that audits are needed" → accepts the existing audits claim; "I don't think that's right" about it → rejects it). Only when the speaker's claim differs in content or scope, create a new proposition. Reuse via sameAs only for the same claim in different words, with the same scope and modality.
 7. Relations only when the speaker makes the connection, or it is unmistakable from adjacent sentences. Otherwise omit. Relations are between propositions, independent of who holds them: "X supports Y" means X being true makes Y more likely true. Evidence a speaker gives against a proposition they reject is rebuts or undermines, never supports.
 8. One claim per proposition. Split conjunctions ("A, and B") into separate propositions unless the speaker presents them as a package.
 9. Epistemic bases: mark stated=true only when the speaker indicates how they know ("studies show", "I worked on", "historically"). Otherwise stated=false, and only if clearly implied.
@@ -111,8 +111,8 @@ ${args.turn.text}
 """`;
 }
 
-/** Append-only session context: the proposition index grows, never rewrites. */
-export function buildSessionContext(index: { id: string; canonical: string }[]): string {
+/** The bounded proposition index L1 sees, with who holds each claim. */
+export function buildSessionContext(index: { id: string; canonical: string; heldBy?: string }[]): string {
   if (index.length === 0) return 'PROPOSITION INDEX: (empty)';
-  return `PROPOSITION INDEX (existing ids you may reference with sameAs / toRef):\n${index.map((p) => `${p.id}: ${p.canonical}`).join('\n')}`;
+  return `PROPOSITION INDEX (existing ids you may attach stances to, or reference with sameAs / toRef):\n${index.map((p) => `${p.id}: ${p.canonical}${p.heldBy ? ` [${p.heldBy}]` : ''}`).join('\n')}`;
 }

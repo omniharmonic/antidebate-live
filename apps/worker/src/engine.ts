@@ -131,10 +131,14 @@ export class SessionEngine {
       if (!heldBy.has(s.value.propositionId)) heldBy.set(s.value.propositionId, new Set());
       heldBy.get(s.value.propositionId)!.add(s.value.participantKey);
     }
+    const names = new Map(this.state.participants.map((p) => [p.key, p.displayName]));
+    const label = (id: string) => [...(heldBy.get(id) ?? [])].map((k) => names.get(k) ?? k).join(', ');
     const all = this.indexForL1().reverse(); // newest first
     const others = all.filter((p) => ![...(heldBy.get(p.id) ?? [])].every((k) => k === speakerKey));
     const own = all.filter((p) => !others.includes(p));
-    return [...others.slice(0, Math.round(limit * 0.66)), ...own.slice(0, limit - Math.round(limit * 0.66))].reverse();
+    return [...others.slice(0, Math.round(limit * 0.66)), ...own.slice(0, limit - Math.round(limit * 0.66))]
+      .reverse()
+      .map((p) => ({ ...p, ...(label(p.id) ? { heldBy: `held by ${label(p.id)}` } : {}) }));
   }
 
   private logCall(l: LlmCallLog | null) {
@@ -161,7 +165,8 @@ export class SessionEngine {
 
     if (role === 'moderator') {
       const before = this.state.round?.roundId ?? null;
-      const r = await detectRound(turn, { sessionId: this.opts.sessionId, formatId: this.formatId, currentRoundId: before, wallTs: now });
+      const previousModeratorTurns = this.turns.filter((t) => t !== turn && this.roleOf(t.participantKey) === 'moderator').slice(-3).map((t) => t.text);
+      const r = await detectRound(turn, { sessionId: this.opts.sessionId, formatId: this.formatId, currentRoundId: before, previousModeratorTurns, wallTs: now });
       this.logCall(r.log);
       await this.append(r.events);
       if (r.events.some((e) => e.type === 'round.started')) {

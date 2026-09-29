@@ -9,7 +9,7 @@ import { getFormat, type DomainEvent } from '@adl/core';
 import { callStructured, type LlmCallLog } from '@adl/llm';
 import type { Turn } from './turns';
 
-export const ROUNDS_PROMPT_VERSION = 'round-detect-v0.1';
+export const ROUNDS_PROMPT_VERSION = 'round-detect-v0.2';
 
 export const RoundOutput = z.object({
   opensRound: z.string().nullable().describe('Round id the moderator is opening in this turn, or null'),
@@ -18,19 +18,21 @@ export const RoundOutput = z.object({
 });
 export type RoundOutput = z.infer<typeof RoundOutput>;
 
-export const ROUNDS_INSTRUCTIONS = `You follow a moderated debate and track which round it is in. You get the format's rounds (id, name, what happens, typical moderator phrases), the current round, and one moderator turn.
-Decide whether this moderator turn opens a new round: the moderator announces it, hands the floor for it ("Daniel, you have six minutes for your opening"), or clearly moves the debate into it.
+export const ROUNDS_INSTRUCTIONS = `You follow a moderated debate and track which round it is in. You get the format's rounds in their usual order (id, name, speakers, typical moderator phrases), the current round, the moderator's previous few turns, and the moderator's latest turn.
+Decide whether the latest turn (read together with the previous ones, since a moderator's announcement is often spread over several short turns) opens a new round: the moderator announces it, hands the floor for it ("Daniel, you have six minutes for your opening"), or clearly moves the debate into it (e.g. inviting the debaters to look for both/and framings, circumstances, or perverse incentives opens Exploring Integration; inviting the audience to contribute ideas opens Audience Participation).
+Rounds usually proceed in the listed order; optional rounds may be skipped; formats are adapted in practice, so a round may be announced in the moderator's own words.
 - Only choose a round id from the list.
 - Timekeeping, thanks, follow-up questions and summaries inside the current round open nothing: return null.
 - certain=true only when the words make the transition unmistakable. Quote them exactly.
 Return only the JSON object required by the schema.`;
 
-export function buildRoundInput(formatId: string, currentRoundId: string | null, turnText: string): string {
+export function buildRoundInput(formatId: string, currentRoundId: string | null, turnText: string, previousModeratorTurns: string[] = []): string {
   const f = getFormat(formatId);
   const rounds = f.rounds
     .map((r) => `- ${r.id}: ${r.name} (${f.phases.find((p) => p.id === r.phase)?.name ?? r.phase}; speakers: ${r.speakingOrder.join(', ') || 'none'}${r.optional ? '; optional' : ''}) — cues: ${r.cues.join(' / ') || 'none'}`)
     .join('\n');
-  return `FORMAT: ${f.name}\nROUNDS:\n${rounds}\n\nCURRENT ROUND: ${currentRoundId ?? 'none yet'}\n\nMODERATOR TURN:\n"""\n${turnText}\n"""`;
+  const prev = previousModeratorTurns.length ? previousModeratorTurns.map((t) => `- ${t}`).join('\n') : '(none)';
+  return `FORMAT: ${f.name}\nROUNDS (usual order):\n${rounds}\n\nCURRENT ROUND: ${currentRoundId ?? 'none yet'}\n\nMODERATOR'S PREVIOUS TURNS (context):\n${prev}\n\nMODERATOR'S LATEST TURN:\n"""\n${turnText}\n"""`;
 }
 
 /** round.ended + round.started when the moderator opens a different round. */
@@ -50,13 +52,13 @@ export function roundEvents(
 
 export async function detectRound(
   turn: Turn,
-  ctx: { sessionId: string; formatId: string; currentRoundId: string | null; wallTs: () => string },
+  ctx: { sessionId: string; formatId: string; currentRoundId: string | null; previousModeratorTurns?: string[]; wallTs: () => string },
 ): Promise<{ events: DomainEvent[]; log: LlmCallLog; error?: string }> {
   const result = await callStructured({
     pass: 'round_detect',
     promptVersion: ROUNDS_PROMPT_VERSION,
     instructions: ROUNDS_INSTRUCTIONS,
-    input: buildRoundInput(ctx.formatId, ctx.currentRoundId, turn.text),
+    input: buildRoundInput(ctx.formatId, ctx.currentRoundId, turn.text, ctx.previousModeratorTurns),
     schema: RoundOutput,
     sessionId: ctx.sessionId,
   });

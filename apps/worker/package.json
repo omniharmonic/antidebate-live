@@ -10,6 +10,8 @@
     "run:session": "tsx src/run.ts",
     "ingest": "tsx src/ingest.ts",
     "push": "tsx src/push.ts",
+    "diagnose": "tsx src/diagnose.ts",
+    "rounds": "tsx src/rounds.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
   },

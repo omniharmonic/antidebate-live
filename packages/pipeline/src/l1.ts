@@ -22,7 +22,7 @@ export interface L1Context {
   participants: { key: string; displayName: string }[];
   round: string | null;
   recentTurns: Turn[];
-  propositionIndex: { id: string; canonical: string }[];
+  propositionIndex: { id: string; canonical: string; heldBy?: string }[];
   utterances: ReadonlyMap<string, Utterance>;
   wallTs: () => string;
 }

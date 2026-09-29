@@ -11,7 +11,7 @@ import { callStructured, type LlmCallLog } from '@adl/llm';
 import type { Attitude } from '@adl/ontology';
 import { focusIds, renderMap, type MapView } from './mapview';
 
-export const L3_PROMPT_VERSION = 'l3-link-v0.1';
+export const L3_PROMPT_VERSION = 'l3-link-v0.2';
 
 export const L3Output = z.object({
   merges: z.array(
@@ -35,7 +35,7 @@ export type L3Output = z.infer<typeof L3Output>;
 
 export const L3_INSTRUCTIONS = `You maintain the argument map of a live debate. Propositions are neutral sentences; each lists who holds it and how. Some are NEW since your last pass.
 
-TASK 1 — identity. For each NEW proposition, is it the same claim as an existing one? Merge only when truth conditions and scope are identical ("same"), or when the NEW one is exactly the negation of the existing one ("negated": e.g. "Labs should not need licenses" vs "Labs should be licensed"). Similar topic, overlap, or one being a special case is NOT identity. When in doubt, do not merge.
+TASK 1 — identity. Two speakers often state the same claim in different words; merging them is what lets the map show where they agree and disagree. For each NEW proposition, is it the same claim as an existing one — a careful reader would say both sentences assert the same thing, with the same scope (quantifier, domain, time frame) and modality ("same")? Or is it exactly the negation of an existing one ("negated": e.g. "Labs should not need licenses" vs "Labs should be licensed")? Paraphrase counts as identity. Mere topic overlap, one being a special case or stronger version of the other, or a change of hedge from "might" to "will" does NOT. Prefer merging a NEW claim into an older claim held by a different speaker.
 
 TASK 2 — links across speakers and turns. Add a relation only when the content of one proposition directly bears on another and the map would be misleading without it:
 - rebuts: if fromId is true, toId is false or much less likely.
