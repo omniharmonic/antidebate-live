@@ -44,10 +44,15 @@ if (!values.llm) {
 }
 
 const logs: LlmCallLog[] = [];
-setLlmLogSink((l) => void logs.push(l));
 const out = `${REPO_ROOT}.data/${values.fixture}.l1.events.jsonl`;
+const callsOut = `${REPO_ROOT}.data/${values.fixture}.l1.calls.jsonl`;
 mkdirSync(`${REPO_ROOT}.data`, { recursive: true });
 writeFileSync(out, '');
+writeFileSync(callsOut, '');
+setLlmLogSink((l) => {
+  logs.push(l);
+  appendFileSync(callsOut, `${JSON.stringify(l)}\n`);
+});
 
 const index: { id: string; canonical: string }[] = [];
 for (const [i, turn] of selected.entries()) {
@@ -72,4 +77,5 @@ for (const [i, turn] of selected.entries()) {
 // Opus 5.5 list prices per MTok: $4 in, $20 out, $0.20 cache read (ARCHITECTURE §10). Cache writes billed ~as input here.
 const cost = logs.reduce((c, l) => c + (l.inputTokens + l.cacheCreationTokens) * 4e-6 + l.cacheReadTokens * 0.2e-6 + l.outputTokens * 20e-6, 0);
 const lat = logs.map((l) => l.latencyMs).sort((a, b) => a - b);
-console.log(`\n${logs.length} calls · p50 ${lat[Math.floor(lat.length / 2)] ?? 0} ms · est $${cost.toFixed(2)} · cache reads ${logs.reduce((n, l) => n + l.cacheReadTokens, 0)} tok → ${out}`);
+const pct = (q: number) => lat[Math.min(lat.length - 1, Math.floor(lat.length * q))] ?? 0;
+console.log(`\n${logs[0]?.promptVersion ?? ''} · ${logs.length} calls · p50 ${pct(0.5)} ms · p90 ${pct(0.9)} ms · est $${cost.toFixed(2)} · cache reads ${logs.reduce((n, l) => n + l.cacheReadTokens, 0)} tok → ${out}`);

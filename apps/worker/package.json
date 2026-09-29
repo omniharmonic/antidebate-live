@@ -6,6 +6,7 @@
   "scripts": {
     "replay": "tsx src/replay.ts",
     "extract": "tsx src/extract.ts",
+    "review": "tsx src/review.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
   },
