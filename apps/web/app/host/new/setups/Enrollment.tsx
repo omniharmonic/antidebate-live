@@ -2,26 +2,27 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { enrollmentError, trimAnchor, type Anchor } from '@/lib/attribution/anchors';
-import { channelOf } from '@/lib/live/live-view';
+import { channelOf, inputNumber } from '@/lib/live/live-view';
 import { button, Meter, primary, step, useLevels, type Person, type SetupResult } from './shared';
 
-/** The input a person's clip is recorded from: their own mic in the tracks setup, else the one feed. */
-function sourceChannel(setup: SetupResult, key: string): string | undefined {
-  return setup.kind === 'tracks' ? channelOf(setup.channels, key) : 'd0c0';
-}
-
-/** Records about 20 seconds from each person in turn; each clip is checked and trimmed into an anchor. */
-export function Enrollment({ people: everyone, setup, onDone }: { people: Person[]; setup: SetupResult; onDone: (anchors: Anchor[]) => void }) {
-  // In the tracks setup a person without an input is not recorded (another person's mic would give the wrong voice).
-  const people = everyone.filter((p) => sourceChannel(setup, p.key) !== undefined);
-  const skipped = everyone.filter((p) => sourceChannel(setup, p.key) === undefined);
+/**
+ * Records about 20 seconds from each person in turn; each clip is checked and trimmed into an anchor.
+ * In the tracks setup a person with no input of their own is recorded from a mic the host picks (the
+ * one they will be heard on), so their voice can be told apart from that mic's owner (P2-R8).
+ */
+export function Enrollment({ people, setup, onDone }: { people: Person[]; setup: SetupResult; onDone: (anchors: Anchor[]) => void }) {
+  const [picked, setPicked] = useState<Record<string, string>>({});
   const [index, setIndex] = useState(0);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const anchors = useRef<Anchor[]>([]);
   const frames = useRef<Float32Array[]>([]);
   const person = people[index];
-  const channel = (person && sourceChannel(setup, person.key)) ?? 'd0c0';
+  const own = person && setup.kind === 'tracks' ? channelOf(setup.channels, person.key) : undefined;
+  const unmiked = setup.kind === 'tracks' && person !== undefined && own === undefined;
+  const channel = setup.kind !== 'tracks' ? 'd0c0' : (own ?? (person ? picked[person.key] : undefined));
+  const inputs = Object.keys(setup.channels).sort();
+  const nameOf = (key: string) => people.find((p) => p.key === key)?.displayName ?? key;
 
   const onFrame = useCallback((c: string, f: Float32Array) => {
     if (recording && c === channel) frames.current.push(f);
@@ -53,13 +54,24 @@ export function Enrollment({ people: everyone, setup, onDone }: { people: Person
       <h2 className="text-[20px] text-ink">Voices</h2>
       {setup.kind === 'tracks' && <p className={step}>Recommended: lets the app double-check the mics.</p>}
       <p className="text-sm text-ink-3">{index + 1} of {people.length}</p>
-      {skipped.length > 0 && <p className="text-sm text-ink-3">{skipped.map((p) => p.displayName).join(', ')} {skipped.length === 1 ? 'has' : 'have'} no input, so {skipped.length === 1 ? 'is' : 'are'} not recorded here.</p>}
+      {unmiked && (
+        <div className="space-y-2">
+          <p className="text-[15px] text-ink-2">{person.displayName} has no input of their own. Lines from anyone not enrolled wait for you to confirm who spoke.</p>
+          <label className="block text-sm text-ink-2">Record {person.displayName} from which mic?
+            <select className="mt-2 block min-h-11 rounded-[3px] border border-border bg-surface px-3 text-[16px]" value={channel ?? ''} disabled={recording}
+              onChange={(e) => setPicked((m) => ({ ...m, [person.key]: e.target.value }))}>
+              <option value="">Choose a mic</option>
+              {inputs.map((c) => <option key={c} value={c}>Input {inputNumber(setup.channels, c)} ({nameOf(setup.channels[c]!)})</option>)}
+            </select>
+          </label>
+        </div>
+      )}
       <p className="text-[17px] text-ink">Ask {person.displayName} to talk for about 20 seconds: their name and what they hope to get from today.</p>
-      <Meter label={setup.kind === 'tracks' ? `${person.displayName}'s input` : 'Input 1'} db={levels[channel]} />
+      {channel && <Meter label={setup.kind === 'tracks' ? `Input ${inputNumber(setup.channels, channel)}` : 'Input 1'} db={levels[channel]} />}
       <div className="flex flex-wrap gap-3">
         {recording
           ? <button type="button" className={primary} onClick={stop}>Stop</button>
-          : <button type="button" className={primary} onClick={start}>Record</button>}
+          : <button type="button" className={primary} disabled={!channel} onClick={start}>Record</button>}
         {setup.kind === 'tracks' && !recording && <button type="button" className={button} onClick={() => onDone(anchors.current)}>Skip</button>}
       </div>
       {error && <p role="alert" className="text-[15px] text-ink">{error}</p>}

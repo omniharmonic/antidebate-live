@@ -6,6 +6,7 @@ class Mem { kind = 'http' as const; where = 'mem'; events: DomainEvent[] = []; a
 const pcm = new Float32Array(16_000);
 const asr = { transcribe: async (_p: Float32Array, off: number) => [{ text: 'Hello', startMs: off, endMs: off + 400 }] };
 type Final = Extract<DomainEvent, { type: 'utterance.final' }>;
+const finals = (log: Mem) => log.events.filter((e): e is Final => e.type === 'utterance.final');
 
 describe('LiveRunner', () => {
   it('emits pending before final for an unsure voice, and a confirm releases it', async () => {
@@ -88,7 +89,9 @@ describe('LiveRunner', () => {
     broken = false;
     await r.retry(0);
     expect(statuses.at(-1)!.failed).toEqual([]);
-    expect((log.events[0] as Final).payload.utterance.participantKey).toBe('A');
+    // One mic, voice only: held for the host until the gate is measured (P2-R9).
+    expect(finals(log)[0]!.payload.utterance.participantKey).toBe('UNK');
+    expect(log.events[0]).toMatchObject({ type: 'attribution.pending', payload: { candidates: { A: 0.84 } } });
   });
   it('reports a failed append and keeps the audio', async () => {
     const log = new Mem();
@@ -101,7 +104,7 @@ describe('LiveRunner', () => {
     expect(statuses.at(-1)!.failed[0]!.reason).toBe('offline');
     bad = false;
     await r.retry(0);
-    expect(log.events.map((e) => e.type)).toEqual(['utterance.final']);
+    expect(log.events.map((e) => e.type)).toEqual(['attribution.pending', 'utterance.final']);
   });
   it('keeps the transcript when voice matching fails, and warns once per streak', async () => {
     const log = new Mem();
@@ -134,17 +137,18 @@ describe('LiveRunner', () => {
     });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
     await r.onUtterance('mono', { startMs: 5000, endMs: 5900, pcm }, {}, false);
-    expect(seen).toEqual([['A'], ['A', 'Voice 1']]);
+    // The main match sees enrolled voices only; Voice 1 is matched in a second pass of its own.
+    expect(seen).toEqual([['A'], ['A'], ['Voice 1']]);
     expect(statuses.at(-1)!.newVoices).toEqual([{ label: 'Voice 1', utteranceIds: ['umono-0', 'umono-5000'] }]);
     // Temporary voices never reach the attributor as participants.
     expect((log.events.at(-1) as Final).payload.utterance.participantKey).toBe('UNK');
   });
-  it('caps temporary voices at four', async () => {
+  it('caps temporary voices at two', async () => {
     const log = new Mem();
     const statuses: import('./runner').LiveStatus[] = [];
     const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({}) }, log, onStatus: (s) => statuses.push(s) });
     for (let i = 0; i < 6; i++) await r.onUtterance('mono', { startMs: i * 5000, endMs: i * 5000 + 900, pcm }, {}, false);
-    expect(statuses.at(-1)!.newVoices.map((v) => v.label)).toEqual(['Voice 1', 'Voice 2', 'Voice 3', 'Voice 4']);
+    expect(statuses.at(-1)!.newVoices.map((v) => v.label)).toEqual(['Voice 1', 'Voice 2']);
     expect(statuses.at(-1)!.unconfirmed).toHaveLength(6);
   });
   it('measures latency from the caller wall time when given', async () => {
@@ -189,7 +193,7 @@ describe('LiveRunner', () => {
     broken = false;
     await r.retryAt('mono', 3000);
     expect(statuses.at(-1)!.failed.map((f) => f.startMs)).toEqual([1000]);
-    expect((log.events[0] as Final).payload.utterance.id).toBe('umono-3000');
+    expect(finals(log)[0]!.payload.utterance.id).toBe('umono-3000');
     await r.retryAt('mono', 9999);
     expect(statuses.at(-1)!.failed).toHaveLength(1);
   });

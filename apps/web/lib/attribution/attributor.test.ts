@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Attributor, type UtteranceSignals } from './attributor';
+import { fuse } from './fusion';
+import { VOICE_ONLY_CAP } from './gate';
 
 const sig = (o: Partial<UtteranceSignals>): UtteranceSignals => ({ channel: 'L', channelRmsDb: { L: -20, R: -40 }, voice: {}, overlap: false, startMs: 0, endMs: 2000, ...o });
 
@@ -88,10 +90,53 @@ describe('Attributor, separate tracks', () => {
   });
 });
 
+describe('Attributor, tracks with voice agreement (P2-R8)', () => {
+  it('an unmiked moderator on debater A\'s mic at a 14 dB margin is held, not given to A', () => {
+    const at = new Attributor('tracks', { L: 'A', R: 'B' }, { unmiked: true });
+    const { decision } = at.decide(sig({ channelRmsDb: { L: -20, R: -34 }, voice: { A: 0.05, B: 0, M: 0.9 } }));
+    expect(decision).toMatchObject({ participantKey: 'UNK', pending: true, candidate: 'A' });
+    expect(Object.keys(decision.candidates!).sort()).toEqual(['A', 'M']);
+    expect(decision.confidence).toBeLessThan(0.85);
+  });
+  it('everyone miked and enrolled: a clean margin with the owner\'s voice agreeing auto-accepts', () => {
+    const at = new Attributor('tracks', { L: 'A', R: 'B' });
+    expect(at.decide(sig({ channelRmsDb: { L: -20, R: -34 }, voice: { A: 0.8, B: 0.1 } })).decision).toMatchObject({ participantKey: 'A', pending: false });
+  });
+  it('the owner is best but below half the utterance: held', () => {
+    const at = new Attributor('tracks', { L: 'A', R: 'B' });
+    expect(at.decide(sig({ channelRmsDb: { L: -20, R: -34 }, voice: { A: 0.4, B: 0.1 } })).decision).toMatchObject({ participantKey: 'UNK', pending: true });
+  });
+  it('someone unmiked and no voice data: a clean margin is held', () => {
+    const at = new Attributor('tracks', { L: 'A', R: 'B' }, { unmiked: true });
+    expect(at.decide(sig({ channelRmsDb: { L: -20, R: -34 } })).decision).toMatchObject({ participantKey: 'UNK', candidate: 'A', pending: true });
+  });
+  it('all-zero voice scores are not diarizer agreement', () => {
+    const at = new Attributor('tracks', { L: 'A', R: 'B' });
+    const { decision } = at.decide(sig({ channelRmsDb: { L: -20, R: -23 }, voice: { A: 0, B: 0 } }));
+    expect(decision.confidence).toBe(fuse({ channelMarginDb: 3, voiceMatch: 0, diarizerAgrees: null, overlap: false }));
+  });
+  it('sampled voice matches at clear margins raise a swap after five mismatches', () => {
+    const at = new Attributor('tracks', { L: 'A', R: 'B' });
+    const notices = Array.from({ length: 5 }, () => at.observeVoice('L', { A: 0.1, B: 0.8 })).flat();
+    expect(notices).toEqual([{ kind: 'swap_suggested', channel: 'L', participantKey: 'B' }]);
+  });
+  it('bleed is decided from levels alone', () => {
+    const at = new Attributor('tracks', { L: 'A', R: 'B' });
+    expect(at.isBleed('R', { L: -18, R: -30 })).toBe(true);
+    expect(at.isBleed('R', { L: -18, R: -22 })).toBe(false);
+  });
+});
+
 describe('Attributor, one mixed feed', () => {
-  it('strong voice match → that person; weak → UNK pending with a new voice notice', () => {
+  for (const setup of ['room', 'call'] as const) {
+    it(`${setup}: a voice-only decision is capped below the threshold, so it is held (P2-R9)`, () => {
+      const at = new Attributor(setup, {});
+      const { decision } = at.decide(sig({ channel: null, channelRmsDb: {}, voice: { A: 0.99, B: 0.01 } }));
+      expect(decision).toMatchObject({ participantKey: 'UNK', candidate: 'A', pending: true, confidence: VOICE_ONLY_CAP });
+    });
+  }
+  it('weak → UNK pending with a new voice notice', () => {
     const at = new Attributor('room', {});
-    expect(at.decide(sig({ channel: null, channelRmsDb: {}, voice: { A: 0.92, B: 0.05 } })).decision).toMatchObject({ participantKey: 'A', pending: false });
     const weak = at.decide(sig({ channel: null, channelRmsDb: {}, voice: { A: 0.3, B: 0.2 } }));
     expect(weak.decision).toMatchObject({ participantKey: 'UNK', pending: true });
     expect(weak.notices[0]).toMatchObject({ kind: 'new_voice', label: 'Voice 1' });
