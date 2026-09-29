@@ -1,6 +1,6 @@
 # Host onboarding: password-gated, bring-your-own-key, browser-only hosting
 
-Date: 2026-09-29 · Owner: Benjamin Life (@omniharmonic) · Status: approved in conversation, awaiting spec review
+Date: 2026-09-29 · Owner: Benjamin Life (@omniharmonic) · Status: approved (Benjamin delegated the server/local split: "whatever makes it easier for the facilitator")
 
 ## 1. Intent
 
@@ -18,6 +18,8 @@ Decisions taken in conversation:
 2. One shared host password, remembered 30 days per device in a signed cookie.
 3. The host's Anthropic key is remembered on the device (localStorage) with an always-visible "Forget key".
 4. Attribution combines channel, voiceprint and new-voice discovery in every setup (section 5).
+
+Why browser-first, given the freedom to split server and local: audio must be captured on the laptop regardless. Server transcription would need a second paid key or CPU-only models on Vercel. Server analysis would need our server to hold the host's key for the length of a job, plus a job queue. The browser path asks the host for exactly two things: the password and a key. The server keeps what only it can do: access control, the event log, and audience streaming.
 
 Research behind this: `docs/research/2026-09-29-browser-audio-capture.md`, `2026-09-29-video-call-audio.md`, `2026-09-29-browser-asr-diarization.md`.
 
@@ -120,15 +122,21 @@ Every live setup includes:
   - Live: a VAD segmenter per channel → per-utterance transcription.
   - Recordings: 60 s chunks at speed max.
   - Word timestamps populate `Utterance.words`.
+- **Resumable recordings.**
+  - Transcripts are checkpointed per 60 s chunk in IndexedDB.
+  - The analysis is checkpointed by the server log itself.
+  - Reopening `/host/s/<id>` resumes from the last finished chunk and the last processed turn, instead of starting over.
+  - The page says plainly that closing the tab pauses processing and nothing is lost.
 - **Recovery.** If the tab reloads mid-session, the host reopens `/host/s/<id>`. The engine replays the log from the server (`caughtup`), then resumes. Capture restarts after one click, because browsers require a user gesture.
 
 ## 8. Host flow (screens)
 
 1. `/host/login`: the password.
 2. `/host/key`: key steps and check. Skipped when a key is stored.
-3. `/host`: the host's recent sessions on this device (localStorage), "New live session", "Process a recording".
-4. `/host/new`: title, format, participants (names and roles), then the audio setup (section 6).
-5. `/host/s/<id>`: host bar (status, spend estimate, attribution issues count, Pause/End), live transcript with unconfirmed utterances to click, and links to open the cockpit, stage and explore views for others.
+3. `/host/prepare`: "Prepare this laptop", which can be done the day before. Browser check (Chrome/Edge version, WebGPU), model download and cache, mic permission and meter test. It ends in a clear "This laptop is ready" state, which `/host/new` also checks.
+4. `/host`: the host's recent sessions on this device (localStorage), "New live session", "Process a recording".
+5. `/host/new`: title, format, participants (names and roles), then the audio setup (section 6).
+6. `/host/s/<id>`: host bar (status, spend estimate, attribution issues count, Pause/End), live transcript with unconfirmed utterances to click, and links to open the cockpit, stage and explore views for others.
 
 Copy follows UX §2: plain, no filler, no emoji, no unverifiable numbers.
 
