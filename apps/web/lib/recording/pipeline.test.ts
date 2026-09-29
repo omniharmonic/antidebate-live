@@ -173,4 +173,89 @@ describe('runRecording', () => {
     await runRecording({ sessionId: 's', file: null, asr: { transcribe: async () => [] }, checkpoint: memCheckpoint([], { ...oneVoice(30_000), transcribed: true }), onStage: (s) => stages.push(s.kind), engine: { start: async () => 'key-rejected' as const }, makeLog: () => log });
     expect(stages).toEqual(['analysing', 'key-rejected']);
   });
+  describe('review of unsure lines', () => {
+    const noVoices = (durationMs: number): RecordingMeta => ({ fileName: 'f', fileSize: 1, durationMs, segments: [], voiceMap: {} });
+    const held = (id: string, endMs: number, diarLabel?: string) => [
+      { eventId: `s:${id}:pending`, sessionId: 's', type: 'attribution.pending', actor: 'system', mediaMs: endMs, wallTs: 'w', payload: { utteranceId: id, candidates: {} } },
+      { eventId: `s:${id}`, sessionId: 's', type: 'utterance.final', actor: 'system', mediaMs: endMs, wallTs: 'w', payload: { utterance: { id, participantKey: 'UNK', startMs: endMs - 1000, endMs, text: `line ${id}`, words: [], attribution: { confidence: 0.6, signals: diarLabel ? { diarLabel } : {}, confirmedBy: 'auto' }, overlapsWith: [] } } },
+    ] as DomainEvent[];
+
+    it('asks the host about pending lines and confirms the ones they assign', async () => {
+      decoded.durationMs = 130_000;
+      const { log, appended } = recordingLog([started]);
+      let asked = 0;
+      // One word per chunk, each inside the span its chunk owns after the overlap merge.
+      const cp = memCheckpoint([], noVoices(130_000));
+      for (const [i, t] of [1000, 70_000, 120_000].entries()) await cp.putChunk(i, [{ text: `w${i}`, startMs: t, endMs: t + 300 }]);
+      const stages: Stage['kind'][] = [];
+      await runRecording({
+        sessionId: 's', file: new File([new Uint8Array(1)], 'f'),
+        asr: { transcribe: async () => [] }, checkpoint: cp, onStage: (s) => stages.push(s.kind),
+        review: async (p) => { asked = p.length; return p.slice(0, 1).map((x) => ({ utteranceId: x.utteranceId, participantKey: 'A' })); },
+        engine: { start: finished }, makeLog: () => log,
+      });
+      expect(asked).toBe(3);
+      const confirms = appended.filter((e) => e.type === 'attribution.confirmed');
+      expect(confirms).toHaveLength(1);
+      expect(confirms[0]).toMatchObject({ actor: 'operator', eventId: 's:u1000:confirm', mediaMs: 1300, payload: { utteranceId: 'u1000', participantKey: 'A' } });
+      expect(stages.slice(stages.indexOf('transcribing'))).toEqual(['transcribing', 'transcribing', 'transcribing', 'transcribing', 'review', 'analysing', 'done']);
+    });
+
+    it('confirms before the engine starts', async () => {
+      decoded.durationMs = 30_000;
+      const { log, appended } = recordingLog([started]);
+      let seenAtStart = 0;
+      await runRecording({
+        sessionId: 's', file: new File([new Uint8Array(1)], 'f'),
+        asr: { transcribe: async () => [{ text: 'hi', startMs: 1000, endMs: 1300 }] }, checkpoint: memCheckpoint([], noVoices(30_000)), onStage: () => {},
+        review: async (p) => p.map((x) => ({ utteranceId: x.utteranceId, participantKey: 'B' })),
+        engine: { start: async () => { seenAtStart = appended.filter((e) => e.type === 'attribution.confirmed').length; return 'finished'; } }, makeLog: () => log,
+      });
+      expect(seenAtStart).toBe(1);
+    });
+
+    it('does not ask when nothing is pending, or when no review is wired', async () => {
+      decoded.durationMs = 30_000;
+      const review = vi.fn(async () => []);
+      const { log } = recordingLog([started]);
+      await runRecording({ sessionId: 's', file: new File([new Uint8Array(1)], 'f'), asr: { transcribe: async () => [{ text: 'hi', startMs: 1000, endMs: 1300 }] }, checkpoint: memCheckpoint([], oneVoice(30_000)), onStage: () => {}, review, engine: { start: finished }, makeLog: () => log });
+      expect(review).not.toHaveBeenCalled();
+      const b = recordingLog([started]);
+      const stages: Stage['kind'][] = [];
+      await runRecording({ sessionId: 's', file: new File([new Uint8Array(1)], 'f'), asr: { transcribe: async () => [{ text: 'hi', startMs: 1000, endMs: 1300 }] }, checkpoint: memCheckpoint([], noVoices(30_000)), onStage: (s) => stages.push(s.kind), engine: { start: finished }, makeLog: () => b.log });
+      expect(stages).not.toContain('review');
+    });
+
+    it('unassigned lines get no confirmation and stay pending', async () => {
+      decoded.durationMs = 30_000;
+      const { log, appended } = recordingLog([started]);
+      await runRecording({ sessionId: 's', file: new File([new Uint8Array(1)], 'f'), asr: { transcribe: async () => [{ text: 'hi', startMs: 1000, endMs: 1300 }] }, checkpoint: memCheckpoint([], noVoices(30_000)), onStage: () => {}, review: async () => [], engine: { start: finished }, makeLog: () => log });
+      expect(appended.some((e) => e.type === 'attribution.confirmed')).toBe(false);
+    });
+
+    it('on resume from the log, reads pending lines from the log (minus confirmed) with their voice label and no audio', async () => {
+      const confirmed = { eventId: 's:u2000:confirm', sessionId: 's', type: 'attribution.confirmed', actor: 'operator', mediaMs: 2000, wallTs: 'w', payload: { utteranceId: 'u2000', participantKey: 'A' } } as DomainEvent;
+      const { log, appended } = recordingLog([started, ...held('u1000', 1000, 'S1'), ...held('u2000', 2000), ...held('u3000', 3000), confirmed]);
+      let got: { utteranceId: string; diarLabel?: string; candidates: Record<string, number> }[] = [];
+      let audio: Float32Array | null | undefined;
+      await runRecording({
+        sessionId: 's', file: null, asr: { transcribe: async () => [] }, checkpoint: memCheckpoint([], null), onStage: () => {},
+        review: async (p, mono, people) => { got = p; audio = mono; expect(people.map((x) => x.key)).toEqual(['A', 'B', 'MOD']); return [{ utteranceId: 'u3000', participantKey: 'B' }]; },
+        engine: { start: finished }, makeLog: () => log,
+      });
+      expect(got.map((l) => l.utteranceId)).toEqual(['u1000', 'u3000']);
+      expect(got[0]).toMatchObject({ diarLabel: 'S1', text: 'line u1000', startMs: 0, endMs: 1000, candidates: {} });
+      expect(got[1]!.diarLabel).toBeUndefined();
+      expect(audio).toBeNull();
+      expect(appended.filter((e) => e.type === 'attribution.confirmed').map((e) => e.eventId)).toEqual(['s:u3000:confirm']);
+    });
+
+    it('a normal run passes the decoded audio for listening', async () => {
+      decoded.durationMs = 30_000;
+      const { log } = recordingLog([started]);
+      let audio: Float32Array | null | undefined;
+      await runRecording({ sessionId: 's', file: new File([new Uint8Array(1)], 'f'), asr: { transcribe: async () => [{ text: 'hi', startMs: 1000, endMs: 1300 }] }, checkpoint: memCheckpoint([], noVoices(30_000)), onStage: () => {}, review: async (_p, mono) => { audio = mono; return []; }, engine: { start: finished }, makeLog: () => log });
+      expect(audio).toBeInstanceOf(Float32Array);
+    });
+  });
 });

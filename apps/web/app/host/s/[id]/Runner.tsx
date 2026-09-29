@@ -10,8 +10,9 @@ import type { Stage } from '@/lib/recording/pipeline';
 import { LiveRunner } from './LiveRunner';
 import { button, DoneLinks, KeyRejected, Publish, UploadWaiting } from './RunnerParts';
 import { sessionSource } from './start-live';
-import { startRecording, uploadOutbox, type NamingRequest } from './start-recording';
+import { startRecording, uploadOutbox, type NamingRequest, type ReviewRequest } from './start-recording';
 import { PAUSE_NOTE, useProcessingGuards } from './use-processing-guards';
+import { ReviewUnsure } from './ReviewUnsure';
 import { VoiceNaming } from './VoiceNaming';
 
 const minutes = (ms: number) => Math.round(ms / 60_000);
@@ -22,6 +23,7 @@ function stageLine(s: Stage, elapsedMs: number): string {
     case 'decoding': return 'Reading the file';
     case 'separating': return `Separating speakers: ${clock(elapsedMs)} so far. Usually takes about a quarter of the recording's length.`;
     case 'naming': return 'Name the voices';
+    case 'review': return 'Check the unsure lines';
     case 'transcribing': return `Transcribing: chunk ${Math.min(s.done + 1, s.total)} of ${s.total}`;
     case 'analysing': return `Analysing: ${minutes(s.processedMs)} of ${minutes(s.totalMs)} minutes`;
     case 'uploading': return 'Finished on this laptop; uploading';
@@ -66,6 +68,7 @@ function RecordingRunner({ id }: { id: string }) {
   const [now, setNow] = useState(0);
   const [model, setModel] = useState<string | null>(null);
   const [naming, setNaming] = useState<NamingRequest | null>(null);
+  const [review, setReview] = useState<ReviewRequest | null>(null);
   const [upload, setUpload] = useState<UploadStatus>({ pending: 0, lastError: null });
   const [uploading, setUploading] = useState(false);
   const [spend, setSpend] = useState(0);
@@ -78,6 +81,7 @@ function RecordingRunner({ id }: { id: string }) {
     if (shownKind.current !== s.kind) { shownKind.current = s.kind; setStageAt(Date.now()); }
     setStage(s);
     if (s.kind !== 'naming') setNaming(null);
+    if (s.kind !== 'review') setReview(null);
     if (s.kind === 'uploading') setUpload({ pending: s.pending, lastError: s.lastError });
     if (s.kind === 'done') { setUpload({ pending: 0, lastError: null }); markHostSession(id, { done: true }); }
   }, [id]);
@@ -88,7 +92,7 @@ function RecordingRunner({ id }: { id: string }) {
     running.current = true;
     if (f) setFile(f);
     try {
-      await startRecording(id, f, { onStage: show, onModel: setModel, onNaming: setNaming, onUpload: setUpload, onSpend: (usd) => setSpend((x) => x + usd), onUnanswered: () => setUnanswered((n) => n + 1) });
+      await startRecording(id, f, { onStage: show, onModel: setModel, onNaming: setNaming, onReview: setReview, onUpload: setUpload, onSpend: (usd) => setSpend((x) => x + usd), onUnanswered: () => setUnanswered((n) => n + 1) });
     } catch (err) {
       show({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -179,6 +183,7 @@ function RecordingRunner({ id }: { id: string }) {
         {hidden && active && <p role="status" className="text-[15px] text-ink">This tab is in the background. Keep it in front so processing isn&apos;t slowed.</p>}
         {model && <p className="text-[15px] text-ink-2">{model}</p>}
         {stage?.kind === 'naming' && naming && <VoiceNaming request={naming} />}
+        {stage?.kind === 'review' && review && <ReviewUnsure request={review} />}
         {stage?.kind === 'key-rejected' && <KeyRejected id={id} />}
         {stage?.kind === 'error' && (
           <div className="space-y-3">

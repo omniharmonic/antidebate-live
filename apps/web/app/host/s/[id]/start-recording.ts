@@ -8,16 +8,19 @@ import { getKey } from '@/lib/anthropic-key';
 import { AsrClient } from '@/lib/asr/client';
 import { DiarizeClient } from '@/lib/diarize/client';
 import { idbCheckpoint } from '@/lib/recording/checkpoint';
-import { runRecording, type Participant, type Stage } from '@/lib/recording/pipeline';
+import { runRecording, type Participant, type ReviewAnswer, type ReviewLine, type Stage } from '@/lib/recording/pipeline';
 import { keyRejected, unansweredRequest } from '@/lib/recording/unanswered';
 import type { SpeakerSegment } from '@/lib/diarize/client';
 
 export type NamingRequest = { segments: SpeakerSegment[]; mono: Float32Array; participants: Participant[]; resolve: (voiceMap: Record<string, string | null>) => void };
 
+export type ReviewRequest = { lines: ReviewLine[]; mono: Float32Array | null; participants: Participant[]; resolve: (answers: ReviewAnswer[]) => void };
+
 export type RunCallbacks = {
   onStage: (s: Stage) => void;
   onModel: (line: string | null) => void;
   onNaming: (r: NamingRequest) => void;
+  onReview: (r: ReviewRequest) => void;
   onUpload: (s: UploadStatus) => void;
   onSpend: (usd: number) => void;
   onUnanswered: () => void;
@@ -83,6 +86,7 @@ export async function startRecording(sessionId: string, file: File | null, cb: R
         },
         name: (segments, mono, participants) => new Promise((resolve) => cb.onNaming({ segments, mono, participants, resolve })),
       },
+      review: (lines, mono, participants) => new Promise((resolve) => cb.onReview({ lines, mono, participants, resolve })),
       engine: {
         start: async (log) => {
           let rejected = false;

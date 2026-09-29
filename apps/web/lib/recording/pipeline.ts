@@ -16,6 +16,8 @@ export type Stage =
   | { kind: 'separating'; audioMs: number }
   | { kind: 'naming'; segments: SpeakerSegment[] }
   | { kind: 'transcribing'; done: number; total: number }
+  /** Lines the pipeline could not attribute with confidence; the host assigns some before analysis. */
+  | { kind: 'review'; pending: ReviewLine[] }
   | { kind: 'analysing'; processedMs: number; totalMs: number }
   /** Everything ran, but some events have not reached the server yet. */
   | ({ kind: 'uploading' } & UploadStatus)
@@ -23,6 +25,10 @@ export type Stage =
   | { kind: 'key-rejected' }
   | { kind: 'done' }
   | { kind: 'error'; message: string };
+
+/** A line held as UNK: `candidates` is the guess (possibly empty), `diarLabel` the separated voice it came from. */
+export type ReviewLine = { utteranceId: string; text: string; startMs: number; endMs: number; candidates: Record<string, number>; diarLabel?: string };
+export type ReviewAnswer = { utteranceId: string; participantKey: string };
 
 export type Participant = Extract<DomainEvent, { type: 'session.started' }>['payload']['participants'][number];
 export type HostLog = EventLog & { hydrate(): Promise<void>; close(): Promise<number>; status(): UploadStatus };
@@ -40,6 +46,11 @@ type Options = {
     separate(mono: Float32Array): Promise<SpeakerSegment[]>;
     name(segments: SpeakerSegment[], mono: Float32Array, participants: Participant[]): Promise<Record<string, string | null>>;
   };
+  /**
+   * The host assigns unsure lines before analysis. `mono` is the recording's 16 kHz audio, or null when
+   * the file is not on this page (resuming from the log). Lines left out of the answer stay pending.
+   */
+  review?: (pending: ReviewLine[], mono: Float32Array | null, participants: Participant[]) => Promise<ReviewAnswer[]>;
   engine: { start(log: HostLog): Promise<EngineOutcome> };
   makeLog: () => HostLog;
 };
@@ -58,7 +69,7 @@ export function settledWords(merged: Word[], nextChunkStartMs: number | undefine
 }
 
 /** Decode, separate and name if needed, then transcribe the unfinished chunks. Returns the media length. */
-async function transcribe(o: Options, file: File, log: HostLog, known: DomainEvent[], saved: RecordingMeta | null): Promise<number> {
+async function transcribe(o: Options, file: File, log: HostLog, known: DomainEvent[], saved: RecordingMeta | null, built: DomainEvent[]): Promise<{ durationMs: number; mono: Float32Array | null }> {
   let audio: Awaited<ReturnType<typeof decodeToChannels>> | null = null;
   const decode = async () => {
     if (!audio) { o.onStage({ kind: 'decoding' }); audio = await decodeToChannels(file); }
@@ -95,11 +106,56 @@ async function transcribe(o: Options, file: File, log: HostLog, known: DomainEve
     results.push({ startMs: c.startMs, endMs: c.endMs, words });
     // Re-emitting earlier utterances is harmless: their ids derive from start times and the log drops repeats.
     const stable = settledWords(mergeChunkWords(results), plan[c.index + 1]?.startMs);
-    await log.append(buildUtterances({ sessionId: o.sessionId, words: stable, segments: meta.segments, voiceMap: meta.voiceMap, mode: 'diarized', wallTs: new Date().toISOString() }));
+    const events = buildUtterances({ sessionId: o.sessionId, words: stable, segments: meta.segments, voiceMap: meta.voiceMap, mode: 'diarized', wallTs: new Date().toISOString() });
+    built.push(...events);
+    await log.append(events);
     o.onStage({ kind: 'transcribing', done: c.index + 1, total: plan.length });
   }
   await o.checkpoint.putMeta({ ...meta, transcribed: true });
-  return meta.durationMs;
+  return { durationMs: meta.durationMs, mono: audio ? (audio as Awaited<ReturnType<typeof decodeToChannels>>).mono : null };
+}
+
+/** Held lines with no confirmation yet, from the log's events plus what this run appended (later events win). */
+export function pendingLines(events: DomainEvent[]): ReviewLine[] {
+  const finals = new Map<string, ReviewLine>();
+  const pending = new Map<string, Record<string, number>>();
+  const confirmed = new Set<string>();
+  for (const e of events) {
+    if (e.type === 'utterance.final') {
+      const u = e.payload.utterance;
+      const diarLabel = u.attribution.signals.diarLabel;
+      finals.set(u.id, { utteranceId: u.id, text: u.text, startMs: u.startMs, endMs: u.endMs, candidates: {}, ...(diarLabel ? { diarLabel } : {}) });
+    } else if (e.type === 'attribution.pending') pending.set(e.payload.utteranceId, e.payload.candidates);
+    else if (e.type === 'attribution.confirmed') confirmed.add(e.payload.utteranceId);
+  }
+  return [...pending].flatMap(([id, candidates]) => {
+    const f = finals.get(id);
+    return f && !confirmed.has(id) ? [{ ...f, candidates }] : [];
+  });
+}
+
+/** Ask the host, then confirm each line they assigned (before the engine reads the log). */
+async function reviewUnsure(o: Options, log: HostLog, events: DomainEvent[], mono: Float32Array | null): Promise<void> {
+  if (!o.review) return;
+  const lines = pendingLines(events).sort((a, b) => a.startMs - b.startMs);
+  if (lines.length === 0) return;
+  // The file is here but was not decoded this run (transcript already finished): decode it to play the lines.
+  if (!mono && o.file) mono = (await decodeToChannels(o.file)).mono;
+  o.onStage({ kind: 'review', pending: lines });
+  const start = events.find((e) => e.type === 'session.started');
+  const participants = start?.type === 'session.started' ? start.payload.participants.filter((p) => p.role !== 'audience') : [];
+  const byId = new Map(lines.map((l) => [l.utteranceId, l]));
+  const answers = (await o.review(lines, mono, participants)).filter((a) => byId.has(a.utteranceId));
+  if (answers.length === 0) return;
+  await log.append(answers.map((a) => ({
+    eventId: `${o.sessionId}:${a.utteranceId}:confirm`,
+    sessionId: o.sessionId,
+    type: 'attribution.confirmed' as const,
+    actor: 'operator' as const,
+    mediaMs: byId.get(a.utteranceId)!.endMs,
+    wallTs: new Date().toISOString(),
+    payload: { utteranceId: a.utteranceId, participantKey: a.participantKey },
+  }) as DomainEvent));
 }
 
 /** Done only once every event has reached the server; otherwise say how many are waiting. */
@@ -120,12 +176,17 @@ export async function runRecording(o: Options): Promise<void> {
     const sameFile = Boolean(o.file && meta && meta.fileSize === o.file.size && meta.fileName === o.file.name);
     const spoken = known.flatMap((e) => (e.type === 'utterance.final' ? [e.payload.utterance.endMs] : []));
     let totalMs: number;
+    let mono: Float32Array | null = null;
+    const built: DomainEvent[] = [];
     if (meta?.transcribed) totalMs = meta.durationMs;
     else if (!o.file && meta) throw new Error('Choose the recording file to continue.');
     // The transcript is on the server but not this device's progress (cleared storage, another laptop).
     else if (!sameFile && spoken.length > 0) totalMs = Math.max(...spoken);
     else if (!o.file) throw new Error('Choose the recording file to continue.');
-    else totalMs = await transcribe(o, o.file, log, known, meta);
+    else ({ durationMs: totalMs, mono } = await transcribe(o, o.file, log, known, meta, built));
+
+    // The log holds every held line by now (this run's appends may not have been read back yet).
+    await reviewUnsure(o, log, [...(await log.read(0)).events, ...built], mono);
 
     o.onStage({ kind: 'analysing', processedMs: 0, totalMs });
     if ((await o.engine.start(log)) === 'key-rejected') {
