@@ -1,7 +1,8 @@
 import type { Word } from './chunks';
 import { browserSupport } from './browser-support';
+import type { DownloadReport } from './progress';
 
-export type AsrProgress = { phase: 'download' | 'compile'; fraction: number };
+export type AsrProgress = DownloadReport;
 
 export class AsrClient {
   private seq = 0;

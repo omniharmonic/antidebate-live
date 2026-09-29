@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AsrClient, readiness } from '@/lib/asr/client';
 
 type Status = 'ready' | 'attention' | 'progress' | 'waiting';
-type ModelState = { kind: 'idle' } | { kind: 'loading'; phase: 'download' | 'compile'; fraction: number } | { kind: 'ready' } | { kind: 'error' };
+type ModelState = { kind: 'idle' } | { kind: 'loading'; fileNumber: number; bytes: number } | { kind: 'ready' } | { kind: 'error' };
 type SpeedState = { kind: 'idle' } | { kind: 'running' } | { kind: 'done'; factor: number } | { kind: 'error' };
 
 const LABEL: Record<Status, string> = { ready: 'Ready', attention: 'Needs attention', progress: 'In progress', waiting: 'Waiting' };
@@ -42,18 +42,22 @@ export function Prepare() {
   const [speed, setSpeed] = useState<SpeedState>({ kind: 'idle' });
   const client = useRef<AsrClient | null>(null);
   const loading = useRef(false);
+  const alive = useRef(false);
+  const [preparedOn, setPreparedOn] = useState<string | null>(null);
 
   const loadModel = useCallback(async () => {
     if (loading.current) return;
     loading.current = true;
-    setModel({ kind: 'loading', phase: 'download', fraction: 0 });
+    setModel({ kind: 'loading', fileNumber: 0, bytes: 0 });
     try {
       await navigator.storage?.persist?.();
+      const c = await AsrClient.load((p) => { if (alive.current) setModel({ kind: 'loading', fileNumber: p.fileNumber, bytes: p.bytes }); });
+      if (!alive.current) { c.terminate(); return; }
       client.current?.terminate();
-      client.current = await AsrClient.load((p) => setModel({ kind: 'loading', phase: p.phase, fraction: p.fraction }));
+      client.current = c;
       setModel({ kind: 'ready' });
     } catch {
-      setModel({ kind: 'error' });
+      if (alive.current) setModel({ kind: 'error' });
     } finally {
       loading.current = false;
     }
@@ -61,13 +65,15 @@ export function Prepare() {
 
   useEffect(() => {
     let live = true;
+    alive.current = true;
+    try { setPreparedOn(localStorage.getItem('adl.prepared')); } catch { /* storage blocked */ }
     void readiness().then((r) => {
       if (!live) return;
       setBrowserOk(r.browserOk);
       // Files already stored on this laptop load without a download.
       if (r.browserOk && r.modelCached) void loadModel();
     });
-    return () => { live = false; client.current?.terminate(); client.current = null; };
+    return () => { live = false; alive.current = false; client.current?.terminate(); client.current = null; };
   }, [loadModel]);
 
   const runSpeed = async () => {
@@ -87,12 +93,13 @@ export function Prepare() {
   useEffect(() => {
     if (!allReady || markedReady.current) return;
     markedReady.current = true;
-    try { localStorage.setItem('adl.prepared', new Date().toISOString()); } catch { /* storage blocked: the page still shows ready */ }
+    const now = new Date().toISOString();
+    setPreparedOn(now);
+    try { localStorage.setItem('adl.prepared', now); } catch { /* storage blocked: the page still shows ready */ }
   }, [allReady]);
 
   const modelStatus: Status = model.kind === 'ready' ? 'ready' : model.kind === 'loading' ? 'progress' : model.kind === 'error' ? 'attention' : 'waiting';
   const speedStatus: Status = speed.kind === 'done' ? 'ready' : speed.kind === 'running' ? 'progress' : speed.kind === 'error' ? 'attention' : 'waiting';
-  const pct = model.kind === 'loading' ? Math.round(model.fraction * 100) : 0;
 
   return (
     <div>
@@ -108,10 +115,7 @@ export function Prepare() {
           {model.kind === 'idle' && <p>The transcription model runs inside this browser. It is downloaded once and kept on this laptop.</p>}
           {model.kind === 'loading' && (
             <>
-              <p>{model.phase === 'download' ? `Downloading, ${pct}%.` : 'Download finished. Preparing the model to run.'}</p>
-              <div className="h-1.5 w-full rounded bg-field-deep" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Model download">
-                <div className="h-full rounded bg-ink" style={{ width: `${pct}%` }} />
-              </div>
+              <p>{model.fileNumber === 0 ? 'Starting the download.' : `Downloading file ${model.fileNumber} (${Math.round(model.bytes / 1_000_000)} MB so far). This can take several minutes.`}</p>
             </>
           )}
           {model.kind === 'error' && <p role="alert">The download stopped. Choose Download again to resume.</p>}
@@ -142,9 +146,10 @@ export function Prepare() {
         <SpeakerSeparationRow n={4} />
       </ol>
 
-      {allReady && (
+      {(allReady || (preparedOn !== null && browserOk === true)) && (
         <div className="mt-8 border-t border-border pt-6">
           <p className="text-[20px] text-ink">This laptop is ready</p>
+          {!allReady && <p className="mt-1 text-sm text-ink-3">Prepared on {preparedOn?.slice(0, 10)}. The checks above confirm the model is still on this laptop.</p>}
           <Link href="/host" className={`${button} mt-4 inline-flex items-center`}>Go to your sessions</Link>
         </div>
       )}
