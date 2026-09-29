@@ -23,6 +23,7 @@ function invalid(b: Partial<Started['payload']>): string | null {
   if (!Array.isArray(b.participants) || b.participants.length === 0 || !b.participants.every(isParticipant)) return 'participants need a key, a name and a role';
   if (new Set(b.participants.map((p) => p.key)).size !== b.participants.length) return 'participant keys must be unique';
   if (b.source !== undefined && b.source?.kind !== 'recording' && b.source?.kind !== 'live') return "source.kind must be 'recording' or 'live'";
+  if (b.source?.attribution !== undefined && b.source.attribution !== 'voice') return "source.attribution must be 'voice' when given";
   return null;
 }
 
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
       format: body.format!,
       participants: body.participants!.map(({ key, displayName, role }) => ({ key, displayName: displayName.trim(), role })),
       ...(body.seats ? { seats: body.seats } : {}),
-      source: { kind: body.source?.kind ?? 'live', host: true },
+      source: { kind: body.source?.kind ?? 'live', host: true, ...(body.source?.attribution === 'voice' ? { attribution: 'voice' as const } : {}) },
     },
   };
   await appendAny([started]);

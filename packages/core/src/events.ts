@@ -53,7 +53,8 @@ export interface Insight {
  * `host`: created from the host flow (/host), written by the server. Host sessions stay off
  * the public list until the host publishes them, and only they accept host session tokens.
  */
-export type SessionSource = { kind: 'live' | 'recording'; fixture?: string; url?: string; speed?: number; host?: boolean };
+/** `attribution: 'voice'`: speakers are told apart by voice alone (one mic in the room, or a call), spec §6.3. */
+export type SessionSource = { kind: 'live' | 'recording'; fixture?: string; url?: string; speed?: number; host?: boolean; attribution?: 'voice' };
 
 /** Discriminated union of every event the system writes. */
 export type DomainEvent =

@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { UploadStatus } from '@adl/engine';
 import type { ChannelMap } from '@/lib/attribution/attributor';
-import { KEY_STORAGE } from '@/lib/anthropic-key';
+import { getKey, KEY_STORAGE } from '@/lib/anthropic-key';
 import { idbAnchorsStore } from '@/lib/live/anchors-store';
 import { pendingLive } from '@/lib/live/handoff';
-import { latencyWarning, listenChannels, liveControls, pendingFromLog, type LivePhase, statusLine, transcriptLines, type PendingLine } from '@/lib/live/live-view';
+import { byVoice, latencyWarning, listenChannels, liveControls, notOnMapLine, pendingFromLog, type LivePhase, statusLine, transcriptLines, type PendingLine } from '@/lib/live/live-view';
 import type { LiveStatus } from '@/lib/live/runner';
 import { markHostSession } from '@/lib/recording/host-sessions';
 import { useStored } from '@/lib/use-stored';
@@ -15,8 +15,8 @@ import { button, DoneLinks, KeyRejected, Publish } from './RunnerParts';
 import { openLiveSession, type LiveSession } from './start-live';
 import { Unconfirmed } from './Unconfirmed';
 import { useLiveCapture } from './use-live-capture';
+import { useDismissed } from './use-dismissed';
 import { useProcessingGuards } from './use-processing-guards';
-
 
 /** The live host view: status, notices, lines to confirm, the transcript, Pause and End. */
 export function LiveRunner({ id, title }: { id: string; title: string }) {
@@ -34,6 +34,9 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
   const [lines, setLines] = useState<{ id: string; speaker: string; text: string }[]>([]);
   const [channels, setChannels] = useState<ChannelMap>({});
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+  const [leftOff, addLeftOff] = useDismissed(id);
+  const [notOnMap, setNotOnMap] = useState(0);
+  const rejectedKey = useRef<string | null>(null);
   const capture = useLiveCapture(session, setError);
   const { begin } = capture;
   const opening = useRef<Promise<LiveSession> | null>(null);
@@ -59,12 +62,15 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
       handoffStreams.current = handoff?.streams ?? null;
       opening.current = openLiveSession(id, handoff, {
         onStatus: setStatus, onUpload: setUpload, onModel: setModel,
-        onSpend: (usd) => setSpend((x) => x + usd), onUnanswered: () => setUnanswered((n) => n + 1), onKeyRejected: () => setRejected(true),
+        onSpend: (usd) => setSpend((x) => x + usd), onUnanswered: () => setUnanswered((n) => n + 1),
+        onKeyRejected: () => { rejectedKey.current = getKey(); setRejected(true); },
       });
       opening.current.then(async (s) => {
         setSession(s);
         setChannels(s.state?.setup.channels ?? {});
-        setRestored(pendingFromLog(await s.events()));
+        const held = pendingFromLog(await s.events());
+        setRestored(held);
+        if (s.ended) setNotOnMap(held.length);
         setPhase(s.ended ? 'ended' : s.runner ? 'live' : 'elsewhere');
       }, (e: unknown) => setError(e instanceof Error ? e.message : String(e)));
     }
@@ -92,12 +98,24 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
     return () => { live = false; };
   }, [session, status, names]);
 
+  // A working key saved in another tab: analysis starts again from the log.
+  useEffect(() => {
+    if (!rejected || !session || !key || key === rejectedKey.current) return;
+    setRejected(false);
+    void session.resumeAnalysis();
+  }, [key, rejected, session]);
+
   const hidden = useProcessingGuards(phase === 'live' || phase === 'ending' || phase === 'ending-failed');
 
   const confirm = useCallback(async (ids: string[], participantKey: string) => {
     for (const u of ids) await session?.runner?.confirm(u, participantKey);
     setRestored((r) => r.filter((l) => !ids.includes(l.utteranceId)));
   }, [session]);
+
+  const leaveOff = useCallback((ids: string[]) => {
+    session?.runner?.dismiss(ids);
+    addLeftOff(ids);
+  }, [session, addLeftOff]);
 
   const swap = async (a: string, b: string) => {
     session?.runner?.applySwap(a, b);
@@ -117,6 +135,7 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
     capture.end();
     try {
       await session.finish();
+      setNotOnMap(pendingFromLog(await session.events()).length);
       markHostSession(id, { done: true });
       setPhase('ended');
     } catch (e) {
@@ -128,7 +147,7 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
 
   if (!key) return null;
   const setup = session?.state?.setup;
-  const pending = [...(status?.unconfirmed ?? []), ...restored.filter((r) => !status?.unconfirmed.some((u) => u.utteranceId === r.utteranceId))];
+  const pending = [...(status?.unconfirmed ?? []), ...restored.filter((r) => !status?.unconfirmed.some((u) => u.utteranceId === r.utteranceId))].filter((l) => !leftOff.has(l.utteranceId));
   return (
     <div>
       <h1 className="text-[30px] leading-tight text-ink">{title}</h1>
@@ -138,9 +157,10 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
         {phase === 'ending' && <p className="text-[20px] text-ink" aria-live="polite">Ending…</p>}
         {phase === 'ending-failed' && <p className="text-[20px] text-ink">Capture has stopped; the session has not finished ending.</p>}
         {phase === 'ended' && <p className="text-[20px] text-ink">Session ended. Open the map.</p>}
+        {phase === 'ended' && notOnMapLine(notOnMap) && <p className="text-[15px] text-ink-2">{notOnMapLine(notOnMap)}</p>}
         {phase === 'live' && setup && (
           <div className="space-y-3">
-            {capture.state === 'on' && <p className="text-[20px] text-ink" aria-live="polite">{statusLine(listenChannels(setup).length, status?.lastLatencyMs ?? null)}</p>}
+            {capture.state === 'on' && <p className="text-[20px] text-ink" aria-live="polite">{statusLine(listenChannels(setup).length, status?.lastLatencyMs ?? null, byVoice(setup.kind))}</p>}
             {controls.includes('resume-listening') && <button type="button" className={button} onClick={() => void capture.reopen()}>Click to resume listening</button>}
             {capture.state === 'paused' && <p className="text-[20px] text-ink">Paused</p>}
             {controls.includes('resume-audio') && (
@@ -155,12 +175,12 @@ export function LiveRunner({ id, title }: { id: string; title: string }) {
         {model && <p className="text-[15px] text-ink-2">{model}</p>}
         {error && <p role="alert" className="text-[15px] text-ink">{error}</p>}
         {hidden && phase === 'live' && <p role="status" className="text-[15px] text-ink">This tab is in the background. Keep it in front so capture isn&apos;t slowed.</p>}
-        {rejected && <KeyRejected id={id} />}
+        {rejected && <KeyRejected id={id} live />}
         {unanswered > 0 && <p className="text-[15px] text-ink-2">Analysis delayed: {unanswered} {unanswered === 1 ? 'request' : 'requests'} did not get an answer; those turns stay off the map.</p>}
 
         {phase === 'live' && status && <Notices status={status} channels={channels} names={names} dismissed={dismissed} onDismiss={(i) => setDismissed((d) => new Set(d).add(i))} onSwap={(a, b) => void swap(a, b)} />}
         {phase === 'live' && status && <Failed items={status.failed} onRetry={(c, ms) => void session?.runner?.retryAt(c, ms)} />}
-        {phase === 'live' && <Unconfirmed lines={pending} voices={status?.newVoices ?? []} people={people} clip={capture.clip} onConfirm={confirm} />}
+        {phase === 'live' && <Unconfirmed lines={pending} voices={status?.newVoices ?? []} people={people} clip={capture.clip} onConfirm={confirm} onDismiss={leaveOff} />}
         <Transcript lines={lines} />
 
         {controls.length > 0 && (

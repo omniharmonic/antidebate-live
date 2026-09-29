@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DomainEvent } from '@adl/core';
-import { deviceAction, liveControls, latencyWarning, listenChannels, mappingComplete, noticeLine, pendingFromLog, statusLine, transcriptLines, visibleNotices } from './live-view';
+import { byVoice, deviceAction, notOnMapLine, liveControls, latencyWarning, listenChannels, mappingComplete, noticeLine, pendingFromLog, statusLine, transcriptLines, visibleNotices } from './live-view';
 
 const ctx = { channels: { d0c0: 'A', d0c1: 'B' }, names: { A: 'Ann', B: 'Bo' } };
 
@@ -15,6 +15,17 @@ describe('live view helpers', () => {
   it('says how many inputs and how far behind, to one decimal', () => {
     expect(statusLine(2, 1340)).toBe('Listening · 2 inputs · transcript about 1.3 s behind');
     expect(statusLine(1, null)).toBe('Listening · 1 input');
+  });
+
+  it('one-mic and call setups say speakers are identified by voice (spec §6.3)', () => {
+    expect(statusLine(1, 900, true)).toBe('Listening · 1 input · Speakers identified by voice · transcript about 0.9 s behind');
+    expect([byVoice('room'), byVoice('call'), byVoice('tracks')]).toEqual([true, true, false]);
+  });
+
+  it('says at End how many lines were never confirmed', () => {
+    expect(notOnMapLine(0)).toBeNull();
+    expect(notOnMapLine(1)).toBe('1 line was not confirmed and is not on the map.');
+    expect(notOnMapLine(3)).toBe('3 lines were not confirmed and are not on the map.');
   });
 
   it('warns when the last three utterances were each more than 4 s behind', () => {

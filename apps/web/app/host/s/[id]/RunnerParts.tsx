@@ -30,11 +30,18 @@ export function UploadWaiting({ status, onRetry, busy }: { status: UploadStatus;
   );
 }
 
-export function KeyRejected({ id }: { id: string }) {
+/**
+ * `live`: the key page opens in a new tab, since leaving this page would stop capture; the live view
+ * starts the analysis again once a working key is saved there.
+ */
+export function KeyRejected({ id, live = false }: { id: string; live?: boolean }) {
+  const next = encodeURIComponent(`/host/s/${id}`);
   return (
     <div className="space-y-3">
       <p role="alert" className="text-[15px] text-ink">Your Anthropic key was rejected. Add a working key to continue.</p>
-      <Link className={`${button} inline-flex items-center`} href={`/host/key?next=${encodeURIComponent(`/host/s/${id}`)}`}>Add a working key</Link>
+      {live
+        ? <Link className={`${button} inline-flex items-center`} href={`/host/key?from=live&next=${next}`} target="_blank" rel="noopener">Add a working key</Link>
+        : <Link className={`${button} inline-flex items-center`} href={`/host/key?next=${next}`}>Add a working key</Link>}
     </div>
   );
 }

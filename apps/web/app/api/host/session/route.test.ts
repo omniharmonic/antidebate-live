@@ -25,6 +25,12 @@ describe('POST /api/host/session', () => {
     expect(token.startsWith(`v1.${sessionId}.`)).toBe(true);
     expect(appended).toMatchObject([{ type: 'session.started', sessionId, payload: { source: { kind: 'recording', host: true } } }]);
   });
+  it('keeps source.attribution voice on a one-mic or call session (spec §6.3)', async () => {
+    cookie = await signHostCookie(process.env.HOST_SIGNING_SECRET!, Date.now());
+    appended.length = 0;
+    await call({ ...body, source: { kind: 'live', attribution: 'voice' } });
+    expect(appended).toMatchObject([{ type: 'session.started', payload: { source: { kind: 'live', host: true, attribution: 'voice' } } }]);
+  });
   it('re-issues a token only for a session the host flow created', async () => {
     cookie = await signHostCookie(process.env.HOST_SIGNING_SECRET!, Date.now());
     Object.assign(flags, { exists: true, host: true });
@@ -41,5 +47,6 @@ describe('POST /api/host/session', () => {
     expect((await call({ ...body, participants: [{ key: '', displayName: 'Ann', role: 'debater' }] })).status).toBe(400);
     expect((await call({ ...body, participants: ['Ann'] })).status).toBe(400);
     expect((await call({ ...body, source: { kind: 'stream' } })).status).toBe(400);
+    expect((await call({ ...body, source: { kind: 'live', attribution: 'guess' } })).status).toBe(400);
   });
 });

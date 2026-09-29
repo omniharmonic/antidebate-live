@@ -47,7 +47,7 @@ export function TabSetup({ onDone }: { onDone: (r: SetupResult) => void }) {
       {error && <p role="alert" className="text-[15px] text-ink">{error}</p>}
       {tapError && <p role="alert" className="text-[15px] text-ink">{tapError}</p>}
       {stream && <Meter label="Call audio" db={levels.d0c0} />}
-      <p className="text-sm text-ink-3">For a cleaner map afterwards, record the call with a separate audio file for each person (Zoom: Settings → Recording → &lsquo;Record a separate audio file for each participant&rsquo;; Riverside and StreamYard do this by default) and process that recording here.</p>
+      <p className="text-sm text-ink-3">For a cleaner map afterwards, record the call with a separate audio file for each person and process that recording here. Zoom: Settings → Recording → &lsquo;Record a separate audio file for each participant&rsquo;. Riverside does this by default. StreamYard does it for local recordings; its cloud recordings need the Advanced plan, with separate tracks switched on before going live.</p>
       <button type="button" className={primary} disabled={!stream} onClick={done}>Continue</button>
     </div>
   );

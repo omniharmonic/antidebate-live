@@ -74,12 +74,12 @@ Steps:
 2. Choose **Use this device**. Chrome asks to use the microphone: allow it.
 3. Ask each person to say their name and watch the meters. For each input, choose who is speaking into it. Each debater needs exactly one input. The moderator can have one too.
 4. Choose **Continue**.
-5. Voices: ask each person in turn to talk for about 20 seconds (their name and what they hope to get from today), choosing **Record**, then **Stop**. It is recommended, because it lets the app double-check the mics. **Skip** is available in this setup. A person with no input is not recorded.
+5. Voices: ask each person in turn to talk for about 20 seconds (their name and what they hope to get from today), choosing **Record**, then **Stop**. It is recommended, because it lets the app double-check the mics. **Skip** is available in this setup. For a person with no input of their own (often the moderator), the page asks "Record NAME from which mic?": choose the mic they will be heard on. When someone has no input, the app checks every line's voice, and a line whose voice does not match the mic's owner waits for you, so an unmiked moderator is never put on a debater's line. If that person is not recorded, more lines wait for you.
 6. Rehearsal: talk for a moment and check the names against the transcript. Choose **Check again** if you need another 30 seconds, then **Looks right: start the session**.
 
 ### A video call
 
-Use this when the debaters are in a call. The app hears the call through a shared browser tab, as one mixed feed, and tells voices apart by their sound. It is a little less certain than separate mics, so expect more lines to wait for you to confirm.
+Use this when the debaters are in a call. The app hears the call through a shared browser tab, as one mixed feed, and tells voices apart by their sound. Until the voice matching has been measured on real calls, every line in this setup waits for you to confirm who spoke; the app shows its best guess first, so confirming is one click.
 
 Steps (Chrome or Edge only; other browsers cannot share audio):
 
@@ -94,7 +94,7 @@ For a cleaner map afterwards, record the call as a separate audio file for each 
 
 ### One mic in the room
 
-Use this when there is one mic or just the laptop's own mic, and speakers are told apart by voice only. This is the least certain setup: more lines will wait for you to confirm.
+Use this when there is one mic or just the laptop's own mic, and speakers are told apart by voice only. This is the least certain setup. Until the voice matching has been measured, every line waits for you to confirm who spoke, with the app's best guess shown first.
 
 Steps:
 
@@ -105,9 +105,10 @@ Steps:
 ### During the session
 
 - **Keep the tab in front and the laptop awake** (plugged in, sleep off). Chrome slows a tab in the background, and the page says so. Closing the tab stops capture.
-- The status line reads "Listening" with the number of inputs. It also shows how far behind the transcript is.
+- The status line reads "Listening" with the number of inputs. It also shows how far behind the transcript is. In the video-call and one-mic setups it also says "Speakers identified by voice".
 - **Pause** stops listening and **Resume** continues. **End session** closes the audio and finishes the session.
-- **Waiting for you** lists lines the app is not sure about, and new voices. Nothing the app is unsure about reaches the map until you choose who spoke. You can play each line before choosing.
+- **Waiting for you** lists lines the app is not sure about, and new voices. Nothing the app is unsure about reaches the map until you choose who spoke. You can play each line before choosing. A new voice shows each of its lines: **All to NAME** confirms them together, and any single line can be given to someone else first. **Not a speaker (leave off the map)** removes a line, or a whole voice, from the list; those lines stay off the map.
+- At **End session**, the page says how many lines were never confirmed ("N lines were not confirmed and are not on the map.").
 - **Open the map** and **Open the cockpit** open in a new tab while the session is live, so capture keeps running here. Use them from this page rather than typing addresses.
 - If the audio stopped (a device unplugged, sharing ended), choose **Resume audio**. After a reload, choose **Click to resume listening**. The browser asks again for the microphone or the tab to share.
 - A live session can only be resumed on the laptop that started it.
@@ -176,12 +177,13 @@ Messages are shown exactly as written on the page.
 | Input N (NAME) is working again. | Live session | Nothing to do. |
 | Input N sounds like NAME. Swap inputs N and M? | Live session | Two mics are probably plugged into each other's inputs. Choose **Swap** to exchange them for the rest of the session, or **Dismiss**. |
 | Voice matching is not working. Unsure lines are held for you to confirm. | Live session | Lines wait under **Waiting for you** until you choose who spoke. Nothing is lost. |
-| A new voice is speaking (Voice N). Name them? | Live session | Choose **Play**, then choose who it is. All of that voice's lines are confirmed at once. |
+| A new voice is speaking (Voice N): N lines. Name them? | Live session | Read the lines listed under it. Choose **All to NAME**, or give single lines to someone else first. For audience or background speech, choose **Not a speaker (leave off the map)**. |
+| N lines were not confirmed and are not on the map. | Live session, after End | Lines still waiting at the end stay off the map. Nothing to do. |
 | Transcription is running more than 4 seconds behind on this laptop. Close other apps, or switch to a faster laptop. | Live session | Close other tabs and apps, plug in the laptop and keep this tab in front. |
 | This tab is in the background. Keep it in front so capture isn't slowed. | Live session | Bring the tab back to the front. |
 | A line at M:SS was not saved: REASON | Live session | Choose **Retry** beside it. |
 | Analysis delayed: N requests did not get an answer; those turns stay off the map. | Live session | Anthropic did not answer for some turns (limits or connection). The rest of the map is unaffected. |
-| Your Anthropic key was rejected. Add a working key to continue. | Live session | Choose **Add a working key**. That leaves this page, so the audio stops: after adding the key, open the session from **On this laptop** and choose **Click to resume listening**. Do this before the event, not during it. |
+| Your Anthropic key was rejected. Add a working key to continue. | Live session | Listening and the transcript go on. Choose **Add a working key**: it opens in a new tab, so capture keeps running here. Paste a working key; that tab says "Key saved. Return to your session tab." The analysis then starts again where it stopped. |
 | N events waiting to upload | Live session | Keep the tab open and online; they upload on their own. |
 | The session did not finish ending: N | Live session | The page says "Capture has stopped; the session has not finished ending." Capture does not restart. Fix the connection, then choose **Try ending again**. |
 | N events are still waiting to upload. Check the connection and try again. | Live session | Reconnect to the internet, then choose **Try ending again**. |

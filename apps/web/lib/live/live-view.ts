@@ -16,8 +16,11 @@ export function inputNumber(channels: ChannelMap, channel: string): number {
   return Object.keys(channels).sort().indexOf(channel) + 1;
 }
 
-export function statusLine(inputs: number, latencyMs: number | null): string {
-  const head = `Listening · ${inputs} ${inputs === 1 ? 'input' : 'inputs'}`;
+/** The one-mic and call setups tell speakers apart by voice alone (spec §6.3). */
+export const byVoice = (kind: string) => kind === 'room' || kind === 'call';
+
+export function statusLine(inputs: number, latencyMs: number | null, voice = false): string {
+  const head = `Listening · ${inputs} ${inputs === 1 ? 'input' : 'inputs'}${voice ? ' · Speakers identified by voice' : ''}`;
   return latencyMs === null ? head : `${head} · transcript about ${(latencyMs / 1000).toFixed(1)} s behind`;
 }
 
@@ -33,6 +36,12 @@ export function liveControls(phase: LivePhase, capture: 'waiting' | 'on' | 'paus
   if (phase !== 'live') return [];
   const first: Record<typeof capture, LiveControl> = { waiting: 'resume-listening', on: 'pause', paused: 'resume', stopped: 'resume-audio' };
   return [first[capture], 'end'];
+}
+
+/** Held lines left at End: they stay off the map. */
+export function notOnMapLine(n: number): string | null {
+  if (n === 0) return null;
+  return n === 1 ? '1 line was not confirmed and is not on the map.' : `${n} lines were not confirmed and are not on the map.`;
 }
 
 const SLOW_MS = 4_000;

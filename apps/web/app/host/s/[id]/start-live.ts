@@ -37,6 +37,8 @@ export type LiveSession = {
    * failure, calling it again re-runs only the delivery: the runner and engine are already finished.
    */
   finish: () => Promise<void>;
+  /** After a refused key: analysis starts again with the key now stored (the engine resumes from the log). */
+  resumeAnalysis: () => Promise<void>;
   /** Stop everything without ending the session (page left or reloaded). */
   dispose: () => void;
 };
@@ -64,7 +66,7 @@ export async function openLiveSession(sessionId: string, handoff: LiveHandoff | 
   if (ended || !state) {
     handoff?.asr?.terminate();
     handoff?.voices?.terminate();
-    return { state, ended, runner: null, events, finish: async () => {}, dispose: () => { void log.close(); cp.close(); } };
+    return { state, ended, runner: null, events, finish: async () => {}, resumeAnalysis: async () => {}, dispose: () => { void log.close(); cp.close(); } };
   }
 
   let asr = handoff?.asr;
@@ -84,18 +86,22 @@ export async function openLiveSession(sessionId: string, handoff: LiveHandoff | 
   }
 
   const runner = new LiveRunner({ sessionId, setup: state.setup, anchors: state.anchors, asr, voices: voices ?? noVoices, log, onStatus: cb.onStatus });
-  const engine: SessionEngine = new SessionEngine({
-    sessionId,
-    log,
-    silenceMs: 3500,
-    onCall: (l) => cb.onSpend(l.billedUsd),
-    say: (line) => {
-      // A refused key fails every later request too: stop the analysis; the transcript keeps going.
-      if (keyRejected(line)) { engine.stop(); cb.onKeyRejected(); }
-      else if (unansweredRequest(line)) cb.onUnanswered();
-    },
-  });
-  const running = engine.run();
+  const startEngine = () => {
+    const engine: SessionEngine = new SessionEngine({
+      sessionId,
+      log,
+      silenceMs: 3500,
+      onCall: (l) => cb.onSpend(l.billedUsd),
+      say: (line) => {
+        // A refused key fails every later request too: stop the analysis; the transcript keeps going.
+        if (keyRejected(line)) { engine.stop(); cb.onKeyRejected(); }
+        else if (unansweredRequest(line)) cb.onUnanswered();
+      },
+    });
+    return { engine, running: engine.run() };
+  };
+  let { engine, running } = startEngine();
+  let finishing = false;
   const release = () => { asr.terminate(); voices?.terminate(); cp.close(); };
 
   return {
@@ -105,6 +111,7 @@ export async function openLiveSession(sessionId: string, handoff: LiveHandoff | 
     events,
     finish: finisher(
       async () => {
+        finishing = true;
         await runner.stop();
         engine.finishSource();
         await running;
@@ -122,6 +129,15 @@ export async function openLiveSession(sessionId: string, handoff: LiveHandoff | 
         release();
       },
     ),
+    resumeAnalysis: async () => {
+      const next = getKey();
+      if (!next || finishing) return;
+      engine.stop();
+      await running;
+      if (finishing) return;
+      setCaller(browserCaller(next));
+      ({ engine, running } = startEngine());
+    },
     dispose: () => {
       engine.stop();
       void runner.stop().then(() => running).then(() => log.close()).finally(release);

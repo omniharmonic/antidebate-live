@@ -6,6 +6,7 @@ import type { Anchor } from '@/lib/attribution/anchors';
 import { idbAnchorsStore } from '@/lib/live/anchors-store';
 import { stopStreams } from '@/lib/live/capture';
 import { pendingLive, type LiveHandoff } from '@/lib/live/handoff';
+import { byVoice } from '@/lib/live/live-view';
 import { rememberHostSession } from '@/lib/recording/host-sessions';
 import { Enrollment } from './Enrollment';
 import { MicSetup } from './MicSetup';
@@ -39,7 +40,7 @@ export function LiveFlow({ draft }: { draft: LiveDraft }) {
       const res = await fetch('/api/host/session', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ title: draft.title, format: draft.format, participants: people, seats: draft.seats, source: { kind: 'live' } }),
+        body: JSON.stringify({ title: draft.title, format: draft.format, participants: people, seats: draft.seats, source: { kind: 'live', ...(byVoice(setup.kind) ? { attribution: 'voice' } : {}) } }),
       });
       const body = (await res.json().catch(() => ({}))) as { sessionId?: string; error?: string };
       if (!res.ok || !body.sessionId) throw new Error(body.error ?? `The server returned ${res.status}`);

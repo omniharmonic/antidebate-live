@@ -25,70 +25,82 @@ function usePlayer() {
   };
 }
 
+const leaveOff = 'Not a speaker (leave off the map)';
+
+/** One held line: its text, Play, a button per person, and Not a speaker. */
+function Line({ id, text, guess, people, clip, play, busy, onPick, onDismiss }: {
+  id: string; text: string; guess?: string; people: Person[]; clip: (id: string) => Float32Array | undefined; play: (pcm: Float32Array) => void;
+  busy: boolean; onPick: (key: string) => void; onDismiss: () => void;
+}) {
+  const pcm = clip(id);
+  return (
+    <li className="space-y-2 border-t border-border pt-3">
+      <p className="text-[15px] text-ink">{guess && <span className="text-ink-2">{guess}? </span>}{text}</p>
+      <div className="flex flex-wrap gap-2">
+        {pcm && <button type="button" className={small} onClick={() => play(pcm)}>Play</button>}
+        {people.map((p) => <button key={p.key} type="button" className={small} disabled={busy} onClick={() => onPick(p.key)}>{p.displayName}</button>)}
+        <button type="button" className={small} disabled={busy} onClick={onDismiss}>{leaveOff}</button>
+      </div>
+    </li>
+  );
+}
+
 /**
- * Lines held out of the map until the host says who spoke, and voices nobody enrolled. Confirming
- * a voice group confirms every line in it.
+ * Lines held out of the map until the host says who spoke, and voices nobody enrolled. A voice group
+ * lists each of its lines, so the host sees what "all to NAME" confirms and can change any one of them.
+ * "Not a speaker" takes lines off this list without writing anything: they stay held, off the map.
  */
-export function Unconfirmed({ lines, voices, people, clip, onConfirm }: {
+export function Unconfirmed({ lines, voices, people, clip, onConfirm, onDismiss }: {
   lines: PendingLine[];
   voices: { label: string; utteranceIds: string[] }[];
   people: Person[];
   clip: (utteranceId: string) => Float32Array | undefined;
   onConfirm: (utteranceIds: string[], participantKey: string) => Promise<void>;
+  onDismiss: (utteranceIds: string[]) => void;
 }) {
   const play = usePlayer();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const name = (k: string) => people.find((p) => p.key === k)?.displayName ?? k;
-  const grouped = new Set(voices.flatMap((v) => v.utteranceIds));
+  const byId = new Map(lines.map((l) => [l.utteranceId, l]));
+  const groups = voices.map((v) => ({ ...v, utteranceIds: v.utteranceIds.filter((id) => byId.has(id)) })).filter((v) => v.utteranceIds.length > 0);
+  const grouped = new Set(groups.flatMap((v) => v.utteranceIds));
+  const guessOf = (l: PendingLine) => {
+    const k = Object.entries(l.candidates).sort((a, b) => b[1] - a[1])[0]?.[0];
+    return k ? name(k) : undefined;
+  };
 
   const confirm = async (ids: string[], key: string, tag: string) => {
     setBusy(tag);
     setError(null);
     try { await onConfirm(ids, key); } catch (e) { setError(`Not saved: ${e instanceof Error ? e.message : String(e)}`); } finally { setBusy(null); }
   };
+  const line = (l: PendingLine, tag: string, guess?: string) => (
+    <Line key={l.utteranceId} id={l.utteranceId} text={l.text} people={people} clip={clip} play={play} busy={busy === tag || busy === l.utteranceId}
+      onPick={(k) => void confirm([l.utteranceId], k, l.utteranceId)} onDismiss={() => onDismiss([l.utteranceId])} {...(guess ? { guess } : {})} />
+  );
 
   const loose = lines.filter((l) => !grouped.has(l.utteranceId));
-  if (loose.length === 0 && voices.length === 0) return null;
+  if (loose.length === 0 && groups.length === 0) return null;
   return (
     <section className="space-y-4">
       <h2 className="label-caps">Waiting for you</h2>
       {error && <p role="alert" className="text-sm text-ink">{error}</p>}
-      {voices.map((v) => {
-        const first = v.utteranceIds[0];
-        const pcm = first ? clip(first) : undefined;
-        return (
-          <div key={v.label} className="space-y-2 border-t border-border pt-3">
-            <p className="text-[15px] text-ink">A new voice is speaking ({v.label}). Name them?</p>
-            <div className="flex flex-wrap items-center gap-2">
-              {pcm && <button type="button" className={small} onClick={() => play(pcm)}>Play</button>}
-              <select aria-label={`Who is ${v.label}`} className="min-h-11 rounded-[3px] border border-border bg-surface px-3 text-[15px]" value="" disabled={busy === v.label}
-                onChange={(e) => { if (e.target.value) void confirm(v.utteranceIds, e.target.value, v.label); }}>
-                <option value="">Choose who</option>
-                {people.map((p) => <option key={p.key} value={p.key}>{p.displayName}</option>)}
-              </select>
-              <span className="text-sm text-ink-3">{v.utteranceIds.length} {v.utteranceIds.length === 1 ? 'line' : 'lines'}</span>
-            </div>
+      {groups.map((v) => (
+        <div key={v.label} className="space-y-2 border-t border-border pt-3">
+          <p className="text-[15px] text-ink">A new voice is speaking ({v.label}): {v.utteranceIds.length} {v.utteranceIds.length === 1 ? 'line' : 'lines'}. Name them?</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <select aria-label={`Who is ${v.label}`} className="min-h-11 rounded-[3px] border border-border bg-surface px-3 text-[15px]" value="" disabled={busy === v.label}
+              onChange={(e) => { if (e.target.value) void confirm(v.utteranceIds, e.target.value, v.label); }}>
+              <option value="">All to…</option>
+              {people.map((p) => <option key={p.key} value={p.key}>All to {p.displayName}</option>)}
+            </select>
+            <button type="button" className={small} disabled={busy === v.label} onClick={() => onDismiss(v.utteranceIds)}>{leaveOff}</button>
           </div>
-        );
-      })}
-      <ul className="space-y-3">
-        {loose.map((l) => {
-          const pcm = clip(l.utteranceId);
-          const guess = Object.entries(l.candidates).sort((a, b) => b[1] - a[1])[0]?.[0];
-          return (
-            <li key={l.utteranceId} className="space-y-2 border-t border-border pt-3">
-              <p className="text-[15px] text-ink">{guess && <span className="text-ink-2">{name(guess)}? </span>}{l.text}</p>
-              <div className="flex flex-wrap gap-2">
-                {pcm && <button type="button" className={small} onClick={() => play(pcm)}>Play</button>}
-                {people.map((p) => (
-                  <button key={p.key} type="button" className={small} disabled={busy === l.utteranceId} onClick={() => void confirm([l.utteranceId], p.key, l.utteranceId)}>{p.displayName}</button>
-                ))}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+          <ul className="space-y-3 pl-4">{v.utteranceIds.map((id) => line(byId.get(id)!, v.label))}</ul>
+        </div>
+      ))}
+      <ul className="space-y-3">{loose.map((l) => line(l, l.utteranceId, guessOf(l)))}</ul>
     </section>
   );
 }
