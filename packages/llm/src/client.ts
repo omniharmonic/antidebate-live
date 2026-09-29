@@ -65,7 +65,8 @@ export async function callStructured<S extends z.ZodType>(call: StructuredCall<S
   if (call.sessionContext) system.push({ type: 'text', text: call.sessionContext, cache_control: { type: 'ephemeral' } });
 
   const started = Date.now();
-  const response = await getClient().beta.messages.create({
+  // Streamed and collected: large max_tokens on non-streaming requests risk HTTP timeouts.
+  const response = await getClient().beta.messages.stream({
     model: cfg.model,
     max_tokens: cfg.maxTokens,
     betas: ['server-side-fallback-2026-07-01'],
@@ -74,7 +75,7 @@ export async function callStructured<S extends z.ZodType>(call: StructuredCall<S
     output_config: { effort: cfg.effort, format: zodOutputFormat(call.schema) },
     system,
     messages: [{ role: 'user', content: call.input }],
-  });
+  }).finalMessage();
 
   const usage = response.usage;
   const log: LlmCallLog = {

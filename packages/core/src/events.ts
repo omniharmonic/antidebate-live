@@ -39,7 +39,7 @@ export type Module =
   | 'transcript'
   | 'polls';
 
-export type InsightKind = 'crux' | 'higher_ground' | 'drift' | 'prompt' | 'steelman' | 'update' | 'question';
+export type InsightKind = 'crux' | 'higher_ground' | 'drift' | 'prompt' | 'steelman' | 'update' | 'question' | 'shared';
 
 export interface Insight {
   id: string;
@@ -51,7 +51,19 @@ export interface Insight {
 
 /** Discriminated union of every event the system writes. */
 export type DomainEvent =
-  | EventEnvelope<'session.started', { title: string; format: string; participants: { key: string; displayName: string; role: 'debater' | 'moderator' | 'audience' }[] }>
+  | EventEnvelope<
+      'session.started',
+      {
+        title: string;
+        /** Format id (packages/core/src/formats.ts). */
+        format: string;
+        participants: { key: string; displayName: string; role: 'debater' | 'moderator' | 'audience' }[];
+        /** participantKey → seat in the format (aff / neg / moderator). */
+        seats?: Record<string, 'aff' | 'neg' | 'moderator' | 'audience'>;
+        /** Where utterances come from: a live room, or a recording replayed through the live path. */
+        source?: { kind: 'live' | 'recording'; fixture?: string; url?: string; speed?: number };
+      }
+    >
   | EventEnvelope<'session.ended', Record<string, never>>
   | EventEnvelope<'round.started', { roundId: string; name: string; plannedMs?: number }>
   | EventEnvelope<'round.ended', { roundId: string }>
@@ -70,7 +82,12 @@ export type DomainEvent =
   | EventEnvelope<'item.approved', { itemId: string; note?: string }>
   | EventEnvelope<'item.edited', { itemId: string; patch: Record<string, unknown>; reason: string }>
   | EventEnvelope<'item.rejected', { itemId: string; reason: string }>
-  | EventEnvelope<'item.merged', { fromId: string; intoId: string }>
+  /**
+   * Identity resolution (L3). `fromId`'s stances and relations now point at `intoId`.
+   * With `negated`, `fromId` states the negation of `intoId`: the linker emits flipped
+   * stances on `intoId` first, and the old stances are retired rather than re-pointed.
+   */
+  | EventEnvelope<'item.merged', { fromId: string; intoId: string; negated?: boolean }>
   | EventEnvelope<'item.sent_to_facilitator', { itemId: string }>
   | EventEnvelope<'dial.set', { channel: ChannelId; level: DialLevel; toggles?: Partial<Record<Module, boolean>>; mode?: 'live' | 'reveal' }>
   | EventEnvelope<'release.published', { itemIds: string[]; channels: ChannelId[] }>

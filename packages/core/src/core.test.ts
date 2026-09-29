@@ -79,3 +79,19 @@ describe('audience safety', () => {
     expect(audienceView(dark, 'stage').level).toBe(0);
   });
 });
+
+describe('identity merges (L3)', () => {
+  const base = { sessionId: 'm', actor: 'system' as const, mediaMs: 0, wallTs: '2026-01-01T00:00:00.000Z' };
+  const prop = (id: string, canonical: string) => ({ ...base, eventId: `${id}:p`, type: 'proposition.proposed' as const, payload: { proposition: { id, canonical, type: 'prescriptive' as const, stratum: 'praxis' as const, scope: { quantifier: 'generic' as const }, conditions: [], quantities: [], aboutConcepts: [], status: 'live_provisional' as const } } });
+  const stance = (id: string, pid: string, key: string, attitude: 'accepts' | 'rejects') => ({ ...base, eventId: `${id}:s`, type: 'stance.proposed' as const, payload: { stance: { id, participantKey: key, propositionId: pid, atMs: 0, attitude, strength: 'confident' as const, source: 'stated' as const } } });
+  it('re-points stances to the surviving proposition', () => {
+    const s = project('m', [prop('P', 'Labs should be audited.'), prop('Q', 'Frontier labs should be audited.'), stance('s1', 'P', 'A', 'accepts'), stance('s2', 'Q', 'B', 'accepts'), { ...base, eventId: 'mg', type: 'item.merged', payload: { fromId: 'Q', intoId: 'P' } }]);
+    expect(s.stances.get('s2')?.value.propositionId).toBe('P');
+    expect(s.propositions.get('Q')?.state).toBe('merged');
+  });
+  it('retires stances on a negated duplicate', () => {
+    const s = project('m', [prop('P', 'Labs should be licensed.'), prop('Q', 'Labs should not need licenses.'), stance('s2', 'Q', 'B', 'accepts'), stance('s3', 'P', 'B', 'rejects'), { ...base, eventId: 'mg', type: 'item.merged', payload: { fromId: 'Q', intoId: 'P', negated: true } }]);
+    expect(s.stances.get('s2')?.state).toBe('merged');
+    expect(s.stances.get('s3')?.value.attitude).toBe('rejects');
+  });
+});

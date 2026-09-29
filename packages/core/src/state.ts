@@ -24,6 +24,11 @@ export interface ChannelState {
 export interface SessionState {
   sessionId: string;
   title: string;
+  /** Format id (formats.ts); null until session.started. */
+  formatId: string | null;
+  seats: Record<string, 'aff' | 'neg' | 'moderator' | 'audience'>;
+  source: { kind: 'live' | 'recording'; fixture?: string; url?: string; speed?: number } | null;
+  ended: boolean;
   participants: { key: string; displayName: string; role: 'debater' | 'moderator' | 'audience' }[];
   round: { roundId: string; name: string; startedMediaMs: number } | null;
   utterances: Map<string, Utterance>;
@@ -57,6 +62,10 @@ export function emptyState(sessionId: string): SessionState {
   return {
     sessionId,
     title: '',
+    formatId: null,
+    seats: {},
+    source: null,
+    ended: false,
     participants: [],
     round: null,
     utterances: new Map(),

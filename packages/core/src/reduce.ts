@@ -23,8 +23,12 @@ export function apply(s: SessionState, e: DomainEvent): SessionState {
     case 'session.started':
       s.title = e.payload.title;
       s.participants = e.payload.participants;
+      s.formatId = e.payload.format;
+      s.seats = e.payload.seats ?? {};
+      s.source = e.payload.source ?? null;
       break;
     case 'session.ended':
+      s.ended = true;
       break;
     case 'round.started':
       s.round = { roundId: e.payload.roundId, name: e.payload.name, startedMediaMs: e.mediaMs };
@@ -99,8 +103,20 @@ export function apply(s: SessionState, e: DomainEvent): SessionState {
       break;
     }
     case 'item.merged': {
-      const it = findItem(s, e.payload.fromId);
+      const { fromId, intoId, negated } = e.payload;
+      const it = findItem(s, fromId);
       if (it) it.state = 'merged';
+      if (s.propositions.has(fromId) && s.propositions.has(intoId)) {
+        for (const st of s.stances.values()) {
+          if (st.value.propositionId !== fromId) continue;
+          if (negated) st.state = 'merged';
+          else st.value = { ...st.value, propositionId: intoId };
+        }
+        for (const r of s.relations.values()) {
+          if (r.value.fromId === fromId) r.value = { ...r.value, fromId: intoId };
+          if (r.value.toId === fromId) r.value = { ...r.value, toId: intoId };
+        }
+      }
       break;
     }
     case 'item.sent_to_facilitator': {
