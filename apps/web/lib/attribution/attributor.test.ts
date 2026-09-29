@@ -129,10 +129,15 @@ describe('Attributor, tracks with voice agreement (P2-R8)', () => {
 
 describe('Attributor, one mixed feed', () => {
   for (const setup of ['room', 'call'] as const) {
-    it(`${setup}: a voice-only decision is capped below the threshold, so it is held (P2-R9)`, () => {
-      const at = new Attributor(setup, {});
+    it(`${setup}: unmeasured, a voice-only decision is capped below the threshold, so it is held (P2-R9)`, () => {
+      const at = new Attributor(setup, {}, { gates: {} });
       const { decision } = at.decide(sig({ channel: null, channelRmsDb: {}, voice: { A: 0.99, B: 0.01 } }));
       expect(decision).toMatchObject({ participantKey: 'UNK', candidate: 'A', pending: true, confidence: VOICE_ONLY_CAP });
+    });
+    it(`${setup}: once the gate passes for it, the cap is lifted`, () => {
+      const at = new Attributor(setup, {}, { gates: { [setup]: { threshold: 0.85, hostConfirmsAll: false } } });
+      const { decision } = at.decide(sig({ channel: null, channelRmsDb: {}, voice: { A: 0.99, B: 0.01 } }));
+      expect(decision).toMatchObject({ participantKey: 'A', pending: false });
     });
   }
   it('weak → UNK pending with a new voice notice', () => {
@@ -140,5 +145,19 @@ describe('Attributor, one mixed feed', () => {
     const weak = at.decide(sig({ channel: null, channelRmsDb: {}, voice: { A: 0.3, B: 0.2 } }));
     expect(weak.decision).toMatchObject({ participantKey: 'UNK', pending: true });
     expect(weak.notices[0]).toMatchObject({ kind: 'new_voice', label: 'Voice 1' });
+  });
+});
+
+describe('Attributor, measured gate', () => {
+  const clean = sig({ voice: { A: 0.9 } });
+  it('holds a line below the setup threshold', () => {
+    const fused = new Attributor('tracks', { L: 'A', R: 'B' }, { gates: {} }).decide(clean).decision;
+    expect(fused.pending).toBe(false);
+    const strict = new Attributor('tracks', { L: 'A', R: 'B' }, { gates: { tracks: { threshold: fused.confidence + 0.01, hostConfirmsAll: false } } });
+    expect(strict.decide(clean).decision).toMatchObject({ participantKey: 'UNK', candidate: 'A', pending: true });
+  });
+  it('holds every line where the host confirms all', () => {
+    const at = new Attributor('tracks', { L: 'A', R: 'B' }, { gates: { tracks: { threshold: 0.99, hostConfirmsAll: true } } });
+    expect(at.decide(sig({ channelRmsDb: { L: -10, R: -40 }, voice: { A: 1 } })).decision).toMatchObject({ participantKey: 'UNK', pending: true });
   });
 });

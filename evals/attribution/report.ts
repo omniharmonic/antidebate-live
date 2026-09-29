@@ -13,8 +13,8 @@ import { calibrate, gatePred, pooled, type Calibration, type LabPred, type Ref, 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SCENARIOS = path.join(ROOT, '.data/scenarios');
 
-type Result = { utterances: LabPred[]; windowMs: number; enrolledFromMs?: number };
-type Loaded = { fixture: string; run: Run; minutes: number; enrolledFromMs?: number };
+type Result = { utterances: LabPred[]; windowMs: number; enrolled?: string[]; enrolledFromMs?: number };
+type Loaded = { fixture: string; run: Run; minutes: number; enrolled: string[]; enrolledFromMs?: number };
 
 function load(setup: string): Loaded[] {
   const out: Loaded[] = [];
@@ -26,7 +26,7 @@ function load(setup: string): Loaded[] {
     const res = JSON.parse(readFileSync(sf, 'utf8')) as Result;
     // The lab scores a window from the start; reference speech beyond it is not part of the run.
     const reference = ref.turns.filter(([s]) => s < res.windowMs).map(([s, e, k]): Ref => [s, Math.min(e, res.windowMs), k]);
-    out.push({ fixture, minutes: res.windowMs / 60_000, run: { reference, predicted: res.utterances.map((u) => gatePred(setup, u)) }, ...(res.enrolledFromMs !== undefined ? { enrolledFromMs: res.enrolledFromMs } : {}) });
+    out.push({ fixture, minutes: res.windowMs / 60_000, enrolled: res.enrolled ?? [], run: { reference, predicted: res.utterances.map((u) => gatePred(setup, u)) }, ...(res.enrolledFromMs !== undefined ? { enrolledFromMs: res.enrolledFromMs } : {}) });
   }
   return out;
 }
@@ -65,9 +65,12 @@ for (const s of SETUPS) {
   gate[s.name] = { threshold: c.threshold, hostConfirmsAll: c.hostConfirmsAll };
   const sweep = [0.85, 0.88, 0.9, 0.92, 0.95, 0.97, 0.99].map((t) => [t, pooled(loaded.map((l) => l.run), t).wrongAuto] as const);
   const swept = sweep.map(([t, w]) => `${t}: ${pct(w)}`).join(', ');
-  const flat = sweep.every(([, w]) => pct(w) === pct(sweep[0]![1]));
+  const flat = sweep.every(([, w]) => w === sweep[0]![1]);
   lines.push(`### ${s.name} (${s.note})`, '', `Wrong auto-accepted share by threshold, pooled: ${swept}.`, '');
-  if (flat && sweep[0]![1] > 0 && !c.hostConfirmsAll) lines.push(`The sweep is flat: the wrongly attributed lines carry scores at or above 0.99, so raising the threshold does not remove them. ${c.threshold} is the lowest candidate threshold, not a tuned value.`, '');
+  if (flat && !c.hostConfirmsAll) {
+    const why = sweep[0]![1] > 0 ? 'the wrongly auto-accepted lines all score 0.99 or more, so raising the threshold does not remove them' : 'no line is wrongly auto-accepted at any threshold';
+    lines.push(`The sweep is flat: ${why}. ${c.threshold} is the lowest candidate threshold, not a tuned value.`, '');
+  }
   table(s.name, loaded, c);
   verdicts.push(c.hostConfirmsAll
     ? `- ${s.name}: does not pass. No threshold up to 0.99 keeps wrong auto-accepts at or under 2%; the host confirms every line.`
@@ -95,11 +98,12 @@ const head = [
     ? `- Mono-live (call and room) enrollment clips come from reference speech in minutes ${monoLive[0]!.enrolledFromMs! / 60_000}–20 of the 20-minute cut, disjoint from the scored window (minutes 0–${monoLive[0]!.minutes.toFixed(0)}), as a sound check records different audio from the session. Bleed enrollment clips still come from the scored audio, so its voice match is optimistic.`
     : '- Voice enrollment clips are taken from the scored audio, so voice match is optimistic (a real host enrolls before the session, on different audio).',
   `- The call/room sample is small: ${monoLive.length} windows of ${monoLive[0]!.minutes.toFixed(0)} minutes (${windows('mono-live')}).`,
+  `- Enrolled in mono-live (a sound check keeps a clip only with at least 10 s of speech): ${monoLive.map((l) => `${l.fixture} ${l.enrolled.join(', ') || 'nobody'}`).join('; ')}. Lines of anyone not enrolled can only be held.`,
   '- Tracks fixtures are silent between turns; the bleed setup (each mic hears the others) is the realistic tracks case and is what the tracks threshold is calibrated on.',
   '- The lab\'s mono-live runs the room code path, which is also the call code path (channels `{}`, voice only), so call and room share these results.',
   '- Mono-live lines are scored as the gate would see them with the voice-only cap (0.84) lifted: predicted = candidate, else the attributed key; confidence = uncapped fused score. Only the cap is lifted: a line counts toward auto-accept only when the cap was its sole reason for being held. Lines held for any other reason (no candidate, a fused score below the cap) stay held at every threshold, as do lines that are pending in other setups.',
   `- Window lengths: mono-live ${windows('mono-live')} (first minutes of the program only); bleed ${windows('bleed')}; mono-recording ${windows('mono-recording')}.`,
-  '- Shares are of reference speech time inside the window, at 10 ms resolution. Held is all held speech; "held with a wrong guess" is the part of it whose candidate was wrong.', '',
+  '- Shares are of reference speech time inside the window, at 10 ms resolution. Held is all held speech; "held with a wrong guess" is the part of it whose candidate was wrong or missing.', '',
   '**Verdicts (2% wrong auto-accept ceiling).**', ...verdicts, '',
 ];
 // One "Attribution gate" section: replace the previous one (up to the next top-level heading) rather than append another.

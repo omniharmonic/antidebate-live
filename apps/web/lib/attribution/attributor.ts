@@ -1,5 +1,5 @@
 import { AUTO_THRESHOLD, fuse } from './fusion';
-import { capVoiceOnly } from './gate';
+import { capVoiceOnly, gateFor, type Gate, type GateTable } from './gate';
 
 export type Setup = 'tracks' | 'call' | 'room';
 /** channel id → participant key */
@@ -56,15 +56,22 @@ export class Attributor {
   private readonly mismatch = new Map<string, number>();
   private voiceLabels = 0;
   private readonly unmiked: boolean;
+  private readonly gates: GateTable | undefined;
+  private readonly gate: Gate;
 
-  /** `unmiked`: someone has no input of their own, so a clean margin alone cannot rule them out. */
+  /**
+   * `unmiked`: someone has no input of their own, so a clean margin alone cannot rule them out.
+   * `gates`: the measured gate table (threshold and voice-only cap); gate.json unless given.
+   */
   constructor(
     readonly setup: Setup,
     channels: ChannelMap,
-    opts: { unmiked?: boolean } = {},
+    opts: { unmiked?: boolean; gates?: GateTable } = {},
   ) {
     this.owners = { ...channels };
     this.unmiked = opts.unmiked ?? false;
+    this.gates = opts.gates;
+    this.gate = gateFor(setup, opts.gates);
   }
 
   /** The utterance channel's level above the loudest other channel, or null when there is no usable margin. */
@@ -111,7 +118,7 @@ export class Attributor {
         const fused = fuse({ channelMarginDb: null, voiceMatch: top ? top[1] : null, diarizerAgrees: null, overlap: s.overlap });
         return { decision: { participantKey: 'UNK', confidence: Math.min(0.6, fused), pending: true, signals }, notices };
       }
-      const fused = capVoiceOnly(this.setup, fuse({ channelMarginDb: null, voiceMatch: top[1], diarizerAgrees: null, overlap: s.overlap }));
+      const fused = capVoiceOnly(this.setup, fuse({ channelMarginDb: null, voiceMatch: top[1], diarizerAgrees: null, overlap: s.overlap }), this.gates);
       return { decision: this.finish(top[0], fused, signals), notices };
     }
 
@@ -199,7 +206,8 @@ export class Attributor {
   }
 
   private finish(key: string, confidence: number, signals: Decision['signals']): Decision {
-    if (confidence < AUTO_THRESHOLD) return { participantKey: 'UNK', candidate: key, confidence, pending: true, signals };
+    // Below the setup's measured threshold, or a setup where the host confirms every line: held.
+    if (confidence < this.gate.threshold || this.gate.hostConfirmsAll) return { participantKey: 'UNK', candidate: key, confidence, pending: true, signals };
     return { participantKey: key, confidence, pending: false, signals };
   }
 

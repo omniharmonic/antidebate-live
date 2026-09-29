@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { listInputs, micError, tapAll } from '@/lib/live/capture';
 import type { ChannelMap, Setup } from '@/lib/attribution/attributor';
+import { hostConfirmsNote, type GateSetup } from '@/lib/attribution/gate';
 import type { CaptureSpec } from '@/lib/live/capture';
 import { rmsDb } from '@/lib/live/vad';
 
@@ -84,4 +85,10 @@ export function Problems({ list }: { list: string[] }) {
       {list.map((p) => <li key={p}>{p}</li>)}
     </ul>
   );
+}
+
+/** Shown only where the measured gate holds every line for the host. */
+export function HostConfirmsNote({ setup }: { setup: GateSetup }) {
+  const note = hostConfirmsNote(setup);
+  return note ? <p className="text-[15px] text-ink">{note}</p> : null;
 }

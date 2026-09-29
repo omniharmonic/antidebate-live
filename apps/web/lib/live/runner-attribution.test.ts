@@ -110,7 +110,7 @@ describe('LiveRunner attribution (final fixes)', () => {
     let n = 0;
     // Like the real matcher: two anchors in one cluster both score 0.
     const match = async (a: Anchor[]): Promise<Record<string, number>> => (a.some((x) => x.key === 'A') && a.some((x) => x.key.startsWith('Voice')) ? { A: 0, 'Voice 1': 0 } : a.some((x) => x.key === 'A') ? { A: n++ === 0 ? 0.1 : 0.9 } : { 'Voice 1': 0.2 });
-    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [anchor('A')], asr: words, voices: { matchVoices: match }, log, onStatus: (s) => statuses.push(s) });
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [anchor('A')], asr: words, voices: { matchVoices: match }, log, onStatus: (s) => statuses.push(s), gates: {} });
     await r.onUtterance('d0c0', { startMs: 0, endMs: 1000, pcm }, {}, false);
     await r.onUtterance('d0c0', { startMs: 3000, endMs: 4000, pcm }, {}, false);
     expect(pendings(log)[1]!.payload.candidates).toEqual({ A: 0.84 });

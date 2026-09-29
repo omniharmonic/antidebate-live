@@ -7,6 +7,7 @@ import { checkSession, defaultRows, field, labelCls, ParticipantRows, type Row }
 import { getKey } from '@/lib/anthropic-key';
 import { pendingFiles, rememberHostSession } from '@/lib/recording/host-sessions';
 import { LiveFlow, type LiveDraft, type LiveSource } from './setups/LiveFlow';
+import { HostConfirmsNote } from './setups/shared';
 
 const SOURCES = [
   { id: 'mics', label: 'Each speaker has their own mic' },
@@ -87,6 +88,7 @@ export function HostNewForm({ kind }: { kind?: string }) {
       {source === 'recording' && <div>
         <label htmlFor="file" className={labelCls}>Recording file</label>
         <input id="file" type="file" accept="audio/*,video/*" className="mt-2 block text-[15px] text-ink" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <div className="mt-2"><HostConfirmsNote setup="recording" /></div>
         <p className="mt-2 text-sm text-ink-3">
           YouTube links can&apos;t be processed here: YouTube blocks servers from downloading. Download the video first (for example with yt-dlp or the creator&apos;s own copy), then choose the file.
         </p>

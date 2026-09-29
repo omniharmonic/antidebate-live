@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { checkTrackSettings, micError, openMicDevice, stopStreams } from '@/lib/live/capture';
-import { DeviceSelect, Meter, primary, Problems, step, useLevels, type SetupResult } from './shared';
+import { DeviceSelect, HostConfirmsNote, Meter, primary, Problems, step, useLevels, type SetupResult } from './shared';
 
 /** "One mic in the room": the laptop's own mic or one USB mic; speakers are told apart by voice. */
 export function RoomSetup({ onDone }: { onDone: (r: SetupResult) => void }) {
@@ -40,6 +40,7 @@ export function RoomSetup({ onDone }: { onDone: (r: SetupResult) => void }) {
   return (
     <div className="space-y-6">
       <h2 className="text-[20px] text-ink">One mic in the room</h2>
+      <HostConfirmsNote setup="room" />
       <p className={step}>Put the laptop (or the one mic) between the speakers, facing them, away from any loudspeakers.</p>
       <DeviceSelect action="Use this device" onUse={(id) => void use(id)} busy={busy} />
       {error && <p role="alert" className="text-[15px] text-ink">{error}</p>}

@@ -1,7 +1,7 @@
 /**
  * Words + speaker segments → utterance events (spec §5, recordings). A guess never
  * becomes a debater's claim: unnamed voices, boundary words and uncovered speech are
- * held as UNK with attribution.pending (below the 0.85 auto threshold); a held line's best
+ * held as UNK with attribution.pending (below the measured recording threshold, never under 0.85); a held line's best
  * guess appears only among the pending candidates, never as its speaker. Named voices are
  * the diarizer's unmeasured output, so they are `confirmedBy: 'auto'`, not operator-confirmed.
  * Event ids derive from media times, so re-running a chunk after a reload is idempotent.
@@ -11,6 +11,7 @@
 import type { DomainEvent } from '@adl/core';
 import type { SpeakerSegment } from '@/lib/diarize/client';
 import type { Word } from '@/lib/asr/chunks';
+import { gateFor, type Gate } from '@/lib/attribution/gate';
 
 const HOLD = 0.6;
 const BOUNDARY_MS = 300;
@@ -57,8 +58,10 @@ function byLabel(run: Word[], segs: SpeakerSegment[]): Part[] {
   return out;
 }
 
-export function buildUtterances(o: { sessionId: string; words: Word[]; segments: SpeakerSegment[]; voiceMap: Record<string, string | null>; mode: 'diarized' | 'tracks'; wallTs: string; trackOwner?: string }): DomainEvent[] {
+export function buildUtterances(o: { sessionId: string; words: Word[]; segments: SpeakerSegment[]; voiceMap: Record<string, string | null>; mode: 'diarized' | 'tracks'; wallTs: string; trackOwner?: string; gate?: Gate }): DomainEvent[] {
   const events: DomainEvent[] = [];
+  // The measured recording gate covers diarized voices; a track's owner (confidence 1) is never below it.
+  const gate = o.gate ?? gateFor('recording');
   for (const run of splitIntoUtterances(o.words)) {
     for (const part of o.mode === 'tracks' ? [{ label: null, segs: [], words: run } as Part] : byLabel(run, o.segments)) {
       const startMs = part.words[0]!.startMs;
@@ -81,7 +84,7 @@ export function buildUtterances(o: { sessionId: string; words: Word[]; segments:
           confidence = edge ? HOLD : Math.min(0.95, ...part.segs.map((x) => x.confidence));
         }
       }
-      const held = confidence < 0.85;
+      const held = confidence < gate.threshold || (gate.hostConfirmsAll && o.mode === 'diarized');
       const participantKey = held ? 'UNK' : guess;
       const confirmedBy = 'auto' as const;
       if (held) {

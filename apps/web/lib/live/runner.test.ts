@@ -81,7 +81,7 @@ describe('LiveRunner', () => {
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
       asr: { transcribe: async (_p, off) => { if (broken) throw new Error('boom'); return [{ text: 'ok', startMs: off, endMs: off + 200 }]; } },
-      voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s),
+      voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s), gates: {},
     });
     await r.onUtterance('mono', { startMs: 1000, endMs: 1900, pcm }, {}, false);
     expect(statuses.at(-1)!.failed).toEqual([{ channel: 'mono', startMs: 1000, endMs: 1900, reason: 'boom' }]);
@@ -99,7 +99,7 @@ describe('LiveRunner', () => {
     const append = log.append.bind(log);
     log.append = async (e) => { if (bad) throw new Error('offline'); return append(e); };
     const statuses: import('./runner').LiveStatus[] = [];
-    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s) });
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s), gates: {} });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
     expect(statuses.at(-1)!.failed[0]!.reason).toBe('offline');
     bad = false;
@@ -186,7 +186,7 @@ describe('LiveRunner', () => {
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
       asr: { transcribe: async (_p, off) => { if (broken) throw new Error('boom'); return [{ text: 'ok', startMs: off, endMs: off + 200 }]; } },
-      voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s),
+      voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s), gates: {},
     });
     await r.onUtterance('mono', { startMs: 1000, endMs: 1900, pcm }, {}, false);
     await r.onUtterance('mono', { startMs: 3000, endMs: 3900, pcm }, {}, false);

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { checkTrackSettings, micError, openMicDevice, stopStreams } from '@/lib/live/capture';
 import { deviceAction, mappingComplete } from '@/lib/live/live-view';
-import { button, DeviceSelect, Meter, primary, Problems, step, useLevels, type Person, type SetupResult } from './shared';
+import { button, DeviceSelect, HostConfirmsNote, Meter, primary, Problems, step, useLevels, type Person, type SetupResult } from './shared';
 
 type Opened = { deviceId: string; stream: MediaStream; channels: 1 | 2; problems: string[] };
 
@@ -56,6 +56,7 @@ export function MicSetup({ people, onDone }: { people: Person[]; onDone: (r: Set
   return (
     <div className="space-y-6">
       <h2 className="text-[20px] text-ink">Each speaker has their own mic</h2>
+      <HostConfirmsNote setup="tracks" />
       <p className={step}>Plug the audio interface into this laptop. Put each debater&apos;s mic in its own input (debater 1 in input 1, debater 2 in input 2). Turn off any auto-gain or &lsquo;Air&rsquo; setting on the interface.</p>
       <DeviceSelect action={action === 'add' ? 'Add this device' : 'Use this device'} onUse={(id) => void use(id)} busy={busy} />
       {devices.length > 1 && <button type="button" className={button} onClick={startOver}>Start over</button>}

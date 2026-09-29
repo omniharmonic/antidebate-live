@@ -46,7 +46,7 @@ export class LiveRunner {
     const miked = new Set(Object.values(channels));
     const unmiked = participants.some((p) => !miked.has(p.key));
     const unenrolled = participants.some((p) => !o.anchors.some((a) => a.key === p.key));
-    this.attributor = new Attributor(kind, channels, { unmiked });
+    this.attributor = new Attributor(kind, channels, { unmiked, ...(o.gates ? { gates: o.gates } : {}) });
     this.mayskip = kind === 'tracks' && !unmiked && !unenrolled;
     this.groups = new VoiceGroups((a, u) => o.voices.matchVoices(a, u));
     this.now = o.now ?? Date.now;

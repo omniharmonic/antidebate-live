@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { micError, openTabAudio, stopStreams } from '@/lib/live/capture';
-import { button, Meter, primary, step, useLevels, type SetupResult } from './shared';
+import { button, HostConfirmsNote, Meter, primary, step, useLevels, type SetupResult } from './shared';
 
 /** "Video call": the call's audio from a shared browser tab (or system audio for the Zoom app). */
 export function TabSetup({ onDone }: { onDone: (r: SetupResult) => void }) {
@@ -37,6 +37,7 @@ export function TabSetup({ onDone }: { onDone: (r: SetupResult) => void }) {
   return (
     <div className="space-y-6">
       <h2 className="text-[20px] text-ink">Video call</h2>
+      <HostConfirmsNote setup="call" />
       <ol className="list-decimal space-y-3 pl-5 text-[15px] text-ink-2">
         <li>Join the call from a second Chrome window, muted, with your camera off. Name yourself &lsquo;Anti-Debate notes&rsquo; so people know why you&apos;re there.</li>
         <li>Choose Share tab audio, pick that call&apos;s tab, and make sure &lsquo;Share tab audio&rsquo; is ticked.</li>

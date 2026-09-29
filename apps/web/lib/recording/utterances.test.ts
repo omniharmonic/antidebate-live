@@ -114,3 +114,16 @@ describe('track mode', () => {
     expect(a[0]!.eventId).not.toBe(b[0]!.eventId);
   });
 });
+
+describe('buildUtterances, measured recording gate', () => {
+  const run = (gate: { threshold: number; hostConfirmsAll: boolean }) =>
+    buildUtterances({ sessionId: 's', words, segments, voiceMap: { S0: 'A', S1: 'B', S2: null }, mode: 'diarized', wallTs: new Date(0).toISOString(), gate })
+      .flatMap((e) => (e.type === 'utterance.final' ? [e.payload.utterance.participantKey] : []));
+  it('holds a named voice below the recording threshold', () => {
+    expect(run({ threshold: 0.85, hostConfirmsAll: false })).toEqual(['A', 'B', 'UNK']);
+    expect(run({ threshold: 0.91, hostConfirmsAll: false })).toEqual(['UNK', 'B', 'UNK']);
+  });
+  it('holds every diarized line where the host confirms all', () => {
+    expect(run({ threshold: 0.99, hostConfirmsAll: true })).toEqual(['UNK', 'UNK', 'UNK']);
+  });
+});
