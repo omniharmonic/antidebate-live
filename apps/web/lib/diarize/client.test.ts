@@ -36,6 +36,19 @@ describe('DiarizeClient', () => {
     await expect(pending).rejects.toThrow('Speaker separation stopped unexpectedly. Reload the page and try again.');
   });
 
+  it('rejects new calls immediately after the worker has stopped', async () => {
+    const { client, worker } = await loaded();
+    client.terminate();
+    await expect(client.diarize(new Float32Array(4), null)).rejects.toThrow('Speaker separation stopped unexpectedly. Reload the page and try again.');
+    expect(worker.posted).toHaveLength(0);
+  });
+
+  it('rejects new calls after a worker error', async () => {
+    const { client } = await loaded();
+    FakeWorker.last.onerror!({ message: 'boom' });
+    await expect(client.diarize(new Float32Array(4), null)).rejects.toThrow('Speaker separation stopped unexpectedly.');
+  });
+
   it('sends a transferred copy and leaves the caller array intact', async () => {
     const { client, worker } = await loaded();
     const mono = new Float32Array([1, 2, 3]);
