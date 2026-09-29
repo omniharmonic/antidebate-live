@@ -43,7 +43,9 @@ const rounds = events.filter((e): e is Extract<DomainEvent, { type: 'round.start
 L.push('## Rounds', '', '| At | Round | Phase |', '|---|---|---|');
 for (const r of rounds) L.push(`| ${min(r.mediaMs)} | ${r.payload.name} | ${fmt.rounds.find((d) => d.id === r.payload.roundId)?.phase ?? ''} |`);
 const seen = new Set(rounds.map((r) => r.payload.roundId));
-const missing = fmt.rounds.filter((r) => !r.optional && !seen.has(r.id)).map((r) => r.name);
+// A moderator's own structure for a phase (an *_adapted round) stands in for that phase's named rounds.
+const adaptedPhases = new Set(fmt.rounds.filter((r) => r.id.endsWith('_adapted') && seen.has(r.id)).map((r) => r.phase));
+const missing = fmt.rounds.filter((r) => !r.optional && !seen.has(r.id) && !adaptedPhases.has(r.phase)).map((r) => r.name);
 L.push('', `Required rounds not detected: ${missing.join(', ') || 'none'}`, '');
 if (missing.length) flags.push(`rounds not detected: ${missing.join(', ')}`);
 const order = rounds.map((r) => fmt.rounds.findIndex((d) => d.id === r.payload.roundId));
