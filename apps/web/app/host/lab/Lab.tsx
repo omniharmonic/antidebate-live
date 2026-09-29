@@ -10,7 +10,7 @@ import { enrollmentError, trimAnchor, type Anchor } from '@/lib/attribution/anch
 import { fuse } from '@/lib/attribution/fusion';
 import { capVoiceOnly, VOICE_ONLY_CAP } from '@/lib/attribution/gate';
 import { AsrClient } from '@/lib/asr/client';
-import type { Word } from '@/lib/asr/chunks';
+import { mergeChunkWords, planChunks, type Word } from '@/lib/asr/chunks';
 import { DiarizeClient } from '@/lib/diarize/client';
 import { listenChannels } from '@/lib/live/live-view';
 import { MemoryEventLog } from '@/lib/live/memory-log';
@@ -50,7 +50,7 @@ export type AsrLabResult = {
 
 declare global {
   interface Window {
-    __adlLab?: { run(o: { fixture: string; setup: LabSetup }): Promise<LabResult>; asr(o: { fixture: string; windows: AsrWindow[] }): Promise<AsrLabResult> };
+    __adlLab?: { run(o: { fixture: string; setup: LabSetup }): Promise<LabResult>; asr(o: { fixture: string; windows: AsrWindow[] }): Promise<AsrLabResult>; asrSplit(o: { fixture: string; window: AsrWindow; span: AsrWindow }): Promise<{ chunked: Word[]; halves: Word[] }> };
   }
 }
 
@@ -174,9 +174,30 @@ async function runAsr({ fixture, windows }: { fixture: string; windows: AsrWindo
   return { backend: client.backend, loadSeconds, realtimeFactor: Math.round((audioMs / Math.max(1, wallMs)) * 10) / 10, windows: out };
 }
 
+/**
+ * One window transcribed two other ways than a single call: (chunked) the production path
+ * (planChunks over the span, mergeChunkWords) kept to the window by word midpoint; (halves) two
+ * calls on the window's halves.
+ */
+async function runAsrSplit({ fixture, window: win, span }: { fixture: string; window: AsrWindow; span: AsrWindow }) {
+  const mono = await wav(fixture, 'mono.wav');
+  const client = await (asrClient ??= AsrClient.load());
+  const clip = (a: number, b: number) => mono.slice(Math.floor((a * RATE) / 1000), Math.floor((b * RATE) / 1000));
+  const inWin = (w: Word) => { const m = (w.startMs + w.endMs) / 2; return m >= win.startMs && m < win.endMs; };
+  const results: { startMs: number; endMs: number; words: Word[] }[] = [];
+  for (const c of planChunks(span.endMs - span.startMs)) {
+    const startMs = span.startMs + c.startMs;
+    const endMs = span.startMs + c.endMs;
+    results.push({ startMs, endMs, words: await client.transcribe(clip(startMs, endMs), startMs) });
+  }
+  const mid = win.startMs + (win.endMs - win.startMs) / 2;
+  const halves = [...(await client.transcribe(clip(win.startMs, mid), win.startMs)), ...(await client.transcribe(clip(mid, win.endMs), mid))];
+  return { chunked: mergeChunkWords(results).filter(inWin), halves };
+}
+
 export function Lab() {
   useEffect(() => {
-    window.__adlLab = { run, asr: runAsr };
+    window.__adlLab = { run, asr: runAsr, asrSplit: runAsrSplit };
     return () => { delete window.__adlLab; };
   }, []);
   return (

@@ -23,7 +23,8 @@ const STARTS_MIN = [2, 6, 10, 14, 18];
 
 type Word = { text: string; startMs: number; endMs: number };
 type AsrResult = { backend: string; loadSeconds: number; realtimeFactor: number; windows: { startMs: number; endMs: number; words: Word[]; seconds: number }[] };
-type Lab = { __adlLab?: { asr(o: { fixture: string; windows: { startMs: number; endMs: number }[] }): Promise<AsrResult> } };
+type Win = { startMs: number; endMs: number };
+type Lab = { __adlLab?: { asr(o: { fixture: string; windows: Win[] }): Promise<AsrResult>; asrSplit(o: { fixture: string; window: Win; span: Win }): Promise<{ chunked: Word[]; halves: Word[] }> } };
 
 const { chromium } = createRequire(path.join(ROOT, 'apps/web/package.json'))('@playwright/test') as typeof import('@playwright/test');
 
@@ -67,6 +68,7 @@ async function main() {
   mkdirSync(profile, { recursive: true });
   const context = await chromium.launchPersistentContext(profile, {});
   let result: AsrResult;
+  let split: { window: Win; chunked: Word[]; halves: Word[] } | null = null;
   try {
     await context.addCookies([{ name: HOST_COOKIE, value: await signHostCookie(secret(), Date.now()), url: base }]);
     const page = context.pages()[0] ?? (await context.newPage());
@@ -75,6 +77,12 @@ async function main() {
     await page.waitForFunction(() => Boolean((window as unknown as Lab).__adlLab), undefined, { timeout: 120_000 });
     // The first run in a profile downloads the model (~670 MB): allow for it.
     result = (await page.evaluate((o) => (window as unknown as Lab).__adlLab!.asr(o), { fixture, windows })) as AsrResult;
+    // The window with the lowest share of reference words returned: transcribe it the production way (planChunks over a span around it) and as two halves.
+    const share = result.windows.map((w) => w.words.length / Math.max(1, referenceWords(utterances, programStartMs, w.startMs, w.endMs).length));
+    const worst = result.windows[share.indexOf(Math.min(...share))]!;
+    const span = { startMs: Math.max(0, worst.startMs - 60_000), endMs: worst.endMs + 60_000 };
+    const r = await page.evaluate((o) => (window as unknown as Lab).__adlLab!.asrSplit(o), { fixture, window: { startMs: worst.startMs, endMs: worst.endMs }, span });
+    split = { window: { startMs: worst.startMs, endMs: worst.endMs }, ...r };
   } finally {
     await context.close();
   }
@@ -85,19 +93,29 @@ async function main() {
     return { startMs: w.startMs, refWords: ref.length, hypWords: hyp.length, wer: wer(ref.join(' '), hyp.join(' ')), seconds: w.seconds };
   });
   const mean = rows.reduce((a, r) => a + r.wer, 0) / rows.length;
+  const pooled = rows.reduce((a, r) => a + r.wer * r.refWords, 0) / rows.reduce((a, r) => a + r.refWords, 0);
+  const splitRow = split && (() => {
+    const ref = referenceWords(utterances, programStartMs, split.window.startMs, split.window.endMs);
+    const score = (ws: Word[]) => ({ words: ws.length, wer: wer(ref.join(' '), ws.map((x) => x.text).join(' ')) });
+    return { startMs: split.window.startMs, refWords: ref.length, single: rows.find((r) => r.startMs === split!.window.startMs)!, chunked: score(split.chunked), halves: score(split.halves) };
+  })();
   mkdirSync(path.join(ROOT, '.data/asr'), { recursive: true });
-  writeFileSync(path.join(ROOT, '.data/asr/result.json'), `${JSON.stringify({ fixture, backend: result.backend, loadSeconds: result.loadSeconds, realtimeFactor: result.realtimeFactor, mean, rows }, null, 1)}\n`);
+  writeFileSync(path.join(ROOT, '.data/asr/result.json'), `${JSON.stringify({ fixture, backend: result.backend, loadSeconds: result.loadSeconds, realtimeFactor: result.realtimeFactor, mean, pooled, split: splitRow, rows }, null, 1)}\n`);
 
   const date = new Date().toISOString().slice(0, 10);
   const section = [
     '', `## Browser ASR accuracy, ${date}`, '',
-    `The shipping \`AsrClient\` (int8 WASM in a worker, cross-origin isolated) run in headless Chromium through the lab page on five 60 s windows of ${fixture}/mono.wav, one call per window, as recording transcription chunks it. Backend: ${result.backend}. Speed after an untimed 5 s warm-up: ${result.realtimeFactor}× real time over the five windows (this machine, headless). Model load ${result.loadSeconds} s.`, '',
+    `The shipping \`AsrClient\` (int8 WASM in a worker, cross-origin isolated) run in headless Chromium through the lab page on five 60 s windows of ${fixture}/mono.wav, one call per window, as recording transcription chunks it. Backend: ${result.backend}. Speed after an untimed 5 s warm-up: ${result.realtimeFactor}× real time over the five windows (headless Chromium, M-series, ${date}). Model load ${result.loadSeconds} s.`, '',
     'The reference is the FluidAudio Parakeet TDT v3 transcript (`transcript.utterances.json`), the same model family run natively, not a human transcript: WER here measures the browser build against it, not against what was said. Words are lowercased and stripped of punctuation; a reference word belongs to a window when its midpoint does.', '',
     '| Window (cut time) | Reference words | Browser words | WER | Wall time |', '|---|---|---|---|---|',
     ...rows.map((r) => `| ${(r.startMs / 60_000).toFixed(0)}:00–${(r.startMs / 60_000).toFixed(0)}:59 | ${r.refWords} | ${r.hypWords} | ${pct(r.wer)} | ${r.seconds} s |`),
-    `| mean | | | ${pct(mean)} | |`, '',
+    `| mean of windows | | | ${pct(mean)} | |`, `| pooled over words | ${rows.reduce((a, r) => a + r.refWords, 0)} | ${rows.reduce((a, r) => a + r.hypWords, 0)} | ${pct(pooled)} | |`, '',
     ...(rows.some((r) => r.hypWords < r.refWords * 0.9)
-      ? [`Windows where the browser build returned at least 10% fewer words than the reference (${rows.filter((r) => r.hypWords < r.refWords * 0.9).map((r) => `${(r.startMs / 60_000).toFixed(0)}:00, ${r.hypWords} of ${r.refWords}`).join('; ')}) carry most of the error: that is dropped speech, not misheard words. The cause is not diagnosed.`, '']
+      ? [`Windows where the browser build returned at least 10% fewer words than the reference (${rows.filter((r) => r.hypWords < r.refWords * 0.9).map((r) => `${(r.startMs / 60_000).toFixed(0)}:00, ${r.hypWords} of ${r.refWords}`).join('; ')}) carry most of the error: the build returned fewer words there.`, '']
+      : []),
+    ...(splitRow ? [
+      `**The ${(splitRow.startMs / 60_000).toFixed(0)}:00 window, three ways** (${splitRow.refWords} reference words): a single 60 s call as above returned ${splitRow.single.hypWords} words (WER ${pct(splitRow.single.wer)}); the production path (planChunks over the two minutes around it, mergeChunkWords, kept to the window) returned ${splitRow.chunked.words} (WER ${pct(splitRow.chunked.wer)}); two 30 s halves returned ${splitRow.halves.words} (WER ${pct(splitRow.halves.wer)}).`, '',
+      ...(splitRow.chunked.words < splitRow.refWords * 0.95 ? [`Production chunking also loses words here, so this is a known limitation of the browser ASR (int8 WASM Parakeet) on this window, not an artifact of the lab's single call. The span was the two minutes around the window, not the whole cut, so real chunk boundaries fall elsewhere. Shorter calls recovered more of the words in this one window; production code is unchanged and one window is not enough to conclude more. The cause (the pause about 1.6 s in, or the model on long calls) is not diagnosed.`, ''] : [])]
       : []),
   ].join('\n');
   const resultsPath = path.join(ROOT, 'evals/results.md');

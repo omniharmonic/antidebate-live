@@ -1,7 +1,7 @@
 // Word error rate: word-level Levenshtein distance over lowercase, punctuation-stripped tokens,
 // divided by the reference length. An empty reference scores 0 against an empty hypothesis, else 1.
 export function tokens(text: string): string[] {
-  return text.toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, ' ').replace(/'/g, '').split(/\s+/).filter(Boolean);
+  return text.toLowerCase().replace(/[\u2019\u2018]/g, "'").replace(/[^\p{L}\p{N}\s']/gu, ' ').replace(/'/g, '').split(/\s+/).filter(Boolean);
 }
 
 export function wer(ref: string, hyp: string): number {

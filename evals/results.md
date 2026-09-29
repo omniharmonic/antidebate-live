@@ -384,17 +384,22 @@ Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-so
 
 ## Browser ASR accuracy, 2026-09-29
 
-The shipping `AsrClient` (int8 WASM in a worker, cross-origin isolated) run in headless Chromium through the lab page on five 60 s windows of ball-kokotajlo-ai-governance/mono.wav, one call per window, as recording transcription chunks it. Backend: wasm. Speed after an untimed 5 s warm-up: 10× real time over the five windows (this machine, headless). Model load 15.7 s.
+The shipping `AsrClient` (int8 WASM in a worker, cross-origin isolated) run in headless Chromium through the lab page on five 60 s windows of ball-kokotajlo-ai-governance/mono.wav, one call per window, as recording transcription chunks it. Backend: wasm. Speed after an untimed 5 s warm-up: 9.7× real time over the five windows (headless Chromium, M-series, 2026-09-29). Model load 1.7 s.
 
 The reference is the FluidAudio Parakeet TDT v3 transcript (`transcript.utterances.json`), the same model family run natively, not a human transcript: WER here measures the browser build against it, not against what was said. Words are lowercased and stripped of punctuation; a reference word belongs to a window when its midpoint does.
 
 | Window (cut time) | Reference words | Browser words | WER | Wall time |
 |---|---|---|---|---|
-| 2:00–2:59 | 172 | 169 | 3.5% | 5.9 s |
-| 6:00–6:59 | 184 | 151 | 18.5% | 5.9 s |
-| 10:00–10:59 | 211 | 209 | 2.8% | 6 s |
+| 2:00–2:59 | 172 | 169 | 3.5% | 6.5 s |
+| 6:00–6:59 | 184 | 151 | 18.5% | 6.2 s |
+| 10:00–10:59 | 211 | 209 | 2.8% | 6.1 s |
 | 14:00–14:59 | 168 | 168 | 5.3% | 6.1 s |
-| 18:00–18:59 | 193 | 186 | 5.7% | 6 s |
-| mean | | | 7.2% | |
+| 18:00–18:59 | 193 | 186 | 5.7% | 6.1 s |
+| mean of windows | | | 7.2% | |
+| pooled over words | 928 | 883 | 7.1% | |
 
-Windows where the browser build returned at least 10% fewer words than the reference (6:00, 151 of 184) carry most of the error: that is dropped speech, not misheard words. The cause is not diagnosed.
+Windows where the browser build returned at least 10% fewer words than the reference (6:00, 151 of 184) carry most of the error: the build returned fewer words there.
+
+**The 6:00 window, three ways** (184 reference words): a single 60 s call as above returned 151 words (WER 18.5%); the production path (planChunks over the two minutes around it, mergeChunkWords, kept to the window) returned 165 (WER 13.6%); two 30 s halves returned 175 (WER 6.5%).
+
+Production chunking also loses words here, so this is a known limitation of the browser ASR (int8 WASM Parakeet) on this window, not an artifact of the lab's single call. The span was the two minutes around the window, not the whole cut, so real chunk boundaries fall elsewhere. Shorter calls recovered more of the words in this one window; production code is unchanged and one window is not enough to conclude more. The cause (the pause about 1.6 s in, or the model on long calls) is not diagnosed.

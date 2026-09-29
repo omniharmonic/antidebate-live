@@ -101,7 +101,9 @@ if (tr.length) {
 
 const monoLive = get('mono-live');
 // The scenario cut's length: the recording runs cover the whole cut.
-const cutMinutes = Math.max(...get('mono-recording').map((l) => l.minutes));
+const recordingRuns = get('mono-recording');
+if (!recordingRuns.length) throw new Error('no mono-recording results: the cut length comes from them');
+const cutMinutes = Math.max(...recordingRuns.map((l) => l.minutes));
 const disjoint = disjointEnrollment();
 const date = new Date().toISOString().slice(0, 10);
 const windows = (s: string) => get(s).map((l) => `${l.fixture} ${l.minutes.toFixed(0)} min`).join(', ');
