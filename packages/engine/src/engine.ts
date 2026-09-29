@@ -47,6 +47,8 @@ export class SessionEngine {
   private queue: Turn[] = [];
   private turns: Turn[] = [];
   private own = new Set<string>();
+  /** Turns a previous run closed, in order (resume after a reload). */
+  private closedBefore: string[] = [];
   private lastUtteranceWall = Date.now();
   private sourceDone = false;
   private stopped = false;
@@ -100,6 +102,7 @@ export class SessionEngine {
     for (const e of events) {
       if (this.own.has(e.eventId)) continue;
       this.state = apply(this.state, e);
+      if (e.type === 'turn.closed') this.closedBefore.push(e.payload.turnId);
       if (e.type === 'utterance.final') {
         this.lastUtteranceWall = Date.now();
         for (const t of this.buffer.push(e.payload.utterance)) this.queue.push(t);
@@ -152,11 +155,21 @@ export class SessionEngine {
     void this.opts.log.logCall(l).catch(() => {});
   }
 
+  /**
+   * Finished by a previous run: a later turn was closed after it, and turns are processed
+   * one at a time. The last turn a previous run closed may be unfinished, so it runs again.
+   */
+  private finishedBefore(turnId: string) {
+    const i = this.closedBefore.indexOf(turnId);
+    return i !== -1 && i < this.closedBefore.length - 1;
+  }
+
   private async processTurn(turn: Turn) {
     const role = this.roleOf(turn.participantKey);
     if (this.turns.length === 0) this.lastInsightMediaMs = turn.startMs; // cadence starts with the session, not at 0
     this.processedMediaMs = Math.max(this.processedMediaMs, turn.endMs);
     this.turns.push(turn);
+    if (this.finishedBefore(turn.turnId)) return;
     await this.append([
       {
         eventId: `${turn.turnId}:closed`,
