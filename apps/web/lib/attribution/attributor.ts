@@ -75,6 +75,11 @@ export class Attributor {
     return own === undefined || others.length === 0 ? null : own - Math.max(...others);
   }
 
+  /** Some mic has gone quiet: its owner may be talking into another one, so no margin is proof alone. */
+  hasDeadChannel(): boolean {
+    return this.dead.size > 0;
+  }
+
   /** A quieter copy of speech on another mic: dropped before transcription. */
   isBleed(channel: string | null, channelRmsDb: Record<string, number>): boolean {
     const m = this.margin(channel, channelRmsDb);

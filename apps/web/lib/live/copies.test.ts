@@ -35,4 +35,28 @@ describe('CopyFilter', () => {
     f.offer(r);
     expect(f.release(3500 + COPY_WAIT_MS)).toEqual([r]);
   });
+  it('a 1.5 s interjection inside a 10 s line on the other channel at -3 dB is kept as its own line', () => {
+    for (const order of ['long first', 'short first'] as const) {
+      const f = new CopyFilter<Cut>();
+      const long = cut('L', 0, 10_000, 3);
+      const short = cut('R', 4000, 5500, -3);
+      if (order === 'long first') {
+        expect(f.offer(long)).toEqual([long]);
+        expect(f.offer(short)).toEqual([]);
+      } else {
+        expect(f.offer(short)).toEqual([]);
+        expect(f.offer(long)).toEqual([long]);
+      }
+      expect(f.release(5500 + COPY_WAIT_MS)).toEqual([short]);
+    }
+  });
+  it('tells the caller which kept cut each dropped copy belongs to', () => {
+    const seen: [string, string][] = [];
+    const f = new CopyFilter<Cut>((kept, dropped) => seen.push([kept.channel, dropped.channel]));
+    f.offer(cut('L', 0, 2000, 3));
+    f.offer(cut('R', 100, 1900, -3));
+    f.offer(cut('R', 3100, 4900, -3));
+    f.offer(cut('L', 3000, 5000, 3));
+    expect(seen).toEqual([['L', 'R'], ['L', 'R']]);
+  });
 });

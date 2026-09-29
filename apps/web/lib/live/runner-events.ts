@@ -5,7 +5,7 @@ import type { Word } from '../asr/chunks';
 import type { Decision } from '../attribution/attributor';
 
 /** A held line gets attribution.pending first, so no reader ever sees it as settled. */
-export function lineEvents(o: { sessionId: string; id: string; u: { startMs: number; endMs: number }; words: Word[]; decision: Decision; wallTs: string }): {
+export function lineEvents(o: { sessionId: string; id: string; u: { startMs: number; endMs: number }; words: Word[]; decision: Decision; wallTs: string; overlapsWith?: string[] }): {
   events: DomainEvent[];
   text: string;
   candidates: Record<string, number>;
@@ -34,7 +34,7 @@ export function lineEvents(o: { sessionId: string; id: string; u: { startMs: num
         text,
         words: words.map((w) => ({ text: w.text, startMs: w.startMs, endMs: w.endMs, ...(w.confidence !== undefined ? { confidence: w.confidence } : {}) })),
         attribution: { confidence: decision.confidence, signals: decision.signals, confirmedBy: 'auto' as const },
-        overlapsWith: [],
+        overlapsWith: o.overlapsWith ?? [],
       },
     },
   } as DomainEvent);

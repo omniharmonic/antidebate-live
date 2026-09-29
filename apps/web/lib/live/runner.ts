@@ -9,11 +9,14 @@ export { utteranceId, type LiveRunnerOptions, type LiveSetup, type LiveStatus } 
 /**
  * A channel this far above every other one is unambiguous, so the voice match is skipped, but only
  * when everyone has their own mic and an enrolled voice (P2-R8): otherwise an unmiked speaker could
- * be loud on someone else's mic.
+ * be loud on someone else's mic. Never while a channel is dead (P2-R10): its owner may be talking
+ * into another mic.
  */
 const CLEAR_MARGIN_DB = 12;
 /** Every Nth skipped line is still matched after it is logged, only to notice crossed mics. */
 const SWAP_SAMPLE_EVERY = 4;
+/** Dropped copies waiting for their kept line to be logged; bounded in case a line was logged first. */
+const COPIES_KEPT = 50;
 
 export class LiveRunner {
   private readonly attributor: Attributor;
@@ -30,7 +33,9 @@ export class LiveRunner {
   private confirmSeq = 0;
   private readonly failed: { job: Job; reason: string }[] = [];
   private matchFailing = false;
-  private readonly copies = new CopyFilter<Cut & { job: Job }>();
+  /** Kept line id → the ids of the quieter copies dropped for it (its overlapsWith). */
+  private readonly copiesOf = new Map<string, string[]>();
+  private readonly copies = new CopyFilter<Cut & { job: Job }>((kept, dropped) => this.noteCopy(kept, dropped));
   /** Voice matching may be skipped at clear margins (everyone miked and enrolled, tracks only). */
   private readonly mayskip: boolean;
   private skipped = 0;
@@ -61,6 +66,16 @@ export class LiveRunner {
     const margin = this.attributor.margin(channel, rms);
     if (margin === null) return this.enqueue(job);
     return this.run(this.copies.offer({ channel, startMs: u.startMs, endMs: u.endMs, margin, job }));
+  }
+
+  /**
+   * The kept line records the dropped copy (P2-R10); its confidence is untouched. A copy that arrives
+   * after its kept line was logged is dropped without the marker: the log is append-only.
+   */
+  private noteCopy(kept: Cut, dropped: Cut): void {
+    const id = utteranceId(kept.channel, kept.startMs);
+    this.copiesOf.set(id, [...(this.copiesOf.get(id) ?? []), utteranceId(dropped.channel, dropped.startMs)]);
+    if (this.copiesOf.size > COPIES_KEPT) this.copiesOf.delete(this.copiesOf.keys().next().value!);
   }
 
   private run(cuts: { job: Job }[]): Promise<void> {
@@ -142,7 +157,7 @@ export class LiveRunner {
 
     let voice: Record<string, number> = {};
     let matchFailed = false;
-    const skip = this.mayskip && (this.attributor.margin(channel, rms) ?? 0) >= CLEAR_MARGIN_DB;
+    const skip = this.mayskip && !this.attributor.hasDeadChannel() && (this.attributor.margin(channel, rms) ?? 0) >= CLEAR_MARGIN_DB;
     if (!skip) {
       try {
         // Enrolled voices only: temporary voices are matched separately, for grouping.
@@ -166,7 +181,9 @@ export class LiveRunner {
     if (decision.drop) return;
 
     const id = utteranceId(channel, u.startMs);
-    const { events, text, candidates } = lineEvents({ sessionId, id, u, words, decision, wallTs: this.wallTs() });
+    const overlapsWith = this.copiesOf.get(id);
+    this.copiesOf.delete(id);
+    const { events, text, candidates } = lineEvents({ sessionId, id, u, words, decision, wallTs: this.wallTs(), ...(overlapsWith ? { overlapsWith } : {}) });
     await this.o.log.append(events);
 
     this.lastMediaMs = u.endMs;

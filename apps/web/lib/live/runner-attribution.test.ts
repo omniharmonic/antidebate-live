@@ -72,11 +72,37 @@ describe('LiveRunner attribution (final fixes)', () => {
       const { r, log } = tracks({ participants: ['A', 'B'], anchors: ['A', 'B'], match: () => ({ A: 0.9, B: 0.05 }) });
       const loud = () => r.onUtterance('L', { startMs: 0, endMs: 2000, pcm }, { L: -20, R: -23 }, false);
       const quiet = () => r.onUtterance('R', { startMs: 100, endMs: 1900, pcm }, { L: -20, R: -23 }, false);
-      if (order === 'louder first') { await loud(); await quiet(); } else { const q = quiet(); await loud(); await q; }
+      // Both cuts arrive while the first is still being transcribed, as the segmenter hands them over.
+      if (order === 'louder first') { const l = loud(); await quiet(); await l; } else { const q = quiet(); await loud(); await q; }
       await r.stop();
       expect(finals(log).map((e) => e.payload.utterance.id)).toEqual(['uL-0']);
+      // The dropped copy is recorded on the kept line, which keeps its confidence.
+      const kept = finals(log)[0]!.payload.utterance;
+      expect(kept.overlapsWith).toEqual(['uR-100']);
+      const solo = tracks({ participants: ['A', 'B'], anchors: ['A', 'B'], match: () => ({ A: 0.9, B: 0.05 }) });
+      await solo.r.onUtterance('L', { startMs: 0, endMs: 2000, pcm }, { L: -20, R: -23 }, false);
+      expect(kept.attribution.confidence).toBe(finals(solo.log)[0]!.payload.utterance.attribution.confidence);
     });
   }
+
+  it('2: a short interjection inside a long line on the other mic is its own line', async () => {
+    const { r, log } = tracks({ participants: ['A', 'B'], anchors: ['A', 'B'], match: (a) => Object.fromEntries(a.map((x) => [x.key, 0.5])) });
+    await r.onUtterance('L', { startMs: 0, endMs: 10_000, pcm }, { L: -20, R: -23 }, false);
+    await r.onUtterance('R', { startMs: 4000, endMs: 5500, pcm }, { L: -20, R: -23 }, false);
+    await r.stop();
+    expect(finals(log).map((e) => e.payload.utterance.id)).toEqual(['uL-0', 'uR-4000']);
+  });
+
+  it('P2-R10: voice matching is never skipped while any channel is dead', async () => {
+    const { r, calls } = tracks({ participants: ['A', 'B'], anchors: ['A', 'B'], match: () => ({ A: 0.9 }) });
+    r.tick(0, { L: true, R: false });
+    r.tick(61_000, { L: true, R: false });
+    await r.onUtterance('L', { startMs: 61_000, endMs: 62_000, pcm }, clean, false);
+    expect(calls).toHaveLength(1);
+    r.tick(62_000, { L: true, R: true });
+    await r.onUtterance('L', { startMs: 63_000, endMs: 64_000, pcm }, clean, false);
+    expect(calls).toHaveLength(1);
+  });
 
   it('3: a Voice N clip resembling a debater does not zero that debater\'s score', async () => {
     const log = new Mem();
