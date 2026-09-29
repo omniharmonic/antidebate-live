@@ -146,8 +146,9 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
 
   const playhead = useMemo<Playhead>(
     () => ({
-      t,
-      tNow: t ?? endMs,
+      // A shared link may carry a time past the end (or the log may still be catching up): clamp.
+      t: t === null ? null : Math.min(t, endMs),
+      tNow: t === null ? endMs : Math.min(t, endMs),
       endMs,
       setT,
       playing,

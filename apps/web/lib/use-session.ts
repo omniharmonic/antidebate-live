@@ -9,7 +9,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { emptyState, type DomainEvent, type SessionState } from '@adl/core';
 import { applySafe, projectAt, sessionMeta, type SessionMeta } from './derive';
 
-export type StreamStatus = 'connecting' | 'open' | 'reconnecting' | 'error';
+/** `catching-up`: connected, still receiving the backlog; the state shown is not yet current. */
+export type StreamStatus = 'connecting' | 'catching-up' | 'open' | 'reconnecting' | 'error';
 
 export interface SessionData {
   events: readonly DomainEvent[];
@@ -53,8 +54,9 @@ export function useSessionSource(sessionId: string): SessionData {
       es = new EventSource(url);
       es.addEventListener('ready', () => {
         attempts = 0;
-        setStatus('open');
+        setStatus('catching-up');
       });
+      es.addEventListener('caughtup', () => setStatus('open'));
       es.addEventListener('reset', () => {
         // the local log was rewritten (a rerun): drop everything and rebuild from the new file
         st.events.length = 0;

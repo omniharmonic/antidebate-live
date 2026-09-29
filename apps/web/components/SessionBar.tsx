@@ -27,7 +27,8 @@ const ROLES = [
 const roleOf = (s: SurfaceId) => (s === 'cockpit' ? 'facilitate' : s === 'console' ? 'operate' : 'explore');
 
 export function StatusDot({ status, following }: { status: StreamStatus; following?: boolean }) {
-  const label = status === 'open' ? (following ? 'Receiving' : 'Connected') : status === 'connecting' ? 'Connecting' : 'Reconnecting. Showing the last received state.';
+  const label =
+    status === 'open' ? (following ? 'Receiving' : 'Connected') : status === 'connecting' ? 'Connecting' : status === 'catching-up' ? 'Catching up. Not yet current.' : 'Reconnecting. Showing the last received state.';
   return (
     <span className="inline-flex items-center gap-2 text-ink-3" role="status" aria-live="polite">
       <span aria-hidden className="inline-block size-1.5 rounded-full" style={{ background: status === 'open' ? 'var(--ink-2)' : 'var(--insight)' }} />

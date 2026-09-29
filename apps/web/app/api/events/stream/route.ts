@@ -88,6 +88,8 @@ export async function GET(req: Request) {
         }
       };
       send(sse('ready', { session, mode: hasDb() ? 'db' : 'local' }));
+      // Sent once the backlog has been delivered, so clients can say when the state is current.
+      let caughtUp = false;
 
       try {
         if (!hasDb()) {
@@ -111,6 +113,10 @@ export async function GET(req: Request) {
               push(batch);
               lastSent = Date.now();
             }
+            if (!caughtUp) {
+              caughtUp = true;
+              send(sse('caughtup', { cursor }));
+            }
             keepalive();
             await new Promise((r) => setTimeout(r, FILE_POLL_MS));
           }
@@ -128,6 +134,10 @@ export async function GET(req: Request) {
             cursor = rows.at(-1)!.cursor;
             push(rows.map((r) => r.event));
             lastSent = Date.now();
+          }
+          if (!caughtUp && rows.length < CATCH_UP_BATCH) {
+            caughtUp = true;
+            send(sse('caughtup', { cursor }));
           }
           keepalive();
           // a full page means more is waiting: read again immediately
