@@ -87,7 +87,7 @@ for (const s of SETUPS) {
     : c.insufficient
       ? capped
         ? `- ${s.name}: keeps host confirmation (the voice-only cap stays) because the measured sample was too small: ${n}, ${pct(c.atThreshold.correct)} correct${disjointNote}. Wrong auto-accepts were ${pct(c.atThreshold.wrongAuto)} at ${c.threshold}, but a pass needs at least ${MIN_SAMPLE.lines} auto-accepted lines and ${MIN_SAMPLE.speechMs / 60_000} minutes. A longer measured run or real enrollment clips (recorded at a sound check, not cut from the program) would lift it.`
-        : `- ${s.name}: wrong auto-accepts ${pct(c.atThreshold.wrongAuto)} at ${c.threshold} (correct ${pct(c.atThreshold.correct)}), but the sample is too small to count as passed: ${n}, against at least ${MIN_SAMPLE.lines} lines and ${MIN_SAMPLE.speechMs / 60_000} minutes. Marked insufficient in gate.json.`
+        : `- ${s.name}: wrong auto-accepts ${pct(c.atThreshold.wrongAuto)} at ${c.threshold} (correct ${pct(c.atThreshold.correct)}), but the sample is too small to count as passed: ${n}, against at least ${MIN_SAMPLE.lines} lines and ${MIN_SAMPLE.speechMs / 60_000} minutes. Marked insufficient in gate.json. ${s.name[0]!.toUpperCase()}${s.name.slice(1)} still auto-accepts at ${c.threshold} (ruling P3-R8): the minimum-sample rule governs only lifting the voice-only cap, and ${s.name} has no cap.`
       : `- ${s.name}: passes at threshold ${c.threshold} (wrong auto-accepts ${pct(c.atThreshold.wrongAuto)}, correct ${pct(c.atThreshold.correct)}; ${n}).`);
 }
 
@@ -100,6 +100,8 @@ if (tr.length) {
 }
 
 const monoLive = get('mono-live');
+// The scenario cut's length: the recording runs cover the whole cut.
+const cutMinutes = Math.max(...get('mono-recording').map((l) => l.minutes));
 const disjoint = disjointEnrollment();
 const date = new Date().toISOString().slice(0, 10);
 const windows = (s: string) => get(s).map((l) => `${l.fixture} ${l.minutes.toFixed(0)} min`).join(', ');
@@ -109,7 +111,7 @@ const head = [
   '**Caveats.**',
   '- The reference is FluidAudio diarization plus Benjamin\'s confirmed speaker map, not a human gold set. Reference `UNK` is audience; a held or UNK prediction over it counts as correct, an auto-accepted debater over it counts as wrong.',
   disjoint
-    ? `- Mono-live (call and room) enrollment clips come from reference speech in minutes ${monoLive[0]!.enrolledFromMs! / 60_000}–20 of the 20-minute cut, disjoint from the scored window (minutes 0–${monoLive[0]!.minutes.toFixed(0)}), as a sound check records different audio from the session. Bleed enrollment clips still come from the scored audio, so its voice match is optimistic.`
+    ? `- Mono-live (call and room) enrollment clips come from reference speech in minutes ${monoLive[0]!.enrolledFromMs! / 60_000}–${cutMinutes.toFixed(0)} of the ${cutMinutes.toFixed(0)}-minute cut, disjoint from the scored window (minutes 0–${monoLive[0]!.minutes.toFixed(0)}), as a sound check records different audio from the session. Bleed enrollment clips still come from the scored audio, so its voice match is optimistic.`
     : '- Voice enrollment clips are taken from the scored audio, so voice match is optimistic (a real host enrolls before the session, on different audio).',
   `- The call/room sample is small: ${monoLive.length} windows of ${monoLive[0]!.minutes.toFixed(0)} minutes (${windows('mono-live')}).`,
   `- Enrolled in mono-live (a sound check keeps a clip only with at least 10 s of speech): ${monoLive.map((l) => `${l.fixture} ${l.enrolled.join(', ') || 'nobody'}`).join('; ')}. Lines of anyone not enrolled can only be held.`,

@@ -9,6 +9,8 @@ import { useEffect } from 'react';
 import { enrollmentError, trimAnchor, type Anchor } from '@/lib/attribution/anchors';
 import { fuse } from '@/lib/attribution/fusion';
 import { capVoiceOnly, VOICE_ONLY_CAP } from '@/lib/attribution/gate';
+import { AsrClient } from '@/lib/asr/client';
+import type { Word } from '@/lib/asr/chunks';
 import { DiarizeClient } from '@/lib/diarize/client';
 import { listenChannels } from '@/lib/live/live-view';
 import { MemoryEventLog } from '@/lib/live/memory-log';
@@ -36,9 +38,19 @@ export type LabResult = {
   notices?: Record<string, number>;
 };
 
+export type AsrWindow = { startMs: number; endMs: number };
+export type AsrLabResult = {
+  backend: string;
+  /** Wall time of the model load (a download the first time in a browser profile). */
+  loadSeconds: number;
+  /** Audio seconds transcribed per wall second, over the timed windows after an untimed warm-up. */
+  realtimeFactor: number;
+  windows: { startMs: number; endMs: number; words: Word[]; seconds: number }[];
+};
+
 declare global {
   interface Window {
-    __adlLab?: { run(o: { fixture: string; setup: LabSetup }): Promise<LabResult> };
+    __adlLab?: { run(o: { fixture: string; setup: LabSetup }): Promise<LabResult>; asr(o: { fixture: string; windows: AsrWindow[] }): Promise<AsrLabResult> };
   }
 }
 
@@ -137,9 +149,34 @@ async function run({ fixture, setup }: { fixture: string; setup: LabSetup }): Pr
   return { ...r, seconds: Math.round((performance.now() - t0) / 100) / 10 };
 }
 
+let asrClient: Promise<AsrClient> | null = null;
+
+/** The real AsrClient (int8 WASM in a worker) on windows of a scenario's mono.wav; times are cut-relative. */
+async function runAsr({ fixture, windows }: { fixture: string; windows: AsrWindow[] }): Promise<AsrLabResult> {
+  const mono = await wav(fixture, 'mono.wav');
+  const t0 = performance.now();
+  const client = await (asrClient ??= AsrClient.load());
+  const loadSeconds = Math.round((performance.now() - t0) / 100) / 10;
+  const clip = (w: AsrWindow) => mono.slice(Math.floor((w.startMs * RATE) / 1000), Math.floor((w.endMs * RATE) / 1000));
+  await client.transcribe(clip({ startMs: windows[0]!.startMs, endMs: windows[0]!.startMs + 5000 }), windows[0]!.startMs);
+  const out: AsrLabResult['windows'] = [];
+  let audioMs = 0;
+  let wallMs = 0;
+  for (const w of windows) {
+    const pcm = clip(w);
+    const t = performance.now();
+    const words = await client.transcribe(pcm, w.startMs);
+    const took = performance.now() - t;
+    audioMs += (pcm.length * 1000) / RATE;
+    wallMs += took;
+    out.push({ ...w, words, seconds: Math.round(took / 100) / 10 });
+  }
+  return { backend: client.backend, loadSeconds, realtimeFactor: Math.round((audioMs / Math.max(1, wallMs)) * 10) / 10, windows: out };
+}
+
 export function Lab() {
   useEffect(() => {
-    window.__adlLab = { run };
+    window.__adlLab = { run, asr: runAsr };
     return () => { delete window.__adlLab; };
   }, []);
   return (

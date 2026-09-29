@@ -303,7 +303,7 @@ Thresholds for auto-accepting who spoke, per setup. A threshold is the lowest of
 - tracks: passes at threshold 0.85 (wrong auto-accepts 0.2%, correct 94.7%; 306 auto-accepted lines, 56.4 minutes of auto-accepted speech).
 - call: keeps host confirmation (the voice-only cap stays) because the measured sample was too small: 37 auto-accepted lines, 6.3 minutes of auto-accepted speech, 42.3% correct with enrollment disjoint from the scored window. Wrong auto-accepts were 0.0% at 0.85, but a pass needs at least 200 auto-accepted lines and 20 minutes. A longer measured run or real enrollment clips (recorded at a sound check, not cut from the program) would lift it.
 - room: keeps host confirmation (the voice-only cap stays) because the measured sample was too small: 37 auto-accepted lines, 6.3 minutes of auto-accepted speech, 42.3% correct with enrollment disjoint from the scored window. Wrong auto-accepts were 0.0% at 0.85, but a pass needs at least 200 auto-accepted lines and 20 minutes. A longer measured run or real enrollment clips (recorded at a sound check, not cut from the program) would lift it.
-- recording: wrong auto-accepts 0.0% at 0.85 (correct 75.2%), but the sample is too small to count as passed: 147 auto-accepted lines, 44.6 minutes of auto-accepted speech, against at least 200 lines and 20 minutes. Marked insufficient in gate.json.
+- recording: wrong auto-accepts 0.0% at 0.85 (correct 75.2%), but the sample is too small to count as passed: 147 auto-accepted lines, 44.6 minutes of auto-accepted speech, against at least 200 lines and 20 minutes. Marked insufficient in gate.json. Recording still auto-accepts at 0.85 (ruling P3-R8): the minimum-sample rule governs only lifting the voice-only cap, and recording has no cap.
 
 ### tracks (bleed results (a mic per person with cross-talk, the realistic tracks case))
 
@@ -381,3 +381,20 @@ Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-so
 | ball-kokotajlo-ai-governance | 98.8% | 0.1% | 0.0% | 0.0% | 1.1% |
 | belief-in-god | 95.5% | 0.1% | 3.5% | 3.5% | 1.0% |
 | open-source-ai | 96.9% | 0.1% | 1.8% | 1.8% | 1.2% |
+
+## Browser ASR accuracy, 2026-09-29
+
+The shipping `AsrClient` (int8 WASM in a worker, cross-origin isolated) run in headless Chromium through the lab page on five 60 s windows of ball-kokotajlo-ai-governance/mono.wav, one call per window, as recording transcription chunks it. Backend: wasm. Speed after an untimed 5 s warm-up: 10× real time over the five windows (this machine, headless). Model load 15.7 s.
+
+The reference is the FluidAudio Parakeet TDT v3 transcript (`transcript.utterances.json`), the same model family run natively, not a human transcript: WER here measures the browser build against it, not against what was said. Words are lowercased and stripped of punctuation; a reference word belongs to a window when its midpoint does.
+
+| Window (cut time) | Reference words | Browser words | WER | Wall time |
+|---|---|---|---|---|
+| 2:00–2:59 | 172 | 169 | 3.5% | 5.9 s |
+| 6:00–6:59 | 184 | 151 | 18.5% | 5.9 s |
+| 10:00–10:59 | 211 | 209 | 2.8% | 6 s |
+| 14:00–14:59 | 168 | 168 | 5.3% | 6.1 s |
+| 18:00–18:59 | 193 | 186 | 5.7% | 6 s |
+| mean | | | 7.2% | |
+
+Windows where the browser build returned at least 10% fewer words than the reference (6:00, 151 of 184) carry most of the error: that is dropped speech, not misheard words. The cause is not diagnosed.

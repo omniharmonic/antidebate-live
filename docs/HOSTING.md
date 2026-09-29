@@ -114,6 +114,26 @@ Steps:
 - A live session can only be resumed on the laptop that started it.
 - After **Session ended**, publishing works as for recordings (see below).
 
+## Before your event
+
+Five checks that cannot be automated. Do them on the laptop and the hardware you will use on the day, and write down what you saw.
+
+1. **Two inputs on one interface (Scarlett L/R split in Chrome).**
+   - How: plug in the interface with a mic in input 1 and another in input 2. Open **New live session**, choose **Each speaker has their own mic** and **Use this device** in Chrome. Have one person speak, then the other, then both.
+   - Pass: the meter for input 1 moves only for the first speaker and the meter for input 2 only for the second, and both move when both speak. If both move together whoever speaks, the interface is sending a mix: use **One mic in the room**.
+2. **Two separate USB mics for 90 minutes (clock drift).**
+   - How: add both devices with **Add this device**. Clap once, close to both mics, at the start. Leave the session listening for 90 minutes, then clap once again at the end. Record the session and compare the two claps' positions in each mic's track.
+   - Pass: the gap between the two mics' clap positions has moved by no more than 100 ms between the start and the end. If it has moved more, use one interface with two channels.
+3. **System audio in Chrome on the host's macOS version.**
+   - How: on the host's own Mac, open **A video call**, choose **Share system audio** and share while a call or a video plays. Note the macOS and Chrome versions.
+   - Pass: the **Call audio** meter moves with the sound and stops when it stops. System audio needs macOS 14.2 or later with Chrome 141 or later; on an older version, use **Share tab audio**.
+4. **Speed on the host laptop.**
+   - How: run **Prepare this laptop** on the event laptop, on good Wi-Fi, and read the speed test result.
+   - Pass: 2× real time or better for live. Under 2×, do not run live on that laptop; use a faster one, or process a recording afterwards.
+5. **A full 10-minute rehearsal on Stephanie's laptop.**
+   - How: on her laptop, with her mics and the same interface she will use, run a live session from the setup screens to **End session**: interface and mic check, voice recording for each person, 30-second rehearsal, then 10 minutes of two people talking. Open the map and the cockpit from the links on the live page.
+   - Pass: the status line stays on "Listening" for the whole 10 minutes, the transcript keeps up with the speakers, every line is either on the map with the right name or under **Waiting for you**, and **End session** finishes cleanly.
+
 ## When something goes wrong
 
 Messages are shown exactly as written on the page.
