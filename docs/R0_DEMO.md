@@ -62,3 +62,43 @@ pnpm --filter @adl/worker run:session -- --fixture ball-kokotajlo-ai-governance 
 pnpm --filter @adl/worker run:session -- --live --session <id>                             # tail a live session
 pnpm --filter @adl/worker ingest -- --url https://youtu.be/… --slug <slug>                 # fetch + transcribe + propose speakers
 ```
+
+## Runbook
+
+Deployed: **https://antidebate-live.vercel.app** (reads Neon). Locally: `pnpm dev` → http://localhost:3000 (reads Neon if `apps/web/.env.local` has `DATABASE_URL`, else `.data/`).
+
+### A. Replay a recorded debate through the live path
+```bash
+# straight into Neon, at real-time pace: open /s/<session>/cockpit and /arc while it runs
+pnpm --filter @adl/worker run:session -- --fixture ball-kokotajlo-ai-governance --session bk-live-demo --speed 1
+# a quick look: 15 minutes at 4×
+pnpm --filter @adl/worker run:session -- --fixture ball-kokotajlo-ai-governance --speed 4 --from 20 --to 35
+# a local-file run, then publish it
+pnpm --filter @adl/worker run:session -- --fixture … --session … --file && pnpm --filter @adl/worker push -- --session …
+```
+
+### B. Any other recording
+```bash
+pnpm --filter @adl/worker ingest -- --url https://www.youtube.com/watch?v=… --slug my-debate
+# check the proposed speakers printed (and in fixtures/antidebate/my-debate/manifest.json), then
+pnpm --filter @adl/worker ingest -- --slug my-debate --confirm
+pnpm --filter @adl/worker run:session -- --fixture my-debate --speed 1
+```
+If the video opens with a teaser, set `programStartMs` in the manifest.
+
+### C. Live room (one mic channel per person)
+```bash
+cd services/capture && uv sync --extra mac --extra live
+uv run python -m adl_capture.live --list-devices                  # find the interface
+# terminal 1: the pipeline for the session (creates session.started)
+pnpm --filter @adl/worker run:session -- --live --session room-test-1 --title "Room test" \
+  --format anti-debate --debaters "A=Person One:aff,B=Person Two:neg" --moderator "MOD=Moderator"
+# terminal 2: capture, posting to the deployed API (CAPTURE_TOKEN from .env)
+set -a; source ../../.env; set +a
+uv run python -m adl_capture.live --session room-test-1 --channels "1=A,2=B,3=MOD" --device <n> --api https://antidebate-live.vercel.app
+```
+Solo smoke test with the laptop mic: `--channels "1=A"`, speak as A. A single speaker produces claims, but no disagreement or crux.
+Ctrl-C the worker to close the session. Rerun it with `--live --session <id>` and it resumes from the log.
+
+### Costs (measured 2026-09-28)
+About $1.6 per 11 minutes of two-person debate (L1+L2 per turn, L3+L4 every ~4 turns), or ~$12–15 for a 90-minute event.
