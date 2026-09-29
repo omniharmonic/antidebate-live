@@ -7,7 +7,7 @@ import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { desc, eq, inArray, sql } from 'drizzle-orm';
 import type { EventOf } from '@adl/core';
-import { getDb, hasDb, schema } from '@adl/db';
+import { getDb, hasDb, schema, toIso } from '@adl/db';
 import { DATA_DIR, isValidSessionId } from './events-source';
 
 export interface SessionSummary {
@@ -144,9 +144,9 @@ async function listNeon(): Promise<SessionSummary[]> {
   for (const r of started) {
     if (seen.has(r.sessionId)) continue;
     seen.add(r.sessionId);
-    const e = { eventId: r.eventId, sessionId: r.sessionId, type: 'session.started', actor: r.actor, mediaMs: r.mediaMs, wallTs: r.wallTs, payload: r.payload } as Started;
+    const e = { eventId: r.eventId, sessionId: r.sessionId, type: 'session.started', actor: r.actor, mediaMs: r.mediaMs, wallTs: toIso(r.wallTs), payload: r.payload } as Started;
     const s = byId.get(r.sessionId);
-    out.push(summarize(e, { eventCount: s?.count, lastActivityAt: s?.last ? new Date(s.last).toISOString() : undefined, ended: Boolean(s?.ended) }));
+    out.push(summarize(e, { eventCount: s?.count, lastActivityAt: s?.last ? toIso(s.last) : undefined, ended: Boolean(s?.ended) }));
   }
   return out;
 }

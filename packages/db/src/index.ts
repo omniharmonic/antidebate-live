@@ -36,6 +36,13 @@ export async function appendEvents(events: DomainEvent[]): Promise<void> {
     .onConflictDoNothing({ target: schema.events.eventId });
 }
 
+/** Postgres returns `2026-09-29 02:12:40.603+00`; clients (Safari included) need ISO 8601. */
+export function toIso(ts: string): string {
+  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2}(?:\.\d+)?)([+-]\d{2})(?::?(\d{2}))?$/.exec(ts);
+  const d = m ? new Date(`${m[1]}T${m[2]}${m[3]}:${m[4] ?? '00'}`) : new Date(ts);
+  return Number.isNaN(d.getTime()) ? ts : d.toISOString();
+}
+
 /** Events after a cursor, in append order. The SSE route tails with this. */
 export async function readEvents(sessionId: string, afterId = 0, limit = 500) {
   const rows = await getDb()
@@ -52,7 +59,7 @@ export async function readEvents(sessionId: string, afterId = 0, limit = 500) {
       type: r.type,
       actor: r.actor,
       mediaMs: r.mediaMs,
-      wallTs: r.wallTs,
+      wallTs: toIso(r.wallTs),
       ...(r.causedBy ? { causedBy: r.causedBy } : {}),
       payload: r.payload,
     } as DomainEvent,
