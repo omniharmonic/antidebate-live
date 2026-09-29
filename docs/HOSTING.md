@@ -19,8 +19,8 @@ For facilitators (Stephanie, Liv). Everything runs in Chrome on a laptop. Your r
    The key stays in this browser and goes only to Anthropic, never to antidebate.xyz. Anyone who uses this browser profile can run sessions on the key. Choose **Forget key** when you finish on a shared computer.
 4. **Prepare this laptop.** On the home page choose **Prepare this laptop**. Do it once, on good Wi-Fi, ideally the day before. It:
    - checks the browser;
-   - downloads the transcription model (about 700 MB, once; it is kept on the laptop);
-   - runs a speed test (30 seconds of test audio);
+   - downloads the transcription model once and keeps it on the laptop. The button shows the size for this laptop: about 1.3 GB where the graphics chip supports it (it then runs on the graphics chip), about 670 MB otherwise;
+   - runs a speed test (5 seconds to warm up, then 30 seconds timed);
    - loads speaker separation (about 58 MB).
 
    When all four rows say Ready, the page shows "This laptop is ready". If the speed test says the laptop is under 2× real time, recordings take longer than their own length there.
@@ -30,12 +30,12 @@ For facilitators (Stephanie, Liv). Everything runs in Chrome on a laptop. Your r
 1. Get the recording as a file. The site cannot fetch YouTube links: YouTube blocks servers from downloading. Ask the creator for their own copy, or download the video first with a tool such as yt-dlp. An .mp4, .m4a, .mp3 or .wav file works best.
 2. Home page, **Process a recording**. Enter the title, choose the format, list the participants and their seats, keep "A recording" as the audio source, choose the file and choose **Create and start**.
 3. **Name the voices.** The laptop separates the recording into voices. For each voice, play the sample stretches and choose who it is. A voice marked "Someone else (don't attribute)" stays in the transcript but is never counted as a participant's claim. Choose **Confirm voices and continue**.
-4. Wait while it transcribes and analyses. The page shows the stage: Reading the file, Separating speakers, Name the voices, Transcribing (chunk N of M), Analysing (N of M minutes), then Done. It also shows the estimated spend so far.
-5. **Keep the tab open and the laptop awake.** Closing the tab pauses processing, and Chrome warns you first. Nothing that has finished is lost. To resume, open the session from **On this laptop** on the host home page, and choose the same file again. A different file is refused.
+4. Wait while it transcribes and analyses. The page shows the stage: Reading the file, Separating speakers (with the time so far), Name the voices, Transcribing (chunk N of M), Analysing (N of M minutes), then Done. It also shows the estimated spend so far.
+5. **Keep the tab open, in front, and the laptop awake.** Closing the tab pauses processing, and Chrome warns you first. A tab in the background is slowed down by Chrome, and the page says so. Nothing that has finished is lost. To resume, open the session from **On this laptop** on the host home page. If the transcript was finished, the analysis continues by itself; otherwise choose the same file again. A different file is refused.
 
 ## Share the map
 
-When the stage says **Done: open the map**, choose **Open the map** or **Open the cockpit**. The address is `https://antidebate.xyz/s/<session id>/<view>`. The session id is in the address bar. The views:
+When the stage says **Done: open the map**, choose **Open the map** or **Open the cockpit**. A finished session is not on the public list of antidebate.xyz until you choose **Publish to the public list** on that page (and **Unpublish** takes it off again). The links work either way, so you can check a run before anyone else sees it. The address is `https://antidebate.xyz/s/<session id>/<view>`. The session id is in the address bar. The views:
 
 | View | Address ending | For |
 |---|---|---|
@@ -87,6 +87,11 @@ Messages are shown exactly as written on the page.
 | That is a different file. This session was started with NAME. | Resume | Choose the same file it was started with, or start a new session. |
 | Processing stopped | Session | The message under it says why. Choose **Try again**. Finished chunks are kept, so it continues where it stopped. |
 | N analysis requests did not get an answer; those turns stay off the map. | Session | Anthropic did not answer for some turns (limits or connection). The rest of the map is unaffected. The estimated spend still counts what was answered. |
-| N events waiting to upload | Session | The laptop could not reach the server for a moment. Keep the tab open and online: they upload automatically. |
+| N events waiting to upload | Session | The laptop has not delivered some results to the server yet. Keep the tab open and online: they upload automatically. When processing has finished, the page shows the reason and a **Retry** button; the session is only Done once they are uploaded. Opening the session page again also uploads them. |
+| The server refused these events (N) | Session | Choose **Retry** once. If it repeats, send the number to Benjamin. |
+| Your Anthropic key was rejected. Add a working key to continue. | Session | The key was deleted or disabled in the Anthropic console. Choose **Add a working key**, paste a new one; the analysis then continues where it stopped. |
+| This tab is in the background. Keep it in front so processing isn't slowed. | Session | Bring the tab back to the front. |
+| Choose the recording file to continue. | Session | Choose the file the session was started with. |
+| This browser decoded the audio at N Hz, not 16000 Hz. Use Google Chrome or Microsoft Edge. | Session | Open the page in Chrome. |
 
-If the tab was closed mid-run, or the laptop slept, open the session from **On this laptop**, choose the same file, and it resumes. The transcript chunks are stored on the laptop, so a resume does not redo them.
+If the tab was closed mid-run, or the laptop slept, open the session from **On this laptop**, choose the same file if asked, and it resumes. The transcript chunks are stored on the laptop, so a resume does not redo them. On another laptop, or after clearing the browser's data, choosing the file continues with the analysis of the transcript already on the server.
