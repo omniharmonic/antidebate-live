@@ -64,18 +64,107 @@ describe('LiveRunner', () => {
     await r.onUtterance('mono', { startMs: 5000, endMs: 5900, pcm }, {}, false);
     expect(statuses.at(-1)!.newVoices).toEqual([{ label: 'Voice 1', utteranceIds: ['umono-0'] }, { label: 'Voice 2', utteranceIds: ['umono-5000'] }]);
   });
-  it('skips empty transcriptions and keeps going after a failure', async () => {
+  it('skips empty transcriptions', async () => {
     const log = new Mem();
-    let n = 0;
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
-      asr: { transcribe: async (_p, off) => { n++; if (n === 1) return []; if (n === 2) throw new Error('boom'); return [{ text: 'ok', startMs: off, endMs: off + 200 }]; } },
-      voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: () => {},
+      asr: { transcribe: async () => [] }, voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: () => {},
     });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
-    await expect(r.onUtterance('mono', { startMs: 1000, endMs: 1900, pcm }, {}, false)).rejects.toThrow('boom');
-    await r.onUtterance('mono', { startMs: 2000, endMs: 2900, pcm }, {}, false);
-    expect(log.events.map((e) => e.type)).toEqual(['utterance.final']);
+    expect(log.events).toEqual([]);
+  });
+  it('reports a failed transcription in status and retries it with the kept audio', async () => {
+    const log = new Mem();
+    let broken = true;
+    const statuses: import('./runner').LiveStatus[] = [];
+    const r = new LiveRunner({
+      sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
+      asr: { transcribe: async (_p, off) => { if (broken) throw new Error('boom'); return [{ text: 'ok', startMs: off, endMs: off + 200 }]; } },
+      voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s),
+    });
+    await r.onUtterance('mono', { startMs: 1000, endMs: 1900, pcm }, {}, false);
+    expect(statuses.at(-1)!.failed).toEqual([{ channel: 'mono', startMs: 1000, endMs: 1900, reason: 'boom' }]);
+    expect(log.events).toEqual([]);
+    broken = false;
+    await r.retry(0);
+    expect(statuses.at(-1)!.failed).toEqual([]);
     expect((log.events[0] as Final).payload.utterance.participantKey).toBe('A');
+  });
+  it('reports a failed append and keeps the audio', async () => {
+    const log = new Mem();
+    let bad = true;
+    const append = log.append.bind(log);
+    log.append = async (e) => { if (bad) throw new Error('offline'); return append(e); };
+    const statuses: import('./runner').LiveStatus[] = [];
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s) });
+    await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
+    expect(statuses.at(-1)!.failed[0]!.reason).toBe('offline');
+    bad = false;
+    await r.retry(0);
+    expect(log.events.map((e) => e.type)).toEqual(['utterance.final']);
+  });
+  it('keeps the transcript when voice matching fails, and warns once per streak', async () => {
+    const log = new Mem();
+    let fail = true;
+    const statuses: import('./runner').LiveStatus[] = [];
+    const r = new LiveRunner({
+      sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr,
+      voices: { matchVoices: async () => { if (fail) throw new Error('model gone'); return { A: 0.99 }; } }, log, onStatus: (s) => statuses.push(s),
+    });
+    await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
+    await r.onUtterance('mono', { startMs: 2000, endMs: 2900, pcm }, {}, false);
+    expect(log.events.map((e) => e.type)).toEqual(['attribution.pending', 'utterance.final', 'attribution.pending', 'utterance.final']);
+    expect((log.events[1] as Final).payload.utterance.participantKey).toBe('UNK');
+    expect(statuses.at(-1)!.notices.filter((n) => n.kind === 'voice_match_unavailable')).toHaveLength(1);
+    expect(statuses.at(-1)!.newVoices).toEqual([]);
+    fail = false;
+    await r.onUtterance('mono', { startMs: 4000, endMs: 4900, pcm }, {}, false);
+    fail = true;
+    await r.onUtterance('mono', { startMs: 6000, endMs: 6900, pcm }, {}, false);
+    expect(statuses.at(-1)!.notices.filter((n) => n.kind === 'voice_match_unavailable')).toHaveLength(2);
+  });
+  it('groups unmatched utterances by a temporary voice anchor', async () => {
+    const log = new Mem();
+    const statuses: import('./runner').LiveStatus[] = [];
+    const seen: string[][] = [];
+    const r = new LiveRunner({
+      sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [{ key: 'A', pcm }], asr,
+      voices: { matchVoices: async (anchors) => { seen.push(anchors.map((a) => a.key)); const out: Record<string, number> = { A: 0.1 }; if (anchors.some((a) => a.key === 'Voice 1')) out['Voice 1'] = 0.8; return out; } },
+      log, onStatus: (s) => statuses.push(s),
+    });
+    await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
+    await r.onUtterance('mono', { startMs: 5000, endMs: 5900, pcm }, {}, false);
+    expect(seen).toEqual([['A'], ['A', 'Voice 1']]);
+    expect(statuses.at(-1)!.newVoices).toEqual([{ label: 'Voice 1', utteranceIds: ['umono-0', 'umono-5000'] }]);
+    // Temporary voices never reach the attributor as participants.
+    expect((log.events.at(-1) as Final).payload.utterance.participantKey).toBe('UNK');
+  });
+  it('caps temporary voices at four', async () => {
+    const log = new Mem();
+    const statuses: import('./runner').LiveStatus[] = [];
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({}) }, log, onStatus: (s) => statuses.push(s) });
+    for (let i = 0; i < 6; i++) await r.onUtterance('mono', { startMs: i * 5000, endMs: i * 5000 + 900, pcm }, {}, false);
+    expect(statuses.at(-1)!.newVoices.map((v) => v.label)).toEqual(['Voice 1', 'Voice 2', 'Voice 3', 'Voice 4']);
+    expect(statuses.at(-1)!.unconfirmed).toHaveLength(6);
+  });
+  it('measures latency from the caller wall time when given', async () => {
+    const statuses: import('./runner').LiveStatus[] = [];
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.99 }) }, log: new Mem(), onStatus: (s) => statuses.push(s), now: () => 10_000 });
+    await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false, 7_500);
+    expect(statuses.at(-1)!.lastLatencyMs).toBe(2_500);
+  });
+  it('does not drop a correction back to an earlier choice, and ignores audio after stop', async () => {
+    const log = new Mem();
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.6 }) }, log, onStatus: () => {} });
+    await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
+    await r.confirm('umono-0', 'A');
+    await r.confirm('umono-0', 'B');
+    await r.confirm('umono-0', 'A');
+    const ids = log.events.filter((e) => e.type === 'attribution.confirmed').map((e) => e.eventId);
+    expect(new Set(ids).size).toBe(3);
+    await r.stop();
+    const n = log.events.length;
+    await r.onUtterance('mono', { startMs: 9000, endMs: 9900, pcm }, {}, false);
+    expect(log.events.length).toBe(n);
   });
 });

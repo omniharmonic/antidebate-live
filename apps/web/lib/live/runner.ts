@@ -2,6 +2,7 @@ import type { DomainEvent } from '@adl/core';
 import type { EventLog } from '@adl/engine';
 import type { AsrClient } from '../asr/client';
 import type { Anchor } from '../attribution/anchors';
+import { trimAnchor } from '../attribution/anchors';
 import { Attributor, type ChannelMap, type Notice, type Setup } from '../attribution/attributor';
 
 export type LiveSetup = { kind: Setup; channels: ChannelMap; participants: { key: string; displayName: string }[] };
@@ -13,7 +14,16 @@ export type LiveStatus = {
   unconfirmed: { utteranceId: string; text: string; candidates: Record<string, number> }[];
   /** Voices nobody enrolled, in the order they were heard, with the utterances to confirm together. */
   newVoices: { label: string; utteranceIds: string[] }[];
+  /** Utterances that could not be transcribed or written. `retry(index)` runs one again. */
+  failed: { channel: string; startMs: number; endMs: number; reason: string }[];
 };
+
+type Job = { channel: string; u: { startMs: number; endMs: number; pcm: Float32Array }; rms: Record<string, number>; overlap: boolean; arrivedAt: number; endedAt?: number };
+
+/** Temporary voices are only for grouping; a match this good joins one. */
+const TEMP_VOICE_MATCH = 0.5;
+const MAX_TEMP_VOICES = 4;
+const TEMP_ANCHOR_MS = 8_000;
 
 /** A channel this far above every other one is unambiguous (either way), so the voice match is skipped. */
 const CLEAR_MARGIN_DB = 12;
@@ -41,6 +51,10 @@ export class LiveRunner {
   private readonly unconfirmed = new Map<string, { text: string; candidates: Record<string, number>; endMs: number }>();
   private readonly newVoices: { label: string; utteranceIds: string[] }[] = [];
   private lastMediaMs = 0;
+  private confirmSeq = 0;
+  private readonly failed: { job: Job; reason: string }[] = [];
+  private readonly temp: { label: string; pcm: Float32Array }[] = [];
+  private matchFailing = false;
   /** Labels are never reused, even after their utterances are confirmed away. */
   private voiceCount = 0;
 
@@ -49,28 +63,46 @@ export class LiveRunner {
     this.now = o.now ?? Date.now;
   }
 
-  /** Queues the utterance; ASR, matching and emission run one utterance at a time. Rejects if this utterance failed. */
-  onUtterance(channel: string, u: { startMs: number; endMs: number; pcm: Float32Array }, rms: Record<string, number>, overlap: boolean): Promise<void> {
-    const arrivedAt = this.now();
+  /**
+   * Queues the utterance; ASR, matching and emission run one utterance at a time. Never rejects:
+   * a failure lands in status.failed with the audio kept for `retry`. `endedAtWallMs` is when the
+   * speech ended on the wall clock (the caller knows the tap start); without it latency counts from arrival.
+   */
+  onUtterance(channel: string, u: { startMs: number; endMs: number; pcm: Float32Array }, rms: Record<string, number>, overlap: boolean, endedAtWallMs?: number): Promise<void> {
+    if (this.stopped) return Promise.resolve();
+    return this.enqueue({ channel, u, rms, overlap, arrivedAt: this.now(), ...(endedAtWallMs !== undefined ? { endedAt: endedAtWallMs } : {}) });
+  }
+
+  /** Runs a failed utterance again (index into status.failed). */
+  retry(index: number): Promise<void> {
+    const item = this.failed[index];
+    if (!item) return Promise.resolve();
+    this.failed.splice(index, 1);
+    return this.enqueue({ ...item.job, arrivedAt: this.now() });
+  }
+
+  private enqueue(job: Job): Promise<void> {
     this.queued += 1;
     this.publish();
-    const job = this.chain.then(() => this.process(channel, u, rms, overlap, arrivedAt));
-    const settled = job.then(
-      () => undefined,
-      () => undefined,
-    );
-    this.chain = settled.then(() => {
+    const run = this.chain.then(async () => {
+      try {
+        await this.process(job);
+      } catch (e) {
+        this.failed.push({ job, reason: e instanceof Error ? e.message : String(e) });
+      }
+    });
+    this.chain = run.then(() => {
       this.queued -= 1;
       this.publish();
     });
-    return job;
+    return run;
   }
 
   async confirm(utteranceId: string, participantKey: string): Promise<void> {
     const held = this.unconfirmed.get(utteranceId);
     await this.o.log.append([
       {
-        eventId: `${this.o.sessionId}:${utteranceId}:confirmed:${participantKey}`,
+        eventId: `${this.o.sessionId}:${utteranceId}:confirmed:${++this.confirmSeq}`,
         sessionId: this.o.sessionId,
         type: 'attribution.confirmed',
         actor: 'operator',
@@ -99,17 +131,37 @@ export class LiveRunner {
 
   /** Waits for queued utterances to finish. Appends nothing: ending the session is the engine's finishSource(). */
   async stop(): Promise<void> {
-    await this.chain;
     this.stopped = true;
+    await this.chain;
     this.publish();
   }
 
-  private async process(channel: string, u: { startMs: number; endMs: number; pcm: Float32Array }, rms: Record<string, number>, overlap: boolean, arrivedAt: number): Promise<void> {
+  private async process(job: Job): Promise<void> {
+    const { channel, u, rms, overlap } = job;
     const { setup, sessionId, log } = this.o;
     const words = await this.o.asr.transcribe(u.pcm, u.startMs);
     if (words.length === 0) return;
 
-    const voice = this.isUnambiguous(channel, rms) ? {} : await this.o.voices.matchVoices(this.o.anchors, u.pcm);
+    let scores: Record<string, number> = {};
+    let matchFailed = false;
+    if (!this.isUnambiguous(channel, rms)) {
+      try {
+        scores = await this.o.voices.matchVoices([...this.o.anchors, ...this.temp.map((t) => ({ key: t.label, pcm: t.pcm }))], u.pcm);
+        this.matchFailing = false;
+      } catch {
+        // The transcript is still good: it goes to the log as pending, and the host is told once per streak.
+        matchFailed = true;
+        if (!this.matchFailing) this.notices.push({ kind: 'voice_match_unavailable' });
+        this.matchFailing = true;
+      }
+    }
+    const tempLabels = new Set(this.temp.map((t) => t.label));
+    const voice: Record<string, number> = {};
+    let tempBest: [string, number] | null = null;
+    for (const [k, v] of Object.entries(scores)) {
+      if (!tempLabels.has(k)) voice[k] = v;
+      else if (!tempBest || v > tempBest[1]) tempBest = [k, v];
+    }
     const { decision, notices } = this.attributor.decide({
       channel: setup.kind === 'room' ? null : channel,
       channelRmsDb: rms,
@@ -154,12 +206,27 @@ export class LiveRunner {
     this.lastMediaMs = u.endMs;
     if (decision.pending) this.unconfirmed.set(id, { text, candidates, endMs: u.endMs });
     for (const n of notices) {
-      if (n.kind === 'new_voice') this.newVoices.push({ label: `Voice ${++this.voiceCount}`, utteranceIds: [id] });
-      else this.notices.push(n);
+      if (n.kind !== 'new_voice') this.notices.push(n);
+      else if (!matchFailed) this.groupNewVoice(id, u.pcm, tempBest);
     }
-    // The utterance reached us at (about) its end; this is how long attribution took after that.
-    this.lastLatencyMs = this.now() - arrivedAt;
+    this.lastLatencyMs = this.now() - (job.endedAt ?? job.arrivedAt);
     this.publish();
+  }
+
+  /** Joins the utterance to the temporary voice it matches, or starts the next one (up to the cap). */
+  private groupNewVoice(id: string, pcm: Float32Array, tempBest: [string, number] | null): void {
+    if (tempBest && tempBest[1] >= TEMP_VOICE_MATCH) {
+      const group = this.newVoices.find((v) => v.label === tempBest[0]);
+      // A group emptied by confirming its lines is recreated when the same voice speaks again.
+      if (group) group.utteranceIds.push(id);
+      else this.newVoices.push({ label: tempBest[0], utteranceIds: [id] });
+      return;
+    }
+    if (this.temp.length >= MAX_TEMP_VOICES) return;
+    const label = `Voice ${++this.voiceCount}`;
+    const trimmed = trimAnchor(pcm, TEMP_ANCHOR_MS);
+    this.temp.push({ label, pcm: trimmed.length > 0 ? trimmed : pcm.slice(0, (16_000 * TEMP_ANCHOR_MS) / 1000) });
+    this.newVoices.push({ label, utteranceIds: [id] });
   }
 
   private isUnambiguous(channel: string, rms: Record<string, number>): boolean {
@@ -182,6 +249,7 @@ export class LiveRunner {
       notices: [...this.notices],
       unconfirmed: [...this.unconfirmed].map(([utteranceId, v]) => ({ utteranceId, text: v.text, candidates: v.candidates })),
       newVoices: this.newVoices.map((v) => ({ label: v.label, utteranceIds: [...v.utteranceIds] })),
+      failed: this.failed.map(({ job, reason }) => ({ channel: job.channel, startMs: job.u.startMs, endMs: job.u.endMs, reason })),
     });
   }
 }

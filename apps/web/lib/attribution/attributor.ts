@@ -26,7 +26,7 @@ export type Decision = {
   signals: { channel?: string; voiceprint?: Record<string, number> };
   drop?: 'bleed';
 };
-export type Notice = { kind: 'dead_channel' | 'channel_recovered' | 'swap_suggested' | 'new_voice'; channel?: string; participantKey?: string; label?: string };
+export type Notice = { kind: 'dead_channel' | 'channel_recovered' | 'swap_suggested' | 'new_voice' | 'voice_match_unavailable'; channel?: string; participantKey?: string; label?: string };
 
 const BLEED_DB = 6;
 const VOICE_LEAD = 0.2;
