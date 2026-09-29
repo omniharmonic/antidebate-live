@@ -1,0 +1,44 @@
+{
+  "slug": "belief-in-god",
+  "title": "ANTI-DEBATE: The Value of Belief in God — Jim Rutt vs. Layman Pascal",
+  "format": "anti-debate",
+  "participants": [
+    {
+      "key": "A",
+      "displayName": "Jim Rutt"
+    },
+    {
+      "key": "B",
+      "displayName": "Layman Pascal"
+    }
+  ],
+  "moderator": {
+    "key": "MOD",
+    "displayName": "Stephanie Lepp"
+  },
+  "seats": {
+    "MOD": "moderator",
+    "A": "neg",
+    "B": "aff"
+  },
+  "speakerMap": {
+    "S1": "MOD",
+    "S2": "A",
+    "S3": "B"
+  },
+  "speakerMapEvidence": {
+    "method": "model proposal from self-identification and metadata (speaker-id-v0.1)",
+    "Stephanie Lepp": "S1: I'm your host, Stephanie Lepp, and for those of you listening, please know that the anti-debate is hereby available for your use. (0.4m)",
+    "Jim Rutt": "S2: Host: 'arguing for more limited circumstances... Jim is the former chairman of the Santa Fe Institute and the current host of the Jim Rutt Show. Welcome, Jim.' Then S2: 'when I was a kid I was raised a Catholic' (6.0m)",
+    "Layman Pascal": "S3: Host: 'Lehman Pascal, a philosopher, writer, and podcast host... host of the integral stage podcast.' Then S3: 'the island where I grew up had a little public school' (10.0m); 'I'm on the side of many circumstances.' (12.9m)",
+    "confirmedBy": "Claude, as operator delegate (evidence reviewed 2026-09-28)"
+  },
+  "sources": {
+    "video": "https://www.youtube.com/watch?v=FQB0Kn5GA6Q"
+  },
+  "media": {
+    "audio": "audio.m4a",
+    "transcript": "transcript.utterances.json",
+    "status": "transcribed"
+  }
+}

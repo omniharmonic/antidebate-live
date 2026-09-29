@@ -215,7 +215,8 @@ export class SessionEngine {
   private startInsight() {
     if (this.insightRunning || !this.insightWanted) return;
     // Cards need something to work with: at least a few approved claims.
-    if (buildMapView(this.state).props.size < 3 && !this.sourceDone) return;
+    const drained = this.sourceDone && this.queue.length === 0;
+    if (buildMapView(this.state).props.size < 3 && !drained) return;
     this.insightWanted = false;
     this.turnsSinceInsight = 0;
     const seq = this.insightSeq++;

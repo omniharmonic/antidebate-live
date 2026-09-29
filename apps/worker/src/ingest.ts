@@ -38,6 +38,7 @@ interface Manifest {
   title: string;
   format: string;
   moderator?: { key: string; displayName: string };
+  moderators?: { key: string; displayName: string }[];
   participants: { key: string; displayName: string }[];
   seats?: Record<string, 'aff' | 'neg' | 'moderator'>;
   speakerMap?: Record<string, string>;
@@ -87,7 +88,7 @@ const firstLines = utterances.slice(0, 40).map((u) => `[${u.speaker}] ${u.text.s
 
 const SpeakerOut = z.object({
   title: z.string().describe('Short title for the debate'),
-  programStartMinute: z.number().nullable().describe('Minute where the event itself begins, after any teaser montage, trailer or narrated preface; null if it begins immediately'),
+  programStartMinute: z.number().nullable().describe('Minute where the event itself begins (the host\'s welcome, including introductions), after any teaser montage of clips, trailer or narrated preface; null if it begins immediately'),
   speakers: z.array(
     z.object({
       label: z.string(),
@@ -112,7 +113,8 @@ const people = new Map<string, { key: string; role: string; seat: string; labels
 let n = 0;
 for (const s of res.data.speakers) {
   if (!s.displayName || s.role === 'unknown' || s.role === 'audience') continue;
-  const p = people.get(s.displayName) ?? { key: s.role === 'moderator' ? 'MOD' : String.fromCharCode(65 + n++), role: s.role, seat: s.seat, labels: [], evidence: [] };
+  const mods = [...people.values()].filter((x) => x.role === 'moderator').length;
+  const p = people.get(s.displayName) ?? { key: s.role === 'moderator' ? (mods ? `MOD${mods + 1}` : 'MOD') : String.fromCharCode(65 + n++), role: s.role, seat: s.seat, labels: [], evidence: [] };
   p.labels.push(s.label);
   p.evidence.push(`${s.label}: ${s.evidence}`);
   people.set(s.displayName, p);
@@ -123,8 +125,8 @@ const manifest: Manifest = {
   format: values.format!,
   participants: [...people].filter(([, p]) => p.role === 'debater').map(([displayName, p]) => ({ key: p.key, displayName })),
   ...(() => {
-    const mod = [...people].find(([, p]) => p.role === 'moderator');
-    return mod ? { moderator: { key: 'MOD', displayName: mod[0] } } : {};
+    const mods = [...people].filter(([, p]) => p.role === 'moderator').map(([displayName, p]) => ({ key: p.key, displayName }));
+    return mods.length === 1 ? { moderator: mods[0]! } : mods.length ? { moderators: mods } : {};
   })(),
   seats: Object.fromEntries([...people.values()].filter((p) => p.seat !== 'none').map((p) => [p.key, p.seat as 'aff' | 'neg' | 'moderator'])),
   speakerMap: Object.fromEntries([...people.values()].flatMap((p) => p.labels.map((l) => [l, p.key]))),

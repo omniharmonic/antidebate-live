@@ -1,0 +1,28 @@
+{
+  "slug": "ignite-anti-debate-talk",
+  "title": "The Anti-Debate: What If Nobody Has to Be Wrong? (Ignite Talk)",
+  "format": "open",
+  "participants": [
+    {
+      "key": "A",
+      "displayName": "Stephanie Lepp"
+    }
+  ],
+  "seats": {},
+  "speakerMap": {
+    "S1": "A"
+  },
+  "speakerMapEvidence": {
+    "method": "single speaker (Ignite talk by the format's creator)",
+    "confirmedBy": "Claude, as operator delegate (2026-09-28)"
+  },
+  "sources": {
+    "video": "https://www.youtube.com/watch?v=tK_XP9aOZE8"
+  },
+  "media": {
+    "audio": "audio.m4a",
+    "transcript": "transcript.utterances.json",
+    "status": "transcribed"
+  },
+  "note": "Not a debate: a 5-minute talk explaining the Anti-Debate. Run as an edge case (one speaker; no disagreement or shared ground is possible)."
+}

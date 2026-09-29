@@ -1,0 +1,52 @@
+{
+  "slug": "open-source-ai",
+  "title": "Anti-Debate: Open-Source AI — Jeremy Nixon and Daniel Barcay",
+  "format": "anti-debate",
+  "participants": [
+    {
+      "key": "A",
+      "displayName": "Daniel Barcay"
+    },
+    {
+      "key": "B",
+      "displayName": "Jeremy Nixon"
+    }
+  ],
+  "seats": {
+    "MOD": "moderator",
+    "A": "neg",
+    "B": "aff"
+  },
+  "speakerMap": {
+    "S1": "MOD",
+    "S2": "MOD2",
+    "S3": "A",
+    "S4": "B"
+  },
+  "speakerMapEvidence": {
+    "method": "model proposal from self-identification and metadata (speaker-id-v0.1)",
+    "Stephanie Lepp": "S1: \"So my name is Stephanie Lepp and as the producer of this version of the anti-debate\" (0.4m)",
+    "Jenny Stefanotti": "S2: \"guiding us through that arc is our moderator, Jenny Stefanati\" (introduced by S1); S2 replies \"Thanks, Duff... My first anti-debate\" (4.4m)",
+    "Daniel Barcay": "S3: Introduced as \"Daniel is the outgoing executive director of the Center for Humane Technology\" (6.4m); \"the reason I'm on the anti-side is the open source community...\" (9.6m)",
+    "Jeremy Nixon": "S4: \"if you Google Jeremy Nixon index, you'll see that I actually take worldview building very seriously\" (10.6m); \"AGI House... that I started\" (12.8m)",
+    "confirmedBy": "Claude, as operator delegate (evidence reviewed 2026-09-28)"
+  },
+  "sources": {
+    "video": "https://www.youtube.com/watch?v=L4vDncAQqrc"
+  },
+  "media": {
+    "audio": "audio.m4a",
+    "transcript": "transcript.utterances.json",
+    "status": "transcribed"
+  },
+  "moderators": [
+    {
+      "key": "MOD",
+      "displayName": "Stephanie Lepp"
+    },
+    {
+      "key": "MOD2",
+      "displayName": "Jenny Stefanotti"
+    }
+  ]
+}

@@ -39,6 +39,8 @@ export function loadFixture(name: string, sessionId: string = name): DomainEvent
     title: string;
     format: string;
     moderator?: { key: string; displayName: string };
+    /** Co-moderators / hosts (keys MOD, MOD2, …); `moderator` is kept for single-moderator manifests. */
+    moderators?: { key: string; displayName: string }[];
     participants: { key: string; displayName: string }[];
     speakerMap?: Record<string, string>;
     seats?: FixtureMeta['seats'];
@@ -47,7 +49,7 @@ export function loadFixture(name: string, sessionId: string = name): DomainEvent
   const labelsFor = (key: string) => Object.entries(manifest.speakerMap ?? {}).filter(([, k]) => k === key).map(([label]) => label);
   const participants: FixtureParticipant[] = [
     ...manifest.participants.map((p) => ({ ...p, role: 'debater' as const, sourceLabels: labelsFor(p.key) })),
-    ...(manifest.moderator ? [{ ...manifest.moderator, role: 'moderator' as const, sourceLabels: labelsFor(manifest.moderator.key) }] : []),
+    ...(manifest.moderators ?? (manifest.moderator ? [manifest.moderator] : [])).map((m) => ({ ...m, role: 'moderator' as const, sourceLabels: labelsFor(m.key) })),
   ];
   return utterancesToEvents({ sessionId, title: manifest.title, format: manifest.format, participants, utterances: transcript.utterances });
 }
