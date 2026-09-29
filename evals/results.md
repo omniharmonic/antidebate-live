@@ -15,11 +15,15 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
-## 2026-09-29 · End-to-end loop 3 (in progress)
+## 2026-09-29 · End-to-end loop 3
 
 - **Timeline and Positions review (belief-in-god-r2):** the timeline reads well (dense clarifying lanes, then the shared-ground corridor filling with higher-ground rings and crux diamonds). Positions exposed noise: autobiographical asides extracted as claims ("Layman Pascal would be happy to go along with the commandments if God came to him personally…").
 - **l1-extract-v0.5:** asides and personal preferences are skipped unless they carry the argument (a stated update, a conditional commitment, experience offered as evidence). A/B on Belief in God 11–18m: claims 55 → 42 (−24%), autobiographical 5 → 3 (the remaining ones state positions, e.g. "Layman Pascal is pro God").
-- Reruns destiny-shermer-r2 and open-source-ai-r2 (l1 v0.4 + hysteresis) are running.
+- **destiny-shermer-r2:** no crux ping-pong (hysteresis works). The crux follows the debate's real axes: "Malone and Bhattacharya were at least partially right" (40m) → "a good free-speech environment requires a framework for holding bad-faith actors accountable" (43m) → "guardrails are needed" (48m) → "Alex Jones… should be allowed to speak, because that gives an opportunity to debunk them" (90m). Adapted synthesis round at 49.2m. 18 higher-ground ideas.
+- **open-source-ai-r2:** round jitter gone (sequence guard); Outro found at 135m; Stefanotti's own structure detected as an adapted synthesis round (36m). 25 clashes, 5 shared, 31 higher-ground ideas over 136 min. The crux reaches the definitional core: "What is being called open source AI is not open source" (Barcay accepts / Nixon rejects).
+- **Diagnose:** adapted rounds now cover their phase in the "not detected" check. The remaining "backwards" flag on OSA is a real adaptation (Q&A before the Outro).
+- **Sessions home:** one row per recording (newest non-test run), earlier runs folded; verified in production.
+- **Library state:** every playlist recording has a run on the final pipeline (r3/r2); all published to Neon.
 
 ---
 
