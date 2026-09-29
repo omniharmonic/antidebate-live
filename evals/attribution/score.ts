@@ -69,3 +69,20 @@ export function calibrate(runs: Run[], candidates: number[] = CANDIDATES): Calib
   }
   return { threshold: 0.99, hostConfirmsAll: true, atThreshold: pooled(runs, 0.99) };
 }
+
+/** A lab line: held lines add their best `candidate`; lines the voice-only cap bound add `uncapped`. */
+export type LabPred = Pred & { candidate?: string; uncapped?: number };
+
+/**
+ * P3-R4: mono-live lines are scored as the gate would see them with only the voice-only cap lifted.
+ * A line counts toward auto-accept only when the cap was its sole reason for pending (the lab marks
+ * those with `uncapped`); lines pending for any other reason (no candidate, a low fused score, held
+ * by rule) stay held at every threshold. Other setups are scored as recorded.
+ */
+export function gatePred(setup: string, u: LabPred): Pred {
+  const { startMs, endMs, confidence, pending } = u;
+  if (setup !== 'mono-live') return { startMs, endMs, participantKey: u.participantKey, confidence, pending };
+  const participantKey = u.candidate ?? u.participantKey;
+  if (u.uncapped !== undefined) return { startMs, endMs, participantKey, confidence: u.uncapped, pending: false };
+  return { startMs, endMs, participantKey, confidence, pending };
+}

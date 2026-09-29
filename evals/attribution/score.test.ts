@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calibrate, score } from './score';
+import { calibrate, gatePred, score } from './score';
 
 const ref: [number, number, string][] = [[0, 1000, 'A'], [1000, 2000, 'B'], [2000, 3000, 'UNK']];
 
@@ -47,5 +47,25 @@ describe('calibrate', () => {
       ],
     };
     expect(calibrate([run])).toMatchObject({ threshold: 0.88, hostConfirmsAll: false });
+  });
+});
+
+describe('gatePred', () => {
+  const base = { startMs: 0, endMs: 1000, participantKey: 'UNK', confidence: 0.84, pending: true };
+  it('lifts only the voice-only cap: a capped line is scored on its uncapped score and candidate', () => {
+    expect(gatePred('mono-live', { ...base, candidate: 'A', uncapped: 1 })).toMatchObject({ participantKey: 'A', confidence: 1, pending: false });
+  });
+  it('keeps lines pending for other reasons held at every threshold', () => {
+    const noCandidate = gatePred('mono-live', { ...base, confidence: 0.6 });
+    const lowScore = gatePred('mono-live', { ...base, confidence: 0.7, candidate: 'B' });
+    for (const p of [noCandidate, lowScore]) {
+      expect(p.pending).toBe(true);
+      for (const t of [0.85, 0.99]) expect(score([[0, 1000, 'A']], [{ ...p, confidence: 1 }], t).wrongAuto).toBe(0);
+    }
+    expect(lowScore.participantKey).toBe('B');
+  });
+  it('leaves other setups as recorded', () => {
+    const u = { ...base, candidate: 'A', uncapped: 1 };
+    expect(gatePred('bleed', u)).toMatchObject({ participantKey: 'UNK', confidence: 0.84, pending: true });
   });
 });
