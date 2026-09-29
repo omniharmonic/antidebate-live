@@ -42,6 +42,7 @@ export class HttpEventLog implements EventLog {
   private flushing: Promise<void> | null = null;
   private lastError: string | null = null;
   private tokenValue: string | null = null;
+  private closed = false;
   private readonly f: typeof fetch;
 
   constructor(private readonly o: HttpEventLogOptions) {
@@ -63,10 +64,28 @@ export class HttpEventLog implements EventLog {
     return this.tokenValue;
   }
 
+  /** One authenticated request; a 401 re-issues the token once and retries. */
+  private async request(url: string, init: RequestInit = {}): Promise<Response> {
+    const go = async (refresh: boolean) =>
+      this.f(url, { ...init, headers: { ...(init.headers as Record<string, string> | undefined), authorization: `Bearer ${await this.auth(refresh)}` } });
+    const res = await go(false);
+    return res.status === 401 ? go(true) : res;
+  }
+
+  /** Local persistence failing must not stop delivery: report it and carry on. */
+  private async persist(): Promise<void> {
+    try {
+      await this.o.outbox.save(this.queue);
+    } catch {
+      this.lastError = 'Could not save progress on this device';
+      this.onStatus?.({ pending: this.queue.length, lastError: this.lastError });
+    }
+  }
+
   async hydrate(): Promise<void> {
     let after = 0;
     for (;;) {
-      const res = await this.f(`${this.o.baseUrl ?? ''}/api/events?sessionId=${encodeURIComponent(this.o.sessionId)}&after=${after}`, { headers: { authorization: `Bearer ${await this.auth()}` } });
+      const res = await this.request(`${this.o.baseUrl ?? ''}/api/events?sessionId=${encodeURIComponent(this.o.sessionId)}&after=${after}`);
       if (!res.ok) throw new Error(`Could not load this session (${res.status})`);
       const { events, cursor } = (await res.json()) as { events: DomainEvent[]; cursor: number };
       for (const e of events) this.remember(e);
@@ -84,7 +103,7 @@ export class HttpEventLog implements EventLog {
     const fresh = events.filter((e) => this.remember(e));
     if (!fresh.length) return;
     this.queue.push(...fresh);
-    await this.o.outbox.save(this.queue);
+    await this.persist();
     this.schedule();
   }
 
@@ -97,7 +116,7 @@ export class HttpEventLog implements EventLog {
   }
 
   private schedule() {
-    if (this.timer) return;
+    if (this.timer || this.closed) return;
     this.timer = setTimeout(() => {
       this.timer = null;
       void this.flush();
@@ -116,10 +135,7 @@ export class HttpEventLog implements EventLog {
       const batch = this.queue.slice(0, this.o.batch ?? 50);
       let res: Response | null = null;
       try {
-        const post = async (refresh: boolean) =>
-          this.f(this.where, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${await this.auth(refresh)}` }, body: JSON.stringify({ events: batch }) });
-        res = await post(false);
-        if (res.status === 401) res = await post(true);
+        res = await this.request(this.where, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ events: batch }) });
       } catch (e) {
         this.lastError = (e as Error).message;
       }
@@ -134,12 +150,13 @@ export class HttpEventLog implements EventLog {
       this.lastError = null;
       const sent = new Set(batch.map((e) => e.eventId));
       this.queue = this.queue.filter((e) => !sent.has(e.eventId));
-      await this.o.outbox.save(this.queue);
-      this.onStatus?.({ pending: this.queue.length, lastError: null });
+      await this.persist();
+      this.onStatus?.({ pending: this.queue.length, lastError: this.lastError });
     }
   }
 
   async close(): Promise<void> {
+    this.closed = true;
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     await this.flush();
