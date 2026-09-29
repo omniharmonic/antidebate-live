@@ -30,10 +30,15 @@ export interface HttpEventLogOptions {
   onCall?: (l: LlmCallLog) => void;
 }
 
+export type UploadStatus = { pending: number; lastError: string | null };
+
+/** A 4xx other than timeout/rate limit: sending the same batch again gets the same answer. */
+const permanent = (status: number) => status >= 400 && status < 500 && status !== 408 && status !== 429;
+
 export class HttpEventLog implements EventLog {
   readonly kind = 'http' as const;
   readonly where: string;
-  onStatus?: (s: { pending: number; lastError: string | null }) => void;
+  onStatus?: (s: UploadStatus) => void;
   private events: DomainEvent[] = [];
   private ids = new Set<string>();
   private queue: DomainEvent[] = [];
@@ -51,6 +56,14 @@ export class HttpEventLog implements EventLog {
   }
 
   pending() { return this.queue.length; }
+
+  status(): UploadStatus {
+    return { pending: this.queue.length, lastError: this.lastError };
+  }
+
+  private report() {
+    this.onStatus?.(this.status());
+  }
 
   private remember(e: DomainEvent): boolean {
     if (this.ids.has(e.eventId)) return false;
@@ -78,7 +91,7 @@ export class HttpEventLog implements EventLog {
       await this.o.outbox.save(this.queue);
     } catch {
       this.lastError = 'Could not save progress on this device';
-      this.onStatus?.({ pending: this.queue.length, lastError: this.lastError });
+      this.report();
     }
   }
 
@@ -87,11 +100,16 @@ export class HttpEventLog implements EventLog {
     for (;;) {
       const res = await this.request(`${this.o.baseUrl ?? ''}/api/events?sessionId=${encodeURIComponent(this.o.sessionId)}&after=${after}`);
       if (!res.ok) throw new Error(`Could not load this session (${res.status})`);
-      const { events, cursor } = (await res.json()) as { events: DomainEvent[]; cursor: number };
+      const { events, cursor, hasMore } = (await res.json()) as { events: DomainEvent[]; cursor: number; hasMore?: boolean };
       for (const e of events) this.remember(e);
-      if (events.length < 5000) break;
+      if (!hasMore) break;
       after = cursor;
     }
+    await this.loadOutbox();
+  }
+
+  /** Queue the events this device has not delivered yet (no server read: enough to upload them). */
+  async loadOutbox(): Promise<void> {
     for (const e of await this.o.outbox.load()) {
       this.remember(e);
       if (!this.queue.some((q) => q.eventId === e.eventId)) this.queue.push(e);
@@ -104,6 +122,7 @@ export class HttpEventLog implements EventLog {
     if (!fresh.length) return;
     this.queue.push(...fresh);
     await this.persist();
+    this.report();
     this.schedule();
   }
 
@@ -139,10 +158,16 @@ export class HttpEventLog implements EventLog {
       } catch (e) {
         this.lastError = (e as Error).message;
       }
+      if (res && !res.ok && permanent(res.status)) {
+        // Not retried on a timer: the caller shows the error and offers a retry.
+        this.lastError = `The server refused these events (${res.status})`;
+        this.report();
+        return;
+      }
       if (!res?.ok) {
         this.lastError = res ? `The server returned ${res.status}` : (this.lastError ?? 'offline');
         this.backoffMs = Math.min(30_000, Math.max(1000, this.backoffMs * 2));
-        this.onStatus?.({ pending: this.queue.length, lastError: this.lastError });
+        this.report();
         this.schedule();
         return;
       }
@@ -151,14 +176,16 @@ export class HttpEventLog implements EventLog {
       const sent = new Set(batch.map((e) => e.eventId));
       this.queue = this.queue.filter((e) => !sent.has(e.eventId));
       await this.persist();
-      this.onStatus?.({ pending: this.queue.length, lastError: this.lastError });
+      this.report();
     }
   }
 
-  async close(): Promise<void> {
+  /** Stop the timer and try once more to deliver. Resolves to the number of events still waiting. */
+  async close(): Promise<number> {
     this.closed = true;
     if (this.timer) clearTimeout(this.timer);
     this.timer = null;
     await this.flush();
+    return this.queue.length;
   }
 }

@@ -40,6 +40,9 @@ export interface EngineOptions {
 
 const now = () => new Date().toISOString();
 
+/** Event types runL1 writes for a turn, all with ids under the turn id. */
+const L1_TYPES = new Set<DomainEvent['type']>(['adu.proposed', 'proposition.proposed', 'stance.proposed', 'relation.proposed', 'validation.result']);
+
 export class SessionEngine {
   private state: SessionState;
   private cursor = 0;
@@ -49,6 +52,8 @@ export class SessionEngine {
   private own = new Set<string>();
   /** Turns a previous run closed, in order (resume after a reload). */
   private closedBefore: string[] = [];
+  /** Ids of L1 events a previous run wrote (`<turnId>:<ref>:…`). */
+  private l1Before: string[] = [];
   private lastUtteranceWall = Date.now();
   private sourceDone = false;
   private stopped = false;
@@ -103,6 +108,7 @@ export class SessionEngine {
       if (this.own.has(e.eventId)) continue;
       this.state = apply(this.state, e);
       if (e.type === 'turn.closed') this.closedBefore.push(e.payload.turnId);
+      if (L1_TYPES.has(e.type)) this.l1Before.push(e.eventId);
       this.resumeInsight(e);
       if (e.type === 'utterance.final') {
         this.lastUtteranceWall = Date.now();
@@ -193,11 +199,14 @@ export class SessionEngine {
 
   /**
    * Finished by a previous run: a later turn was closed after it, and turns are processed
-   * one at a time. The last turn a previous run closed may be unfinished, so it runs again.
+   * one at a time. The last turn a previous run closed may be unfinished, so it runs again,
+   * unless its L1 output is already in the log: L1/L2 ids are deterministic, so a second run
+   * would be dropped by the log while this engine approved its (different, unchecked) content.
    */
   private finishedBefore(turnId: string) {
     const i = this.closedBefore.indexOf(turnId);
-    return i !== -1 && i < this.closedBefore.length - 1;
+    if (i === -1) return false;
+    return i < this.closedBefore.length - 1 || this.l1Before.some((id) => id.startsWith(`${turnId}:`));
   }
 
   private async processTurn(turn: Turn) {
@@ -317,7 +326,12 @@ export class SessionEngine {
   async run(): Promise<void> {
     let working: Promise<void> | null = null;
     for (;;) {
-      if (this.stopped) break;
+      if (this.stopped) {
+        // Let the work in flight land in the log, so the caller's close() can deliver it.
+        await working;
+        await this.insightRunning;
+        break;
+      }
       const { cursor, events } = await this.opts.log.read(this.cursor);
       this.cursor = cursor;
       this.ingest(events);
@@ -348,7 +362,19 @@ export class SessionEngine {
         break;
       }
       this.opts.onProgress?.({ processedMediaMs: this.processedMediaMs, queued: this.queue.length, insightRunning: Boolean(this.insightRunning) });
-      await new Promise((r) => setTimeout(r, this.opts.pollMs));
+      await this.pause(working);
     }
+  }
+
+  /**
+   * Between loop ticks. With work queued or the source finished, wait for the work rather
+   * than a timer: a background tab runs timers about once a minute, which would otherwise
+   * cost a minute per turn. A live source still polls for new utterances.
+   */
+  private async pause(working: Promise<void> | null) {
+    if (working && (this.sourceDone || this.queue.length > 0)) return void (await working);
+    if (this.sourceDone && this.queue.length > 0) return;
+    if (this.sourceDone && this.insightRunning) return void (await this.insightRunning);
+    await new Promise((r) => setTimeout(r, this.opts.pollMs));
   }
 }
