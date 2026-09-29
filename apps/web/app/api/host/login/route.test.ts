@@ -2,17 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('server-only', () => ({}));
 
-async function post(body: unknown, ip = '1.1.1.1') {
-  const { POST } = await import('./route');
-  return POST(new Request('http://x/api/host/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': ip }, body: JSON.stringify(body) }));
-}
-
 describe('POST /api/host/login', () => {
   beforeEach(() => {
     vi.resetModules();
     process.env.HOST_PASSWORD = 'lighthaven';
     process.env.HOST_SIGNING_SECRET = 'signing-secret-0123456789';
   });
+
+  async function post(body: unknown, ip = '1.1.1.1') {
+    const { POST } = await import('./route');
+    return POST(new Request('http://x/api/host/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': ip }, body: JSON.stringify(body) }));
+  }
   it('sets a 30-day HttpOnly cookie on the right password', async () => {
     const res = await post({ password: 'lighthaven', next: '/host/new' });
     expect(res.status).toBe(200);
@@ -33,5 +33,19 @@ describe('POST /api/host/login', () => {
   it('is closed when the secrets are unset', async () => {
     delete process.env.HOST_PASSWORD;
     expect((await post({ password: 'x' })).status).toBe(503);
+  });
+  it('never allows dot-dot segments to escape /host', async () => {
+    const res = await post({ password: 'lighthaven', next: '/host/../stage' });
+    expect((await res.json()).next).toBe('/host');
+  });
+  it('rate-limits correctly even with concurrent requests', async () => {
+    const { POST } = await import('./route');
+    const ip = '7.7.7.7';
+    const promises = Array.from({ length: 20 }, () =>
+      POST(new Request('http://x/api/host/login', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': ip }, body: JSON.stringify({ password: 'nope' }) }))
+    );
+    const responses = await Promise.all(promises);
+    const non429 = responses.filter((r) => r.status !== 429);
+    expect(non429.length).toBeLessThanOrEqual(5);
   });
 });

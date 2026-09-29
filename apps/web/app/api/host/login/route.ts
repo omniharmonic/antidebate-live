@@ -6,9 +6,17 @@ import { FailureLimiter } from '@/lib/rate-limit';
 export const dynamic = 'force-dynamic';
 const limiter = new FailureLimiter(5, 10 * 60_000);
 
-/** Only same-site paths under /host. */
+/** Only same-site paths under /host. Normalises URL and rejects dot-dot escapes. */
 function safeNext(n: unknown): string {
-  return typeof n === 'string' && /^\/host(\/[\w\-./]*)?$/.test(n) ? n : '/host';
+  if (typeof n !== 'string') return '/host';
+  try {
+    const url = new URL(n, 'http://x');
+    const pathname = url.pathname;
+    if (pathname.includes('..') || !(pathname === '/host' || pathname.startsWith('/host/'))) return '/host';
+    return pathname;
+  } catch {
+    return '/host';
+  }
 }
 
 export async function POST(req: Request) {
@@ -17,6 +25,8 @@ export async function POST(req: Request) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
   const now = Date.now();
   if (limiter.blocked(ip, now)) return Response.json({ error: 'Too many attempts. Wait ten minutes and try again.' }, { status: 429 });
+  // Record attempt before any async operation to prevent concurrent bypass
+  limiter.fail(ip, now);
   let body: { password?: unknown; next?: unknown };
   try {
     body = (await req.json()) as typeof body;
@@ -24,7 +34,6 @@ export async function POST(req: Request) {
     return Response.json({ error: 'body must be JSON' }, { status: 400 });
   }
   if (typeof body.password !== 'string' || !safeEqual(body.password, env.password)) {
-    limiter.fail(ip, now);
     return Response.json({ error: 'That password is not right.' }, { status: 401 });
   }
   limiter.reset(ip);

@@ -6,7 +6,7 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (pathname === '/host/login') return NextResponse.next();
   const secret = process.env.HOST_SIGNING_SECRET;
-  const ok = Boolean(secret) && (await verifyHostCookie(secret!, request.cookies.get(HOST_COOKIE)?.value, Date.now()));
+  const ok = Boolean(secret) && secret!.length >= 16 && (await verifyHostCookie(secret!, request.cookies.get(HOST_COOKIE)?.value, Date.now()));
   if (ok) return NextResponse.next();
   const url = new URL('/host/login', request.url);
   url.searchParams.set('next', `${pathname}${search}`);
