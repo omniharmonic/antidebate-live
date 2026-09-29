@@ -41,6 +41,12 @@ describe('anchorClip', () => {
     expect(clip[at(2000)]).toBe(5);
     expect(clip.at(-1)).toBe(6);
   });
+  it('takes nothing before `fromMs`: a turn straddling it is cut at it', () => {
+    const pcm = Float32Array.from({ length: at(10_000) }, (_, i) => Math.floor(i / at(1000)));
+    const clip = anchorClip(pcm, [[1000, 3000, 'A'], [5000, 8000, 'A']], 'A', 30_000, 6000);
+    expect(clip.length).toBe(at(2000));
+    expect(clip[0]).toBe(6);
+  });
 });
 
 describe('nameVoices', () => {

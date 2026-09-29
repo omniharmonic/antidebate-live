@@ -39,13 +39,16 @@ export function parseWav(buf: ArrayBuffer): Float32Array {
   throw new Error('WAV has no data chunk');
 }
 
-/** The speaker's first reference turns joined, up to `maxMs`: what a sound check would record of them. */
-export function anchorClip(pcm: Float32Array, turns: RefTurn[], key: string, maxMs = 30_000): Float32Array {
+/**
+ * The speaker's first reference turns from `fromMs` on, joined up to `maxMs`: what a sound check
+ * would record of them. A `fromMs` past the scored window keeps enrollment off the scored audio.
+ */
+export function anchorClip(pcm: Float32Array, turns: RefTurn[], key: string, maxMs = 30_000, fromMs = 0): Float32Array {
   const parts: Float32Array[] = [];
   let left = Math.round((maxMs * RATE) / 1000);
   for (const [s, e, k] of turns) {
-    if (k !== key || left <= 0) continue;
-    const from = Math.round((s * RATE) / 1000);
+    if (k !== key || left <= 0 || e <= fromMs) continue;
+    const from = Math.round((Math.max(s, fromMs) * RATE) / 1000);
     const to = Math.min(pcm.length, Math.round((e * RATE) / 1000), from + left);
     if (to <= from) continue;
     parts.push(pcm.subarray(from, to));

@@ -27,6 +27,8 @@ export type LabResult = {
   windowMs: number;
   /** Participants with an enrollment anchor (a sound check keeps only clips with 10 s of speech). */
   enrolled: string[];
+  /** mono-live only: enrollment clips come from reference speech at or after this time, past the scored window (P3-R6). */
+  enrolledFromMs?: number;
   /** Recording only: each separated voice and who the simulated host named it (null: someone else). */
   voiceMap?: Record<string, string | null>;
   /** Live only: runner failures and notices by kind. */
@@ -43,6 +45,8 @@ declare global {
 const RATE = 16_000;
 const FRAME = RATE / 50;
 const LIVE_WINDOW_MS = 5 * 60_000;
+/** P3-R6: mono-live enrolls from minutes 15–20 of the cut and scores minutes 0–5, so no clip is scored audio. */
+const MONO_ENROLL_FROM_MS = 15 * 60_000;
 const SESSION = 'lab';
 
 const file = (fixture: string, name: string) => fetch(`/api/dev/scenario/${encodeURIComponent(fixture)}/${name}`).then((r) => {
@@ -54,10 +58,10 @@ const wav = async (fixture: string, name: string) => parseWav(await (await file(
 let diarizer: Promise<DiarizeClient> | null = null;
 const voices = () => (diarizer ??= DiarizeClient.load());
 
-/** One anchor per participant, from their first 30 s of reference speech on `source`, as a sound check would keep it. */
-function enroll(ref: Reference, source: (key: string) => Float32Array): Anchor[] {
+/** One anchor per participant, from their first 30 s of reference speech on `source` from `fromMs` on, as a sound check would keep it. */
+function enroll(ref: Reference, source: (key: string) => Float32Array, fromMs = 0): Anchor[] {
   return ref.participants.flatMap((p) => {
-    const clip = anchorClip(source(p.key), ref.turns, p.key);
+    const clip = anchorClip(source(p.key), ref.turns, p.key, 30_000, fromMs);
     return enrollmentError(p.displayName, clip) ? [] : [{ key: p.key, pcm: trimAnchor(clip) }];
   });
 }
@@ -67,7 +71,8 @@ async function runLive(fixture: string, setup: 'tracks' | 'bleed' | 'mono-live',
   const byKey = new Map<string, Float32Array>();
   if (setup === 'mono-live') byKey.set('*', await wav(fixture, 'mono.wav'));
   else for (const k of keys) byKey.set(k, await wav(fixture, `${setup}/${k}.wav`));
-  const anchors = enroll(ref, (k) => byKey.get(setup === 'mono-live' ? '*' : k)!);
+  const enrolledFromMs = setup === 'mono-live' ? MONO_ENROLL_FROM_MS : 0;
+  const anchors = enroll(ref, (k) => byKey.get(setup === 'mono-live' ? '*' : k)!, enrolledFromMs);
 
   const live: LiveSetup = setup === 'mono-live'
     ? { kind: 'room', channels: {}, participants: ref.participants.map(({ key, displayName }) => ({ key, displayName })) }
@@ -111,7 +116,8 @@ async function runLive(fixture: string, setup: 'tracks' | 'bleed' | 'mono-live',
   const capped = capVoiceOnly(live.kind, 1) < 1;
   const uncap = (confidence: number, voiceprint: Record<string, number> | undefined) =>
     capped && confidence === VOICE_ONLY_CAP && voiceprint ? fuse({ channelMarginDb: null, voiceMatch: Math.max(...Object.values(voiceprint)), diarizerAgrees: null, overlap: false }) : undefined;
-  return { utterances: linesFromEvents(log.events, uncap), windowMs, enrolled: anchors.map((a) => a.key), ...status };
+  if (enrolledFromMs && enrolledFromMs < windowMs) throw new Error('enrollment overlaps the scored window');
+  return { utterances: linesFromEvents(log.events, uncap), windowMs, enrolled: anchors.map((a) => a.key), ...(enrolledFromMs ? { enrolledFromMs } : {}), ...status };
 }
 
 async function runRecording(fixture: string, ref: Reference): Promise<Omit<LabResult, 'seconds'>> {
