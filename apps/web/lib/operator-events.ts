@@ -13,6 +13,8 @@ export const OPERATOR_EVENT_TYPES = new Set<EventType>([
   'item.approved',
   'item.rejected',
   'item.sent_to_facilitator',
+  // Blackout (UX §3): immediate, only ever hides audience outputs.
+  'blackout.set',
 ]);
 
 /** Types the capture service may write, with `Authorization: Bearer <CAPTURE_TOKEN>`. */

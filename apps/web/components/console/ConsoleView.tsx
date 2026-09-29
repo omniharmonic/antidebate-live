@@ -12,7 +12,7 @@ import type { CruxCard, HigherGroundCard, PromptCard, Proposition, SharedCard } 
 import { SessionBar } from '@/components/SessionBar';
 import { ATTITUDE_LABEL, clock, personOf, voiceColor, type SessionMeta } from '@/lib/derive';
 import { operatorEventId, postOperatorEvents } from '@/lib/operator-events';
-import { useSession } from '@/lib/use-session';
+import { useSession } from '@/lib/session-context';
 
 type Action = 'item.approved' | 'item.rejected' | 'item.sent_to_facilitator';
 
@@ -31,7 +31,8 @@ function opEvent(s: SessionState, type: DomainEvent['type'], payload: unknown): 
 }
 
 export function Console({ sessionId }: { sessionId: string }) {
-  const data = useSession(sessionId);
+  void sessionId;
+  const data = useSession();
   const { live: s, meta } = data;
   const [pending, setPending] = useState<Record<string, Action>>({});
   const [error, setError] = useState<string | null>(null);
@@ -144,8 +145,8 @@ function Checks({ t }: { t: Tracked<unknown> }) {
       {t.issues.length === 0 ? (
         <span className="text-ink-3">validators clean</span>
       ) : (
-        t.issues.map((i) => (
-          <span key={i.code} className="text-insight" title={i.message}>
+        t.issues.map((i, n) => (
+          <span key={`${i.code}:${n}`} className="text-insight" title={i.message}>
             {i.code}
           </span>
         ))
@@ -234,7 +235,7 @@ function Queue({ s, meta, pending, act }: { s: SessionState; meta: SessionMeta; 
             <li
               key={p.id}
               tabIndex={0}
-              className="px-5 py-3.5 outline-none focus-visible:bg-field-subtle"
+              className="px-5 py-3 outline-none focus-visible:bg-surface"
               onKeyDown={(e) => {
                 if (e.target !== e.currentTarget) return;
                 if (e.key === 'a') act(p.id, 'item.approved');
@@ -250,7 +251,7 @@ function Queue({ s, meta, pending, act }: { s: SessionState; meta: SessionMeta; 
                 <StateBadge t={t} />
                 <Checks t={t} />
               </div>
-              <p className={`mt-1 font-display text-[19px] leading-snug ${t.state === 'rejected' ? 'text-ink-3 line-through' : ''}`}>{p.canonical}</p>
+              <p className={`mt-1 text-[16px] font-medium leading-snug ${t.state === 'rejected' ? 'text-ink-3 line-through' : ''}`}>{p.canonical}</p>
               <ul className="mt-1.5 space-y-1">
                 {sts.map((st) => {
                   const adu = st.value.viaAduId ? s.adus.get(st.value.viaAduId)?.value : undefined;

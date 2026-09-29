@@ -1,13 +1,16 @@
 'use client';
 
 /**
- * Facilitator cockpit (UX §3, Glance mode). Dark, tablet landscape, four fixed
- * quadrants. Shows the newest approved-or-sent card of each kind; nothing else.
- * Also used by the arc view's side panel (compact) for the state at the playhead.
+ * Facilitator cockpit (UX §3, Glance mode; DIRECTION §7). Dark, tablet landscape,
+ * four fixed quadrants: the crux now, higher ground, already shared, try asking.
+ * Shows the newest approved-or-sent card of each kind; nothing else. Audience
+ * state and Blackout stay visible at all times. The quadrant bodies are also
+ * used, compact, by the timeline's side panel for the state at the playhead.
  */
-import { useEffect, useState } from 'react';
-import type { SessionState } from '@adl/core';
-import { StatusDot } from '@/components/SessionBar';
+import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
+import type { DomainEvent, SessionState } from '@adl/core';
+import { StatusDot, Wordmark } from '@/components/SessionBar';
 import {
   ATTITUDE_LABEL,
   CONSTRUCTION_LABEL,
@@ -21,45 +24,53 @@ import {
   voiceColor,
   type SessionMeta,
 } from '@/lib/derive';
-import { useSession } from '@/lib/use-session';
+import { operatorEventId, postOperatorEvents } from '@/lib/operator-events';
+import { useSession } from '@/lib/session-context';
 
 export function Cockpit({ sessionId }: { sessionId: string }) {
-  const data = useSession(sessionId);
+  const data = useSession();
   const { live: s, meta } = data;
   const round = s.round;
   const roundPhase = round ? meta.format.phases.find((p) => p.id === meta.format.rounds.find((r) => r.id === round.roundId)?.phase)?.name : null;
+  const base = `/s/${encodeURIComponent(sessionId)}`;
 
   return (
-    <main data-surface="stage" className="flex min-h-dvh flex-col bg-field text-ink" style={{ fontSize: 22 }}>
-      <header className="flex items-baseline gap-6 border-b border-border px-8 py-4 text-[18px]">
-        <p className="min-w-0 flex-1 truncate">
+    <main data-surface="stage" className="flex h-dvh min-h-[640px] flex-col bg-field text-ink">
+      <header className="flex h-16 shrink-0 items-center gap-6 border-b border-border px-8">
+        <Wordmark />
+        <span aria-hidden className="h-6 w-px bg-border" />
+        <p className="min-w-0 flex-1 truncate text-[18px]">
           {round ? (
             <>
               <span className="text-ink">{round.name}</span>
-              {roundPhase ? <span className="text-ink-3"> in {roundPhase}</span> : null}
+              {roundPhase && roundPhase !== round.name ? <span className="text-ink-3"> · {roundPhase}</span> : null}
+              <span className="ml-3 font-mono text-[16px] text-ink-2 tabular" title="Time in this round (recording time)">
+                {clock(s.lastMediaMs - round.startedMediaMs)}
+              </span>
             </>
           ) : (
-            <span className="text-ink-3">{meta.title}</span>
+            <span className="text-ink-2">{meta.title}</span>
           )}
         </p>
-        {round ? (
-          <p className="font-mono text-[18px] text-ink-2 tabular" title="Time in this round (recording time)">
-            {clock(s.lastMediaMs - round.startedMediaMs)} in round
-          </p>
-        ) : null}
-        <p className="font-mono text-[18px] text-ink-3 tabular" title="Time since the session started (recording time)">
-          {clock(s.lastMediaMs)}
-        </p>
-        <span className="text-[15px]">
+        <nav aria-label="Role" className="hidden items-center gap-4 text-[14px] text-ink-3 xl:flex">
+          <Link href={`${base}/spatial`} className="hover:text-ink">
+            Explore
+          </Link>
+          <Link href={`${base}/console`} className="hover:text-ink">
+            Operate
+          </Link>
+        </nav>
+        <span className="hidden text-[14px] md:inline">
           <StatusDot status={data.status} />
         </span>
+        <AudienceControl s={s} />
       </header>
 
-      <div className="grid flex-1 grid-cols-1 md:grid-cols-2 md:grid-rows-2">
-        <Quadrant title="The crux now" className="md:border-r">
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2 md:grid-rows-2">
+        <Quadrant title="The crux now" tag={currentCard(s, 'crux') ? <span className="text-ink-2">Candidate</span> : null} className="md:border-r">
           <CruxBody s={s} meta={meta} size="full" />
         </Quadrant>
-        <Quadrant title="Higher ground">
+        <Quadrant title="Higher ground" tag={currentCard(s, 'higher_ground') ? <span className="text-convergence">Candidate</span> : null}>
           <HigherGroundBody s={s} meta={meta} size="full" />
         </Quadrant>
         <Quadrant title="Already shared" className="md:border-r">
@@ -75,11 +86,75 @@ export function Cockpit({ sessionId }: { sessionId: string }) {
   );
 }
 
-function Quadrant({ title, className = '', children }: { title: string; className?: string; children: React.ReactNode }) {
+/** Audience state and Blackout. Acknowledged only when the event comes back through the log. */
+function AudienceControl({ s }: { s: SessionState }) {
+  const [pending, setPending] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const level = s.channels.stage.level;
+  const label = s.blackout ? 'Audience: blackout' : level === 0 ? 'Audience: dark' : `Audience: stage level ${level}`;
+  const waiting = pending !== null && pending !== s.blackout;
+  const toggle = async () => {
+    const on = !s.blackout;
+    setPending(on);
+    setError(null);
+    const ev = { eventId: operatorEventId(s.sessionId), sessionId: s.sessionId, type: 'blackout.set', actor: 'operator', mediaMs: s.lastMediaMs, wallTs: new Date().toISOString(), payload: { on } } as DomainEvent;
+    try {
+      const res = await postOperatorEvents([ev]);
+      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${res.status}`);
+    } catch (err) {
+      setPending(null);
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
   return (
-    <section aria-label={title} className={`flex min-h-0 flex-col border-b border-border px-8 pb-8 pt-6 ${className}`}>
-      <h2 className="mb-5 font-sans text-[17px] font-medium tracking-wide text-ink-3">{title}</h2>
-      <div className="min-h-0 flex-1">{children}</div>
+    <div className="flex items-center gap-4">
+      <p className="text-[16px] text-ink-2" role="status" aria-live="polite" title={error ?? undefined}>
+        {waiting ? 'Updating stage…' : error ? <span className="text-insight">Not sent. Try again.</span> : label}
+      </p>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={waiting}
+        aria-pressed={s.blackout}
+        className={`h-11 min-w-[120px] rounded-[3px] border px-5 text-[16px] disabled:opacity-50 ${s.blackout ? 'border-ink bg-ink text-field' : 'border-border-2 text-ink hover:bg-field-deep'}`}
+      >
+        {s.blackout ? 'End blackout' : 'Blackout'}
+      </button>
+    </div>
+  );
+}
+
+function Quadrant({ title, tag, className = '', children }: { title: string; tag?: React.ReactNode; className?: string; children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const check = () => setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 6);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    el.addEventListener('scroll', check, { passive: true });
+    return () => {
+      ro.disconnect();
+      el.removeEventListener('scroll', check);
+    };
+  }, []);
+  return (
+    <section aria-label={title} className={`flex min-h-0 flex-col border-b border-border px-8 pb-5 pt-6 ${className}`}>
+      <div className="mb-5 flex items-baseline gap-4">
+        <h2 className="text-[22px] font-medium tracking-[-0.01em] text-ink">{title}</h2>
+        {tag ? <p className="font-mono text-[14px]">{tag}</p> : null}
+        {more ? (
+          <button type="button" onClick={() => box.current?.scrollBy({ top: box.current.clientHeight * 0.8 })} className="ml-auto text-[15px] text-ink-3 hover:text-ink">
+            More below ↓
+          </button>
+        ) : null}
+      </div>
+      <div ref={box} className={`scroll-quiet min-h-0 flex-1 overflow-y-auto pr-2 ${more ? 'border-b border-border-2' : ''}`}>
+        <div>{children}</div>
+      </div>
     </section>
   );
 }
@@ -87,30 +162,20 @@ function Quadrant({ title, className = '', children }: { title: string; classNam
 type Size = 'full' | 'compact';
 
 function Quiet({ children, size }: { children: React.ReactNode; size: Size }) {
-  return <p className={`text-ink-3 ${size === 'full' ? 'text-[22px]' : 'text-sm'}`}>{children}</p>;
+  return <p className={`text-ink-3 ${size === 'full' ? 'text-[22px] leading-snug' : 'text-sm'}`}>{children}</p>;
 }
 
-/** Expand on tap, auto-collapse after 20 s (UX §3). */
+/** Sources open and stay open until closed (DIRECTION §7: no auto-collapse mid-reading). */
 function useExpand(resetKey: string | undefined) {
   const [open, setOpen] = useState<string | null>(null);
   const isOpen = open !== null && open === resetKey;
-  useEffect(() => {
-    if (!isOpen) return;
-    const t = setTimeout(() => setOpen(null), 20_000);
-    return () => clearTimeout(t);
-  }, [isOpen]);
   return { isOpen, toggle: () => setOpen(isOpen ? null : (resetKey ?? null)) };
 }
 
-function ExpandButton({ open, onClick, size }: { open: boolean; onClick: () => void; size: Size }) {
+function SourcesButton({ open, onClick }: { open: boolean; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-expanded={open}
-      className={`mt-5 rounded border border-border-2 px-3 py-1 text-ink-2 hover:text-ink ${size === 'full' ? 'text-[17px]' : 'text-xs'}`}
-    >
-      {open ? 'Hide the words' : 'Show the words'}
+    <button type="button" onClick={onClick} aria-expanded={open} className="mt-5 inline-flex h-11 items-center gap-2 text-[17px] text-ink-2 underline decoration-border-2 underline-offset-4 hover:text-ink">
+      {open ? 'Hide sources' : 'View sources'} <span aria-hidden>{open ? '↑' : '→'}</span>
     </button>
   );
 }
@@ -118,9 +183,10 @@ function ExpandButton({ open, onClick, size }: { open: boolean; onClick: () => v
 export function CruxBody({ s, meta, size }: { s: SessionState; meta: SessionMeta; size: Size }) {
   const card = currentCard(s, 'crux');
   const { isOpen, toggle } = useExpand(card?.insight.id);
-  if (!card) return <Quiet size={size}>Listening. No crux yet.</Quiet>;
+  if (!card) return <Quiet size={size}>No crux sent yet.</Quiet>;
   const b = card.body;
   const statement = canonical(s, b.propositionId) ?? b.statement;
+  const full = size === 'full';
   const quoteFor = (stanceId: string, fallback: string) => {
     if (fallback) return fallback;
     const st = s.stances.get(stanceId)?.value;
@@ -129,11 +195,11 @@ export function CruxBody({ s, meta, size }: { s: SessionState; meta: SessionMeta
   };
   return (
     <div key={card.insight.id} className="arrive">
-      <p className={`font-display leading-[1.15] ${size === 'full' ? 'text-[38px]' : 'text-[22px]'}`}>{statement}</p>
-      <ul className={`mt-5 space-y-2 ${size === 'full' ? 'text-[22px]' : 'text-sm'}`}>
+      <p className={full ? 'text-[30px] xl:text-[34px] font-medium leading-[1.22] tracking-[-0.015em] text-ink' : 'text-[17px] font-medium leading-snug text-ink'}>{statement}</p>
+      <ul className={`mt-5 space-y-2.5 ${full ? 'text-[21px]' : 'text-sm'}`}>
         {b.sides.map((side) => (
           <li key={side.participantKey + side.stanceId} className="flex items-baseline gap-3">
-            <span aria-hidden className="inline-block h-3 w-3 shrink-0 rounded-full" style={{ background: voiceColor(meta, side.participantKey) }} />
+            <span aria-hidden className={`inline-block shrink-0 ${full ? 'h-5 w-1.5' : 'h-3 w-1'} translate-y-[3px]`} style={{ background: voiceColor(meta, side.participantKey) }} />
             <span className="text-ink">{personOf(meta, side.participantKey).displayName}</span>
             <span className="text-ink-2">
               {side.via ? (
@@ -142,28 +208,29 @@ export function CruxBody({ s, meta, size }: { s: SessionState; meta: SessionMeta
                 </>
               ) : (
                 <>
-                  {ATTITUDE_LABEL[side.attitude]}, {side.strength}
+                  {ATTITUDE_LABEL[side.attitude]} · {side.strength}
                 </>
               )}
             </span>
           </li>
         ))}
       </ul>
-      <p className={`mt-4 text-ink-2 ${size === 'full' ? 'text-[20px]' : 'text-sm'}`}>
+      <p className={`mt-4 text-ink-3 ${full ? 'text-[18px]' : 'text-xs'}`}>
         Settles by {SETTLING_LABEL[b.settlingEvidence]}
-        {b.basis === 'clash' ? <span className="text-ink-3"> · inferred from opposing claims</span> : null}
+        {b.basis === 'clash' ? ' · inferred from opposing claims' : ''}
       </p>
-      {size === 'full' ? (
+      {full ? (
         <>
-          <ExpandButton open={isOpen} onClick={toggle} size={size} />
+          <SourcesButton open={isOpen} onClick={toggle} />
           {isOpen ? (
-            <div className="arrive mt-5 space-y-4 text-[19px] leading-snug">
+            <div className="arrive mt-3 space-y-4 text-[19px] leading-snug">
               {b.sides.map((side) => {
                 const q = quoteFor(side.stanceId, side.quote);
                 const cond = b.updateConditions[side.participantKey];
                 return (
                   <div key={'q' + side.participantKey} className="border-l-2 pl-4" style={{ borderColor: voiceColor(meta, side.participantKey) }}>
-                    {q ? <p className="text-ink">&ldquo;{q}&rdquo;</p> : <p className="text-ink-3">No quote attached.</p>}
+                    <p className="text-[15px] text-ink-3">{personOf(meta, side.participantKey).displayName}</p>
+                    {q ? <p className="text-ink">&ldquo;{q}&rdquo;</p> : <p className="text-ink-3">Source span unavailable.</p>}
                     {cond && cond !== 'not stated' ? <p className="mt-1 text-ink-2">Would update if: {cond}</p> : null}
                   </div>
                 );
@@ -179,37 +246,36 @@ export function CruxBody({ s, meta, size }: { s: SessionState; meta: SessionMeta
 export function HigherGroundBody({ s, meta, size }: { s: SessionState; meta: SessionMeta; size: Size }) {
   const card = currentCard(s, 'higher_ground');
   const { isOpen, toggle } = useExpand(card?.insight.id);
-  if (!card) return <Quiet size={size}>No candidate yet.</Quiet>;
+  if (!card) return <Quiet size={size}>No higher-ground candidate sent yet.</Quiet>;
   const b = card.body;
+  const full = size === 'full';
   return (
     <div key={card.insight.id} className="arrive">
-      <p className={`font-display leading-[1.2] ${size === 'full' ? 'text-[32px]' : 'text-[20px]'}`} style={{ color: 'var(--convergence)' }}>
-        {b.text}
-      </p>
-      <p className={`mt-3 text-ink-3 ${size === 'full' ? 'text-[18px]' : 'text-xs'}`}>
-        {CONSTRUCTION_LABEL[b.construction]}
-        {b.reliesOnInferred ? ' · relies on an inferred link' : ''}
-      </p>
-      <ul className={`mt-4 space-y-1.5 ${size === 'full' ? 'text-[20px]' : 'text-sm'}`}>
+      <p className={full ? 'text-[28px] xl:text-[30px] font-medium leading-[1.25] tracking-[-0.015em] text-ink' : 'text-[16px] font-medium leading-snug text-ink'}>{b.text}</p>
+      <ul className={`mt-4 space-y-2 ${full ? 'text-[20px] leading-snug' : 'text-sm'}`}>
         {Object.entries(b.costs).map(([k, cost]) => (
           <li key={k} className="flex items-baseline gap-3">
-            <span aria-hidden className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: voiceColor(meta, k) }} />
+            <span aria-hidden className={`inline-block shrink-0 ${full ? 'h-4 w-1.5' : 'h-3 w-1'} translate-y-[2px]`} style={{ background: voiceColor(meta, k) }} />
             <span>
-              <span className="text-ink-2">{personOf(meta, k).displayName} gives up:</span> {cost}
+              <span className="text-ink-3">{personOf(meta, k).displayName} gives up:</span> <span className="text-ink-2">{cost}</span>
             </span>
           </li>
         ))}
       </ul>
-      {size === 'full' ? (
+      <p className={`mt-4 text-convergence ${full ? 'text-[17px]' : 'text-xs'}`}>
+        {CONSTRUCTION_LABEL[b.construction]} · not confirmed by participants
+        {b.reliesOnInferred ? ' · relies on an inferred link' : ''}
+      </p>
+      {full ? (
         <>
-          <ExpandButton open={isOpen} onClick={toggle} size={size} />
+          <SourcesButton open={isOpen} onClick={toggle} />
           {isOpen ? (
-            <div className="arrive mt-5 space-y-3 text-[18px] leading-snug">
+            <div className="arrive mt-3 space-y-4 text-[18px] leading-snug">
               {Object.entries(b.derivation).map(([k, ids]) => (
                 <div key={'d' + k} className="border-l-2 pl-4" style={{ borderColor: voiceColor(meta, k) }}>
-                  <p className="text-ink-3">Built from what {personOf(meta, k).displayName} accepts:</p>
+                  <p className="text-[15px] text-ink-3">Built from what {personOf(meta, k).displayName} accepts</p>
                   {ids.map((id) => (
-                    <p key={id} className="text-ink">
+                    <p key={id} className="mt-1 text-ink">
                       {canonical(s, id) ?? <span className="font-mono text-ink-3">{id}</span>}
                     </p>
                   ))}
@@ -225,6 +291,7 @@ export function HigherGroundBody({ s, meta, size }: { s: SessionState; meta: Ses
 
 export function SharedBody({ s, meta, size }: { s: SessionState; meta: SessionMeta; size: Size }) {
   const card = currentCard(s, 'shared');
+  const { isOpen, toggle } = useExpand(card?.insight.id ?? 'computed');
   let groups: { label: string; ids: string[] }[];
   let computed = false;
   if (card) {
@@ -240,41 +307,66 @@ export function SharedBody({ s, meta, size }: { s: SessionState; meta: SessionMe
     computed = ids.length > 0;
   }
   const converging = (card?.body.converging ?? []).slice(-3).reverse();
-  if (groups.length === 0 && converging.length === 0) return <Quiet size={size}>Nothing both have accepted yet.</Quiet>;
-  const max = size === 'full' ? (converging.length ? 3 : 5) : 3;
+  const full = size === 'full';
+  if (groups.length === 0 && converging.length === 0) return <Quiet size={size}>No shared proposition identified yet.</Quiet>;
+  const max = full ? (converging.length ? 3 : 5) : 3;
+  const total = groups.reduce((n, g) => n + g.ids.length, 0);
   let shown = 0;
+  const quote = (pid: string, key: string) => {
+    for (const t of s.stances.values()) {
+      const st = t.value;
+      if (st.propositionId !== pid || st.participantKey !== key || !st.viaAduId) continue;
+      const adu = s.adus.get(st.viaAduId);
+      if (adu) return adu.value.spans.map((x) => x.quote).join(' … ');
+    }
+    return null;
+  };
+  const [pa, pb] = meta.sides;
   return (
     <div key={card?.insight.id ?? 'computed'} className="arrive">
       {groups.map((g) => (
         <div key={g.label} className="mb-3">
-          {g.label && groups.length > 1 ? <p className={`text-ink-3 ${size === 'full' ? 'text-[17px]' : 'text-xs'}`}>{g.label}</p> : null}
-          <ul className={`space-y-2 ${size === 'full' ? 'text-[22px] leading-snug' : 'text-sm'}`}>
+          {g.label && groups.length > 1 ? <p className={`mb-1 text-ink-3 ${full ? 'text-[16px]' : 'text-xs'}`}>{g.label}</p> : null}
+          <ul className={`space-y-3 ${full ? 'text-[22px] leading-[1.3]' : 'text-sm'}`}>
             {g.ids.map((id) => {
               if (shown >= max) return null;
               shown++;
               return (
                 <li key={id} className="flex gap-3">
-                  <span aria-hidden className="mt-[0.55em] inline-block h-1.5 w-1.5 shrink-0 rotate-45" style={{ background: 'var(--convergence)' }} />
-                  <span>{canonical(s, id) ?? id}</span>
+                  <span aria-hidden className={`inline-block shrink-0 ${full ? 'w-1' : 'w-0.5'} self-stretch`} style={{ background: 'var(--convergence)' }} />
+                  <span>
+                    <span className="text-ink">{canonical(s, id) ?? id}</span>
+                    {full && isOpen ? (
+                      <span className="mt-2 block space-y-1.5 text-[17px] leading-snug">
+                        {[pa, pb].map((p) => {
+                          if (!p) return null;
+                          const q = quote(id, p.key);
+                          return q ? (
+                            <span key={p.key} className="block border-l-2 pl-3 text-ink-2" style={{ borderColor: voiceColor(meta, p.key) }}>
+                              <span className="text-ink-3">{p.displayName}: </span>&ldquo;{q}&rdquo;
+                            </span>
+                          ) : null;
+                        })}
+                      </span>
+                    ) : null}
+                  </span>
                 </li>
               );
             })}
           </ul>
         </div>
       ))}
-      {groups.reduce((n, g) => n + g.ids.length, 0) > max ? (
-        <p className={`text-ink-3 ${size === 'full' ? 'text-[17px]' : 'text-xs'}`}>and {groups.reduce((n, g) => n + g.ids.length, 0) - max} more</p>
-      ) : null}
-      {computed ? <p className={`mt-2 text-ink-3 ${size === 'full' ? 'text-[15px]' : 'text-xs'}`}>Both accept these, from their stated stances.</p> : null}
+      {total > max ? <p className={`text-ink-3 ${full ? 'text-[16px]' : 'text-xs'}`}>and {total - max} more</p> : null}
+      {computed ? <p className={`mt-2 text-ink-3 ${full ? 'text-[15px]' : 'text-xs'}`}>Both accept these, from their stated stances.</p> : null}
       {converging.length ? (
-        <div className="mt-3">
-          <p className={`text-ink-3 ${size === 'full' ? 'text-[17px]' : 'text-xs'}`}>Converging (inferred from related claims)</p>
-          <ul className={`mt-1 space-y-2 ${size === 'full' ? 'text-[19px] leading-snug' : 'text-sm'}`}>
+        <div className="mt-4">
+          <p className={`text-convergence ${full ? 'text-[16px]' : 'text-xs'}`}>Converging · inferred from related claims</p>
+          <ul className={`mt-2 space-y-3 ${full ? 'text-[19px] leading-snug' : 'text-sm'}`}>
             {converging.map((c) => (
-              <li key={c.relationId} className="border-l border-border-2 pl-3">
+              <li key={c.relationId} className="space-y-1 border-l border-convergence-soft pl-3">
                 {c.ids.map((id, i) => (
                   <span key={id} className="block">
-                    <span className="text-ink-3">{meta.people.find((p) => p.key === c.holders[i])?.displayName.split(' ')[0] ?? c.holders[i]}:</span> {canonical(s, id) ?? id}
+                    <span style={{ color: voiceColor(meta, c.holders[i]!) }}>{personOf(meta, c.holders[i]!).displayName.split(' ')[0]}:</span> <span className="text-ink-2">{canonical(s, id) ?? id}</span>
                   </span>
                 ))}
               </li>
@@ -282,6 +374,7 @@ export function SharedBody({ s, meta, size }: { s: SessionState; meta: SessionMe
           </ul>
         </div>
       ) : null}
+      {full && groups.length ? <SourcesButton open={isOpen} onClick={toggle} /> : null}
     </div>
   );
 }
@@ -295,35 +388,33 @@ export function PromptBody({ s, meta, size }: { s: SessionState; meta: SessionMe
     setSeenNewest(newest);
     setIdx(0);
   }
-  if (prompts.length === 0) return <Quiet size={size}>No question queued.</Quiet>;
+  if (prompts.length === 0) return <Quiet size={size}>No question sent yet.</Quiet>;
+  const full = size === 'full';
   const i = Math.min(idx, prompts.length - 1);
   const p = prompts[i]!;
   const who = p.body.addresseeKey === 'both' ? 'Both' : personOf(meta, p.body.addresseeKey).displayName;
+  const btn = 'h-11 min-w-[110px] rounded-[3px] border border-border-2 px-4 text-[17px] text-ink hover:bg-field-deep disabled:opacity-35';
   return (
     <div>
       <div key={p.insight.id} className="arrive">
-        <p className={`text-ink-3 ${size === 'full' ? 'text-[18px]' : 'text-xs'}`}>
-          {p.body.addresseeKey !== 'both' ? (
-            <span aria-hidden className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: voiceColor(meta, p.body.addresseeKey) }} />
-          ) : null}
+        <p className={`flex items-center gap-2 text-ink-3 ${full ? 'text-[17px]' : 'text-xs'}`}>
+          {p.body.addresseeKey !== 'both' ? <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: voiceColor(meta, p.body.addresseeKey) }} /> : null}
           To {who}
         </p>
-        <p className={`mt-2 font-display leading-[1.2] ${size === 'full' ? 'text-[32px]' : 'text-[19px]'}`}>&ldquo;{p.body.text}&rdquo;</p>
-        {p.body.targets.length > 0 && size === 'full' ? (
-          <p className="mt-3 text-[18px] text-ink-3">About: {p.body.targets.map((id) => canonical(s, id)).filter(Boolean).slice(0, 1).join('')}</p>
-        ) : null}
+        <p className={full ? 'mt-3 text-[28px] xl:text-[30px] font-medium leading-[1.25] tracking-[-0.015em] text-ink' : 'mt-1 text-[15px] leading-snug text-ink'}>{p.body.text}</p>
+        {p.body.targets.length > 0 && full ? <p className="mt-4 text-[17px] leading-snug text-ink-3">About: {p.body.targets.map((id) => canonical(s, id)).filter(Boolean).slice(0, 1).join('')}</p> : null}
       </div>
-      {prompts.length > 1 && size === 'full' ? (
+      {prompts.length > 1 && full ? (
         <div className="mt-6 flex items-center gap-3 text-[17px] text-ink-3">
-          <button type="button" className="rounded border border-border-2 px-3 py-1 hover:text-ink disabled:opacity-40" disabled={i === 0} onClick={() => setIdx(i - 1)}>
+          <button type="button" className={btn} disabled={i === 0} onClick={() => setIdx(i - 1)}>
             Newer
           </button>
-          <span className="tabular">
-            {i + 1} of {prompts.length}
-          </span>
-          <button type="button" className="rounded border border-border-2 px-3 py-1 hover:text-ink disabled:opacity-40" disabled={i >= prompts.length - 1} onClick={() => setIdx(i + 1)}>
+          <button type="button" className={btn} disabled={i >= prompts.length - 1} onClick={() => setIdx(i + 1)}>
             Older
           </button>
+          <span className="ml-2 font-mono text-[15px] tabular">
+            {i + 1} of {prompts.length}
+          </span>
         </div>
       ) : null}
     </div>
@@ -347,18 +438,18 @@ function LedgerStrip({ s, meta }: { s: SessionState; meta: SessionMeta }) {
     }
   }
   return (
-    <footer className="flex flex-wrap items-center gap-x-10 gap-y-2 px-8 py-4 text-[18px] text-ink-2">
+    <footer className="flex h-14 shrink-0 items-center gap-x-10 border-t border-border px-8 text-[17px] text-ink-2">
       <span title="Question speech acts in the map">
-        Questions asked <span className="font-mono text-ink tabular">{questions}</span>
+        Questions asked <span className="ml-1 font-mono text-ink tabular">{questions}</span>
       </span>
       <span title="Concession speech acts in the map">
-        Concessions <span className="font-mono text-ink tabular">{concessions}</span>
+        Concessions <span className="ml-1 font-mono text-ink tabular">{concessions}</span>
       </span>
       <span className="min-w-0 flex-1 truncate text-right">
         {steelman ? (
           <>
             Steelman: {personOf(meta, steelman.by).displayName}
-            {steelman.of ? ` of ${personOf(meta, steelman.of).displayName}` : ''} <span className="font-mono text-ink-3">{clock(steelman.atMs)}</span>
+            {steelman.of ? ` of ${personOf(meta, steelman.of).displayName}` : ''} <span className="ml-1 font-mono text-ink-3">{clock(steelman.atMs)}</span>
           </>
         ) : (
           <span className="text-ink-3">No steelman yet</span>
@@ -367,3 +458,4 @@ function LedgerStrip({ s, meta }: { s: SessionState; meta: SessionMeta }) {
     </footer>
   );
 }
+

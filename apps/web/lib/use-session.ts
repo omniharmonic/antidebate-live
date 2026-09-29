@@ -21,7 +21,8 @@ export interface SessionData {
   meta: SessionMeta;
 }
 
-export function useSession(sessionId: string): SessionData {
+/** Opens the stream. Call once per session (the /s/[session] layout does); read it with `useSession`. */
+export function useSessionSource(sessionId: string): SessionData {
   // The log and its projection grow in place; `version` tells React when to re-read them.
   const [store, setStore] = useState(() => ({ events: [] as DomainEvent[], live: emptyState(sessionId) }));
   const [version, setVersion] = useState(0);

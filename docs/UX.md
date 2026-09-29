@@ -57,7 +57,7 @@ Designed for the chair on stage: dark theme at low brightness, large type (minim
 ```
 
 - **Four quadrants, always in the same place**: crux, higher ground, shared, prompt. The strip at the bottom holds the ledgers.
-- **Tap to expand** any quadrant into detail (spans, derivation, alternatives). It auto-collapses after 20 s.
+- **Tap to expand** any quadrant into detail (spans, derivation, alternatives). It stays open until closed (changed 2026-09-29 from a 20 s auto-collapse, which could dismiss material mid-reading; design-explorations DIRECTION §7).
 - **Dial control:** a single tap opens the channel sheet (stage / livestream / phones), with levels 0–5, module toggles, Reveal, Blackout (hard, top-right, always visible) and Spotlight.
 - **Round control** (optional, can be left to the operator): next round, pause.
 - **Modes:**

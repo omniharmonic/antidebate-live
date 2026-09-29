@@ -1,67 +1,75 @@
 /*
- * Open Field design tokens (inherited from Dialectical Topology → Ontography).
- * UX §2: light field, ink scale, per-participant voice colors, violet = convergence
- * and higher ground, amber = drift/insight (rare). The stage and cockpit use the dark variant.
+ * Section design tokens (design-explorations/2026-09-28-conversation-instrument/DIRECTION.md §4).
+ * A dark, precise instrument: near-black cool canvas, one raised working surface,
+ * readable cool text, participant A/B with names (never colour alone), violet
+ * reserved for shared ground and higher-ground candidates. Inter everywhere;
+ * JetBrains Mono for times and ids. 4px grid. No gradients, glass or glow.
+ *
+ * Legacy variable names (--field, --ink, --voice-a, …) are kept as the public
+ * contract so every surface moves to the new system together.
  */
 :root {
-  --field: #fafafa;
-  --field-subtle: #f4f3f1;
-  --field-deep: #ecebe8;
-  --surface: #ffffff;
-  --ink: #1a1a1a;
-  --ink-2: #5e5e5e;
-  --ink-3: #8f8f8f;
-  --ink-ghost: #c8c8c8;
-  --voice-a: #c45a3c;
-  --voice-a-soft: #e8a892;
-  --voice-a-faint: #f7e4dc;
-  --voice-b: #2e6b8a;
-  --voice-b-soft: #8bbdd4;
-  --voice-b-faint: #ddecf3;
-  --voice-mod: #5f6b4e;
-  --convergence: #6e6296;
-  --convergence-soft: #c4bedd;
-  --convergence-faint: #ece9f5;
-  --insight: #b8862b;
-  --insight-faint: #f7eed9;
-  --border: #e6e5e2;
-  --border-2: #d0d0cc;
-  --focus: rgba(46, 107, 138, 0.35);
-  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  color-scheme: dark;
+
+  /* Section palette */
+  --canvas: #090d11;
+  --surface-raised: #111820;
+  --surface-hover: #17202a;
+  --text-1: #e8eef2;
+  --text-2: #b0bcc7;
+  --text-3: #8393a3;
+  --rule: #293440;
+  --rule-strong: #3a4654;
+  --control: #637485;
+  --participant-a: #8cd5e8;
+  --participant-b: #a4b8f5;
+  --shared: #b9a4e3;
+  --focus-ring: #d1e8fa;
+  --caution: #e3c07a;
+
+  /* Contract names used across apps/web */
+  --field: var(--canvas);
+  --field-subtle: #0d1318;
+  --field-deep: var(--surface-hover);
+  --surface: var(--surface-raised);
+  --ink: var(--text-1);
+  --ink-2: var(--text-2);
+  --ink-3: var(--text-3);
+  --ink-ghost: #4d5a67;
+  --voice-a: var(--participant-a);
+  --voice-a-soft: #3f6f7c;
+  --voice-a-faint: #10232a;
+  --voice-b: var(--participant-b);
+  --voice-b-soft: #4a5a86;
+  --voice-b-faint: #151c2e;
+  --voice-mod: #9fb0a0;
+  --convergence: var(--shared);
+  --convergence-soft: #5d5378;
+  --convergence-faint: #17142a;
+  --insight: var(--caution);
+  --insight-faint: #2a2416;
+  --border: var(--rule);
+  --border-2: var(--control);
+  --focus: var(--focus-ring);
+
+  /* Type */
+  --font-display: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-text: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Motion: arrival only (fade and settle), focus, time. */
   --ease-resolve: cubic-bezier(0.25, 0.1, 0.25, 1);
   --arrive-ms: 600ms;
 }
 
-/* Stage + cockpit (dark, projection-safe). Apply with [data-surface="stage"] or data-theme="dark". */
+/* Stage and cockpit share the canvas. Kept as a hook for projection-specific overrides. */
 [data-surface='stage'],
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --field: #0f1016;
-  --field-subtle: #16171f;
-  --field-deep: #1e1f29;
-  --surface: #181922;
-  --ink: #eceae6;
-  --ink-2: #b3b1ac;
-  --ink-3: #85847f;
-  --ink-ghost: #4a4a52;
-  --voice-a: #e48c6f;
-  --voice-a-soft: #8e4b38;
-  --voice-a-faint: #3a2620;
-  --voice-b: #72aecb;
-  --voice-b-soft: #3d6a80;
-  --voice-b-faint: #1c2e38;
-  --convergence: #afa2dd;
-  --convergence-soft: #5a5080;
-  --convergence-faint: #2a2640;
-  --insight: #e2bc6a;
-  --insight-faint: #35301f;
-  --border: #2c2d38;
-  --border-2: #3d3e4a;
-  --focus: rgba(114, 174, 203, 0.45);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root { --arrive-ms: 0ms; }
+  :root {
+    --arrive-ms: 0ms;
+  }
 }

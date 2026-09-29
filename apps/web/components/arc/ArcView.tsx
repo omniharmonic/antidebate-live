@@ -9,13 +9,17 @@
  * replays it at 1×, 4× or 16× and drives the side panel.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TimeDock } from '@/components/explore/TimeDock';
+import { PropositionInspector } from '@/components/explore/Inspector';
 import type { SessionState } from '@adl/core';
 import { STRATUM_DEPTH, type Stratum } from '@adl/ontology';
 import { SessionBar } from '@/components/SessionBar';
 import { CruxBody, HigherGroundBody, PromptBody, SharedBody } from '@/components/cockpit/CockpitView';
 import { buildArcModel, countsAt, type ArcMark } from '@/lib/arc-model';
-import { ATTITUDE_LABEL, VOICE_VAR, clock, endOf, personOf, voiceColor, type SessionMeta } from '@/lib/derive';
-import { useSession, useStateAt } from '@/lib/use-session';
+import { ATTITUDE_LABEL, VOICE_VAR, clock, currentCard, personOf, voiceColor, type SessionMeta } from '@/lib/derive';
+import { useStateAt } from '@/lib/use-session';
+import { usePlayhead, useSession } from '@/lib/session-context';
+import { STRATUM_LABEL } from '@/lib/spatial-model';
 import type { CruxCard, HigherGroundCard } from '@adl/ontology';
 
 /* ---------- geometry ---------- */
@@ -90,33 +94,14 @@ function niceStep(spanMs: number, px: number): number {
 /* ---------- component ---------- */
 
 export function Arc({ sessionId }: { sessionId: string }) {
-  const data = useSession(sessionId);
+  void sessionId;
+  const data = useSession();
   const { live, meta, events, version } = data;
-  const endMs = Math.max(endOf(live), 60_000);
-
-  const [t, setT] = useState<number | null>(null); // null: follow the newest moment
-  const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<1 | 4 | 16>(4);
-  const [selected, setSelected] = useState<string | null>(null);
+  const ph = usePlayhead();
+  const { t, tNow, endMs, selected } = ph;
+  const setSelected = ph.select;
+  const setT = ph.setT;
   const [hover, setHover] = useState<{ pid: string; x: number; y: number } | null>(null);
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    try {
-      // one-time restore of a per-viewer preference
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDark(localStorage.getItem('adl:arc:theme') === 'dark');
-    } catch {}
-  }, []);
-  const toggleTheme = () => {
-    setDark((d) => {
-      try {
-        localStorage.setItem('adl:arc:theme', d ? 'light' : 'dark');
-      } catch {}
-      return !d;
-    });
-  };
-
-  const tNow = t ?? endMs;
   const atT = useStateAt(data, t);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,50 +134,6 @@ export function Arc({ sessionId }: { sessionId: string }) {
     return { byHolder, byPid };
   }, [placed]);
 
-  /* playback clock */
-  useEffect(() => {
-    if (!playing) return;
-    let raf = 0;
-    let last = performance.now();
-    const step = (now: number) => {
-      const dt = now - last;
-      last = now;
-      setT((cur) => {
-        const next = (cur ?? 0) + dt * speed;
-        if (next >= endMs) {
-          setPlaying(false);
-          return null;
-        }
-        return next;
-      });
-      raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [playing, speed, endMs]);
-
-  const togglePlay = useCallback(() => {
-    if (!playing && (t === null || t >= endMs - 500)) setT(0);
-    setPlaying((p) => !p);
-  }, [playing, t, endMs]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
-      if (e.key === ' ') {
-        e.preventDefault();
-        togglePlay();
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        const d = (e.shiftKey ? 60_000 : 10_000) * (e.key === 'ArrowLeft' ? -1 : 1);
-        setT((cur) => Math.min(endMs, Math.max(0, (cur ?? endMs) + d)));
-      } else if (e.key === 'Escape') setSelected(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [togglePlay, endMs]);
-
   /* scrubbing */
   const svgRef = useRef<SVGSVGElement>(null);
   const dragging = useRef(false);
@@ -204,7 +145,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
     if ((e.target as Element).closest('.arc-mark')) return;
     dragging.current = true;
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
-    setPlaying(false);
+    ph.pause();
     setT(tOf(xFromEvent(e)));
   };
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -242,19 +183,18 @@ export function Arc({ sessionId }: { sessionId: string }) {
   };
 
   return (
-    <main data-surface={dark ? 'stage' : undefined} className="min-h-dvh bg-field text-ink">
-      <SessionBar meta={meta} current="arc" status={data.status}>
-        <button type="button" onClick={toggleTheme} className="rounded border border-border px-2.5 py-1 text-ink-2 hover:text-ink" aria-pressed={dark}>
-          {dark ? 'Light' : 'Projector'}
-        </button>
+    <main className="flex h-dvh flex-col bg-field text-ink">
+      <SessionBar meta={meta} current="arc" status={data.status} query={ph.query}>
+        <span className="hidden text-ink-3 md:inline tabular">
+          <span className="text-ink-2">{counts.disputes}</span> open {counts.disputes === 1 ? 'disagreement' : 'disagreements'} · <span className="text-convergence">{counts.shared}</span> shared
+        </span>
+        <span className="font-mono text-ink-2 tabular">
+          {t === null && !meta.ended ? 'Live' : 'Replay'} / {clock(tNow)}
+        </span>
       </SessionBar>
 
-      <div className="grid grid-cols-1 gap-0 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <section className="min-w-0 px-6 pb-8 pt-6">
-          <div className="mb-4 flex flex-wrap items-baseline gap-x-6 gap-y-2">
-            <h1 className="text-[34px] leading-none">{meta.title}</h1>
-          </div>
-
+      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px]">
+        <section className="scroll-quiet min-h-0 min-w-0 overflow-y-auto px-6 pb-8 pt-5">
           <div ref={wrap} className="relative w-full select-none">
             <svg
               ref={svgRef}
@@ -276,9 +216,9 @@ export function Arc({ sessionId }: { sessionId: string }) {
                 return (
                   <g key={`band${i}`}>
                     <rect x={x0} y={LANE_A} width={Math.max(0, x1 - x0)} height={LANE_B + LANE - LANE_A} fill={i % 2 === 0 ? 'var(--field-subtle)' : 'transparent'} />
-                    <line x1={x0} x2={x0} y1={14} y2={LANE_B + LANE} stroke="var(--border-2)" />
+                    <line x1={x0} x2={x0} y1={10} y2={LANE_B + LANE} stroke="var(--rule-strong)" />
                     {x1 - x0 > 90 ? (
-                      <text x={x0 + 8} y={26} fontFamily="var(--font-display)" fontSize={19} fill="var(--ink)">
+                      <text x={x0 + 8} y={26} fontSize={14} fontWeight={500} fill="var(--ink)">
                         {b.name}
                       </text>
                     ) : null}
@@ -291,9 +231,9 @@ export function Arc({ sessionId }: { sessionId: string }) {
                 const w = xs(r.endMs) - x0;
                 return (
                   <g key={`r${r.roundId}${r.startMs}`}>
-                    <line x1={x0} x2={x0} y1={36} y2={LANE_A} stroke="var(--border-2)" />
+                    <line x1={x0} x2={x0} y1={36} y2={LANE_A} stroke="var(--rule-strong)" />
                     {w > 64 ? (
-                      <text x={x0 + 6} y={50} fontSize={11.5} fill="var(--ink-3)">
+                      <text x={x0 + 6} y={50} fontSize={11.5} fill="var(--ink-3)" fontFamily="var(--font-text)">
                         {truncate(r.name, Math.floor((w - 10) / 6.2))}
                       </text>
                     ) : null}
@@ -343,7 +283,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
                     stroke={lit ? 'var(--ink)' : 'var(--ink-3)'}
                     strokeWidth={lit ? 1.5 : 1}
                     strokeDasharray={r.type === 'rebuts' ? undefined : '3 3'}
-                    opacity={future(Math.max(a.tMs, b.tMs)) ? 0.08 : lit ? 0.9 : 0.35}
+                    opacity={future(Math.max(a.tMs, b.tMs)) ? 0 : lit ? 0.9 : 0.14}
                     pointerEvents="none"
                   />
                 );
@@ -357,7 +297,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
                   if (!a || !b) return null;
                   const x = xs(d.startMs);
                   const open = d.endMs === null || d.endMs > tNow;
-                  const op = future(d.startMs) ? 0.1 : open ? 0.95 : 0.3;
+                  const op = future(d.startMs) ? 0 : open ? 0.95 : 0.3;
                   const lit = focusPid === d.propositionId;
                   return (
                     <g key={`d${d.propositionId}${d.startMs}`} opacity={op} pointerEvents="none">
@@ -373,9 +313,9 @@ export function Arc({ sessionId }: { sessionId: string }) {
                 const x = xs(sh.startMs);
                 const ends = posOf.byPid.get(sh.propositionId) ?? [];
                 const lit = focusPid === sh.propositionId;
-                const op = future(sh.startMs) ? 0.12 : sh.endMs !== null && sh.endMs <= tNow ? 0.35 : 1;
+                const op = future(sh.startMs) ? 0 : sh.endMs !== null && sh.endMs <= tNow ? 0.35 : 1;
                 return (
-                  <g key={`s${sh.propositionId}${sh.startMs}`} opacity={op}>
+                  <g key={`s${sh.propositionId}${sh.startMs}`} opacity={op} visibility={op === 0 ? 'hidden' : undefined}>
                     {ends.map((m) => (
                       <line key={m.stanceId} x1={m.x} y1={m.y} x2={x} y2={CH_MID} stroke="var(--convergence)" strokeWidth={lit ? 1.5 : 0.75} opacity={lit ? 0.9 : 0.35} pointerEvents="none" />
                     ))}
@@ -401,7 +341,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
                 .map((c) => {
                   const x = xs(c.tMs);
                   const body = c.tracked?.value.body as unknown as CruxCard | HigherGroundCard | undefined;
-                  const op = future(c.tMs) ? 0.12 : 1;
+                  const op = future(c.tMs) ? 0 : 1;
                   if (c.kind === 'crux') {
                     const crux = body as CruxCard | undefined;
                     const pid = crux?.propositionId;
@@ -409,7 +349,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
                     const ends = endPids.flatMap((id) => posOf.byPid.get(id) ?? []);
                     const y = CH_MID + 22;
                     return (
-                      <g key={c.id} opacity={op}>
+                      <g key={c.id} opacity={op} visibility={op === 0 ? 'hidden' : undefined}>
                         {ends.map((m) => (
                           <line key={m.stanceId} x1={m.x} y1={m.y} x2={x} y2={y} stroke={voiceColor(meta, m.participantKey)} strokeWidth={0.75} opacity={focusPid === pid ? 0.9 : 0.3} pointerEvents="none" />
                         ))}
@@ -432,7 +372,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
                   const y = CH_MID - 22;
                   const derived = hg ? Object.entries(hg.derivation).flatMap(([k, ids]) => ids.map((id) => posOf.byHolder.get(`${k}|${id}`)).filter((m): m is Placed => Boolean(m))) : [];
                   return (
-                    <g key={c.id} opacity={op}>
+                    <g key={c.id} opacity={op} visibility={op === 0 ? 'hidden' : undefined}>
                       {derived.map((m) => (
                         <line key={m.stanceId} x1={m.x} y1={m.y} x2={x} y2={y} stroke="var(--convergence)" strokeWidth={0.75} opacity={0.45} pointerEvents="none" />
                       ))}
@@ -454,7 +394,8 @@ export function Arc({ sessionId }: { sessionId: string }) {
                   <g
                     key={m.stanceId}
                     className="arc-mark"
-                    opacity={future(m.tMs) ? 0.14 : 1}
+                    opacity={future(m.tMs) ? 0 : 1}
+                    visibility={future(m.tMs) ? 'hidden' : undefined}
                     tabIndex={0}
                     role="button"
                     aria-label={`${personOf(meta, m.participantKey).displayName} ${ATTITUDE_LABEL[m.attitude]}: ${live.propositions.get(m.propositionId)?.value.canonical ?? ''}`}
@@ -493,7 +434,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
                     {model.speaking
                       .filter((u) => u.key === p.key)
                       .map((u, j) => (
-                        <rect key={j} x={xs(u.startMs)} y={SPEAK + i * 7} width={Math.max(1, xs(u.endMs) - xs(u.startMs))} height={5} fill={VOICE_VAR[p.voice]} opacity={future(u.startMs) ? 0.15 : 0.75} />
+                        <rect key={j} x={xs(u.startMs)} y={SPEAK + i * 7} width={Math.max(1, xs(u.endMs) - xs(u.startMs))} height={5} fill={VOICE_VAR[p.voice]} opacity={future(u.startMs) ? 0 : 0.75} />
                       ))}
                   </g>
                 ) : null,
@@ -542,56 +483,50 @@ export function Arc({ sessionId }: { sessionId: string }) {
             ) : null}
           </div>
 
-          {/* transport */}
-          <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
-            <button type="button" onClick={togglePlay} className="w-20 rounded border border-border-2 px-3 py-1.5 text-ink hover:bg-field-deep">
-              {playing ? 'Pause' : 'Play'}
-            </button>
-            <div role="group" aria-label="Playback speed" className="flex overflow-hidden rounded border border-border-2">
-              {([1, 4, 16] as const).map((v) => (
-                <button key={v} type="button" onClick={() => setSpeed(v)} aria-pressed={speed === v} className={`px-3 py-1.5 font-mono ${speed === v ? 'bg-field-deep text-ink' : 'text-ink-3 hover:text-ink'}`}>
-                  {v}×
-                </button>
-              ))}
-            </div>
-            <label className="flex min-w-[240px] flex-1 items-center gap-3">
-              <span className="sr-only">Playhead</span>
-              <input
-                type="range"
-                min={0}
-                max={endMs}
-                step={1000}
-                value={Math.round(tNow)}
-                onChange={(e) => {
-                  setPlaying(false);
-                  setT(Number(e.target.value));
-                }}
-                className="flex-1 accent-[var(--ink)]"
-              />
-            </label>
-            <span className="font-mono text-ink-2 tabular">
-              {clock(tNow)} <span className="text-ink-3">/ {clock(endMs)}</span>
-            </span>
-            <button type="button" onClick={() => { setPlaying(false); setT(null); }} disabled={t === null} className="rounded border border-border-2 px-3 py-1.5 text-ink-2 hover:text-ink disabled:opacity-40">
-              {meta.ended ? 'End' : 'Now'}
-            </button>
-          </div>
-          <p className="mt-3 text-sm text-ink-2 tabular">
+          <p className="mt-4 text-[13px] text-ink-2 tabular">
             At {clock(tNow)}: <span className="text-ink">{counts.disputes}</span> open {counts.disputes === 1 ? 'disagreement' : 'disagreements'} (one side accepts what the other rejects),{' '}
-            <span style={{ color: 'var(--convergence)' }}>{counts.shared}</span> shared {counts.shared === 1 ? 'proposition' : 'propositions'} (both accept, at least leaning).
+            <span className="text-convergence">{counts.shared}</span> shared {counts.shared === 1 ? 'proposition' : 'propositions'} (both accept, at least leaning).
           </p>
 
           <Legend />
         </section>
 
-        <aside className="border-t border-border px-6 py-6 xl:sticky xl:top-0 xl:max-h-dvh xl:self-start xl:overflow-y-auto xl:border-l xl:border-t-0" aria-label="Detail">
-          {selected ? (
-            <PropositionDetail s={live} meta={meta} pid={selected} onClose={() => setSelected(null)} onSeek={(ms) => { setPlaying(false); setT(ms); }} />
+        <aside className="scroll-quiet min-h-0 overflow-y-auto border-t border-border px-6 py-6 xl:border-l xl:border-t-0" aria-label="Inspector">
+          {selected && !selected.startsWith('hg:') ? (
+            <PropositionInspector
+              s={live}
+              meta={meta}
+              pid={selected}
+              tNow={tNow}
+              crux={(() => {
+                const c = currentCard(atT, 'crux');
+                if (!c || c.body.propositionId !== selected) return null;
+                return { body: c.body, tMs: model.cards.find((m) => m.id === c.insight.id)?.tMs ?? tNow };
+              })()}
+              query={(sel) => `?t=${Math.round(tNow / 1000)}&sel=${encodeURIComponent(sel)}`}
+              from="arc"
+              onSelect={setSelected}
+              onSeek={(ms) => {
+                ph.pause();
+                setT(ms);
+              }}
+              onClose={() => setSelected(null)}
+            />
           ) : (
-            <MomentPanel s={atT} meta={meta} tMs={tNow} onSeek={(ms) => { setPlaying(false); setT(ms); }} />
+            <MomentPanel
+              s={atT}
+              meta={meta}
+              tMs={tNow}
+              onSeek={(ms) => {
+                ph.pause();
+                setT(ms);
+              }}
+            />
           )}
         </aside>
       </div>
+
+      <TimeDock rounds={model.rounds} bands={model.bands} ended={meta.ended} />
     </main>
   );
 }
@@ -615,12 +550,12 @@ function HoverCard({ s, meta, pid, x, y, width }: { s: SessionState; meta: Sessi
   const above = y > 220;
   return (
     <div
-      className="pointer-events-none absolute z-10 w-[320px] rounded border border-border-2 bg-surface px-3 py-2 text-sm shadow-sm"
+      className="pointer-events-none absolute z-10 w-[320px] border border-border bg-surface px-3 py-2 text-sm"
       style={{ left, top: above ? y - 12 : y + 14, transform: above ? 'translateY(-100%)' : undefined }}
     >
-      <p className="font-display text-[17px] leading-snug">{p.canonical}</p>
+      <p className="text-[14px] font-medium leading-snug text-ink">{p.canonical}</p>
       <p className="mt-1 text-xs text-ink-3">
-        {p.type} · {p.stratum}
+        {p.type} · {STRATUM_LABEL[p.stratum]}
       </p>
       <p className="mt-1 text-xs text-ink-2">
         {[...s.stances.values()]
@@ -671,78 +606,14 @@ function Legend() {
   );
 }
 
-function PropositionDetail({ s, meta, pid, onClose, onSeek }: { s: SessionState; meta: SessionMeta; pid: string; onClose: () => void; onSeek: (ms: number) => void }) {
-  const p = s.propositions.get(pid);
-  if (!p) return null;
-  const stances = [...s.stances.values()].filter((t) => t.value.propositionId === pid && t.state !== 'rejected' && t.state !== 'merged').map((t) => t.value);
-  const rels = [...s.relations.values()].filter((t) => t.state !== 'rejected' && (t.value.fromId === pid || t.value.toId === pid)).map((t) => t.value);
-  return (
-    <div className="arrive">
-      <div className="flex items-start justify-between gap-4">
-        <p className="text-xs text-ink-3">
-          {p.value.type} · {p.value.stratum}
-          {p.state === 'approved' ? ' · approved' : p.state === 'proposed' ? ' · proposed' : ''}
-        </p>
-        <button type="button" onClick={onClose} className="rounded px-2 py-0.5 text-sm text-ink-2 hover:bg-field-deep hover:text-ink">
-          Close
-        </button>
-      </div>
-      <p className="mt-2 font-display text-[26px] leading-tight">{p.value.canonical}</p>
-      <h3 className="mt-6 font-sans text-sm font-medium text-ink-2">Who holds it</h3>
-      <ul className="mt-2 space-y-4">
-        {stances.length === 0 ? <li className="text-sm text-ink-3">No stances.</li> : null}
-        {stances.map((st) => {
-          const adu = st.viaAduId ? s.adus.get(st.viaAduId)?.value : undefined;
-          const u = adu ? s.utterances.get(adu.spans[0]?.utteranceId ?? '') : undefined;
-          return (
-            <li key={st.id} className="border-l-2 pl-3" style={{ borderColor: voiceColor(meta, st.participantKey) }}>
-              <p className="text-sm">
-                <span className="font-medium">{personOf(meta, st.participantKey).displayName}</span>{' '}
-                <span className="text-ink-2">
-                  {ATTITUDE_LABEL[st.attitude]}, {st.strength}
-                  {st.source === 'implied_by_act' ? `, by ${adu?.speechAct === 'rhetorical_question' ? 'rhetorical question' : 'concession'}` : ''}
-                </span>
-              </p>
-              {adu ? (
-                <blockquote className="mt-1 text-[15px] leading-snug text-ink">&ldquo;{adu.spans.map((x) => x.quote).join(' … ')}&rdquo;</blockquote>
-              ) : null}
-              <button type="button" className="mt-1 font-mono text-xs text-ink-3 underline decoration-border underline-offset-2 hover:text-ink" onClick={() => onSeek(u?.startMs ?? st.atMs)}>
-                {clock(u?.startMs ?? st.atMs)}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {rels.length ? (
-        <>
-          <h3 className="mt-6 font-sans text-sm font-medium text-ink-2">Relations</h3>
-          <ul className="mt-2 space-y-2 text-sm">
-            {rels.map((r) => {
-              const outgoing = r.fromId === pid;
-              const other = s.propositions.get(outgoing ? r.toId : r.fromId)?.value.canonical ?? (outgoing ? r.toId : r.fromId);
-              return (
-                <li key={r.id}>
-                  <span className="text-ink-3">{outgoing ? `${r.type} →` : `← ${r.type} by`}</span> {other}
-                  {r.inferred ? <span className="ml-1 text-xs text-ink-3">inferred</span> : null}
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
 function MomentPanel({ s, meta, tMs, onSeek }: { s: SessionState; meta: SessionMeta; tMs: number; onSeek: (ms: number) => void }) {
   const lines = s.utteranceOrder.slice(-7).map((id) => s.utterances.get(id)!);
   return (
     <div>
-      <p className="font-mono text-sm text-ink-2 tabular">
-        {clock(tMs)}
-        {s.round ? <span className="ml-3 font-sans text-ink">{s.round.name}</span> : null}
-      </p>
-      <div className="mt-5 space-y-6">
+      <p className="label-caps text-ink-3">At {clock(tMs)}</p>
+      <p className="mt-1 text-[15px] text-ink">{s.round ? s.round.name : 'No round marked'}</p>
+      <p className="mt-3 text-[14px] text-ink-3">Select a mark to inspect its sources.</p>
+      <div className="mt-6 space-y-5">
         <PanelBlock title="The crux then">
           <CruxBody s={s} meta={meta} size="compact" />
         </PanelBlock>
@@ -756,7 +627,7 @@ function MomentPanel({ s, meta, tMs, onSeek }: { s: SessionState; meta: SessionM
           <PromptBody s={s} meta={meta} size="compact" />
         </PanelBlock>
       </div>
-      <h3 className="mt-8 font-sans text-sm font-medium text-ink-2">Transcript</h3>
+      <h3 className="label-caps mt-8 border-t border-border pt-4 text-ink-3">Transcript</h3>
       <ol className="mt-2 space-y-3">
         {lines.length === 0 ? <li className="text-sm text-ink-3">Nothing said yet at this point.</li> : null}
         {lines.map((u, i) => (
@@ -780,8 +651,8 @@ function MomentPanel({ s, meta, tMs, onSeek }: { s: SessionState; meta: SessionM
 
 function PanelBlock({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section>
-      <h3 className="mb-1.5 font-sans text-xs font-medium text-ink-3">{title}</h3>
+    <section className="border-t border-border pt-4">
+      <h3 className="label-caps mb-2 text-ink-3">{title}</h3>
       {children}
     </section>
   );

@@ -12,6 +12,7 @@
   --color-ink-ghost: var(--ink-ghost);
   --color-border: var(--border);
   --color-border-2: var(--border-2);
+  --color-rule-strong: var(--rule-strong);
   --color-voice-a: var(--voice-a);
   --color-voice-a-faint: var(--voice-a-faint);
   --color-voice-b: var(--voice-b);
@@ -22,6 +23,7 @@
   --color-convergence-faint: var(--convergence-faint);
   --color-insight: var(--insight);
   --color-insight-faint: var(--insight-faint);
+  --color-focus: var(--focus);
   --font-display: var(--font-display);
   --font-sans: var(--font-text);
   --font-mono: var(--font-mono);
@@ -33,15 +35,34 @@
     background: var(--field);
     color: var(--ink);
     font-family: var(--font-text);
+    font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1,
   h2,
   h3 {
-    font-family: var(--font-display);
-    font-weight: 400;
+    font-family: var(--font-text);
+    font-weight: 500;
+    letter-spacing: -0.01em;
     text-wrap: balance;
+  }
+
+  button:not(:disabled),
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: #2b3a4a;
+    color: var(--ink);
+  }
+
+  input,
+  select,
+  textarea {
+    color-scheme: dark;
   }
 }
 
@@ -66,28 +87,67 @@
   animation: adl-arrive var(--arrive-ms) var(--ease-resolve) both;
 }
 
-@keyframes adl-breathe {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
-}
+/* Connection status is static (DIRECTION §2: no breathing indicators). Kept as a no-op hook. */
 .live-dot {
-  animation: adl-breathe 2.4s ease-in-out infinite;
+  animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .arrive,
-  .live-dot {
+  .arrive {
     animation: none;
   }
 }
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Uppercase metadata labels: short navigation or section labels only. */
+.label-caps {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* Thin, quiet scrollbars on working panes. */
+.scroll-quiet {
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-strong) transparent;
+}
+
+/* Range input used for the playhead: a 2px track, a square-ish thumb. */
+.scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 28px;
+  width: 100%;
+}
+.scrubber::-webkit-slider-runnable-track {
+  height: 2px;
+  background: var(--rule-strong);
+}
+.scrubber::-moz-range-track {
+  height: 2px;
+  background: var(--rule-strong);
+}
+.scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -5px;
+  border-radius: 999px;
+  background: var(--ink);
+  border: 2px solid var(--field);
+}
+.scrubber::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--ink);
+  border: 2px solid var(--field);
 }
 
 /* Arc SVG */
@@ -100,8 +160,8 @@
 }
 .arc-mark:focus-visible > .arc-hit,
 .arc-mark:hover > .arc-hit {
-  stroke: var(--ink);
-  stroke-width: 1.5;
+  stroke: var(--focus);
+  stroke-width: 2;
 }
 @media (prefers-reduced-motion: reduce) {
   .arc-mark {
