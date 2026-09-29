@@ -26,7 +26,7 @@ export type Decision = {
   signals: { channel?: string; voiceprint?: Record<string, number> };
   drop?: 'bleed';
 };
-export type Notice = { kind: 'dead_channel' | 'swap_suggested' | 'new_voice'; channel?: string; participantKey?: string; label?: string };
+export type Notice = { kind: 'dead_channel' | 'channel_recovered' | 'swap_suggested' | 'new_voice'; channel?: string; participantKey?: string; label?: string };
 
 const BLEED_DB = 6;
 const VOICE_LEAD = 0.2;
@@ -87,6 +87,13 @@ export class Attributor {
       return { decision: { participantKey: owner, confidence: 0, pending: false, signals, drop: 'bleed' }, notices };
     }
 
+    if (isDead) {
+      // Falls back to voice alone until the channel recovers.
+      const pick = top ? top[0] : owner;
+      const fusedDead = fuse({ channelMarginDb: null, voiceMatch: top ? top[1] : null, diarizerAgrees: null, overlap: s.overlap });
+      return { decision: this.finish(pick, fusedDead, signals), notices };
+    }
+
     let candidate = owner;
     let diarizerAgrees: boolean | null = top ? top[0] === owner : null;
     if (margin !== null && loudest && Math.abs(margin) <= BLEED_DB) {
@@ -110,6 +117,10 @@ export class Attributor {
     for (const [c, on] of Object.entries(active)) {
       if (!this.firstSeen.has(c)) this.firstSeen.set(c, nowMs);
       if (on) this.lastActive.set(c, nowMs);
+      if (on && this.dead.has(c) && this.owners[c] !== undefined) {
+        this.dead.delete(c);
+        notices.push({ kind: 'channel_recovered', channel: c, participantKey: this.owners[c] });
+      }
     }
     for (const c of Object.keys(this.owners)) {
       if (this.dead.has(c) || !this.firstSeen.has(c)) continue;

@@ -37,6 +37,38 @@ describe('Attributor, separate tracks', () => {
     const d = at.decide(sig({ channelRmsDb: { L: -40, R: -20 }, voice: { A: 0.95 } })).decision;
     expect(d).toMatchObject({ participantKey: 'A', pending: false });
   });
+  const killL = (at: Attributor) => {
+    at.tick(0, { L: false, R: true });
+    at.tick(61_000, { L: false, R: true });
+  };
+  it('a dead channel uses the best voice match, even when it names someone else', () => {
+    const at = a();
+    killL(at);
+    const d = at.decide(sig({ voice: { A: 0.1, B: 0.95 } })).decision;
+    expect(d).toMatchObject({ participantKey: 'B', pending: false });
+  });
+  it('a dead channel with no voice data is pending with the owner as candidate', () => {
+    const at = a();
+    killL(at);
+    expect(at.decide(sig({ voice: {} })).decision).toMatchObject({ participantKey: 'UNK', candidate: 'A', pending: true });
+  });
+  it('a recovered channel is reported once and its margin applies again', () => {
+    const at = a();
+    killL(at);
+    const back = at.tick(62_000, { L: true, R: false });
+    expect(back).toEqual([{ kind: 'channel_recovered', channel: 'L', participantKey: 'A' }]);
+    expect(at.tick(63_000, { L: true, R: false })).toEqual([]);
+    expect(at.decide(sig({})).decision).toMatchObject({ participantKey: 'A', pending: false });
+    expect(at.decide(sig({ channelRmsDb: { L: -30, R: -18 } })).decision.drop).toBe('bleed');
+  });
+  it('a later outage raises a new dead notice', () => {
+    const at = a();
+    killL(at);
+    at.tick(62_000, { L: true, R: true });
+    at.tick(63_000, { L: false, R: true });
+    const again = at.tick(124_000, { L: false, R: true });
+    expect(again.filter((n) => n.kind === 'dead_channel')).toHaveLength(1);
+  });
   it('five confident mismatches suggest swapping the channel', () => {
     const at = a();
     let notices: unknown[] = [];
