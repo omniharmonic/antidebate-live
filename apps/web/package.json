@@ -32,6 +32,8 @@
     "@types/three": "^0.186.0",
     "eslint": "^9.39.0",
     "eslint-config-next": "16.3.6",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^5.0.2"
   }
 }
