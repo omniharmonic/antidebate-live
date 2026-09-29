@@ -15,6 +15,16 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-29 · Ingest 4: Destiny × Michael Shermer (Alexander Beiner facilitating, Stephanie Lepp hosting) · destiny-shermer-r1 · subscription, $0
+
+Run with the round-2 code (it started before the round-3 fixes). 513 approved claims, 10 clashes, 1 shared; both co-moderators attributed correctly (MOD, MOD2); 0 unattributed utterances.
+- **Rounds: 5 of the named rounds.** Nothing between Rebuttals (35m) and Closings (90m), because Alexander runs his own structure: "next phase… From Dusk Till Dawn" (49.6m: trust and values), "scenarios" (68.2m), Stephanie's integration questions (76.8m). The detector correctly refused to force-fit names. Fix: `formats.ts` gains adapted rounds per phase ("Exploring Synthesis (moderator's own structure)"), and round-detect-v0.3 chooses them when a moderator clearly opens a new phase in their own words. Rerun of rounds only: synthesis detected at 49.2m. Opening/Connection labels swap once at 9.6–25m (a personal-story round framed like an opening); phases are right.
+- **Crux quality:** one crux was "Michael Shermer is interested in the truth", a claim about a participant, not the question. Fix: code drops crux candidates that are claims about a debater, and L4 is told the same.
+- **Higher ground: strong.** "Where a question is genuinely unsettled or turns on definitions, give the strongest versions of each side a hearing; where bad-faith falsehoods crowd out the real questions, hold those actors accountable" (domain_partition).
+- **Ignite talk** (one speaker, 5 min): 30 calls, $0, no crash; correctly no crux, higher ground or shared ground; prompts only.
+
+---
+
 ## 2026-09-29 · Ingest 3: The Value of Belief in God (Stephanie Lepp moderating; Jim Rutt × Layman Pascal) · belief-in-god-r1 · subscription, $0
 
 Prompts: l1 v0.4, l2 v0.2, round v0.2, l3 v0.3, l4 v0.1 (+ name→key fix). 503 calls, $0 billed.

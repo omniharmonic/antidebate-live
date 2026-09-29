@@ -66,10 +66,15 @@ export function buildMapView(s: SessionState): MapView {
   }
 
   const strata = new Map<string, Stratum>([...props.values()].map((p) => [p.id, p.stratum]));
-  const stated = rankCruxes({ disagreements: dis, relations, strata, topK: 6 }).map((c) => ({ ...c, basis: 'stated' as const }));
+  // A claim about a debater's own character or motives ("X is interested in the truth") is not a crux of the question.
+  const aboutADebater = (id: string) => {
+    const t = props.get(id)?.canonical.toLowerCase() ?? '';
+    return debaters.some((d) => d.displayName.toLowerCase().split(' ').some((n) => n.length > 2 && t.startsWith(n)) || t.startsWith(d.displayName.toLowerCase()));
+  };
+  const stated = rankCruxes({ disagreements: dis, relations, strata, topK: 10 }).filter((c) => !aboutADebater(c.propositionId)).slice(0, 6).map((c) => ({ ...c, basis: 'stated' as const }));
   const statedIds = new Set(stated.map((c) => c.propositionId));
-  const fromClash = rankCruxes({ disagreements: clashes, relations, strata, topK: 6 })
-    .filter((c) => !statedIds.has(c.propositionId))
+  const fromClash = rankCruxes({ disagreements: clashes, relations, strata, topK: 10 })
+    .filter((c) => !statedIds.has(c.propositionId) && !aboutADebater(c.propositionId))
     .map((c) => ({ ...c, basis: 'clash' as const }));
 
   const quotes = new Map<string, string>();

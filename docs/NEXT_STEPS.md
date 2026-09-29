@@ -7,9 +7,9 @@ Ordered by the critical path in [IMPLEMENTATION_PLAN §4](./IMPLEMENTATION_PLAN.
    - [x] Ball × Kokotajlo (r1 on Opus/API, stopped at 80m; r2 on Sonnet, full)
    - [x] Gender-Affirming Care (gac-r1)
    - [x] Belief in God (belief-in-god-r1)
-   - [ ] Destiny × Shermer (co-moderated). Running
+   - [x] Destiny × Shermer (co-moderated)
    - [ ] Open-Source AI (co-moderated, ~2h15). Running with the round-3 fixes
-   - [ ] Ignite talk (one-speaker edge case)
+   - [x] Ignite talk (one-speaker edge case)
 2. [ ] **Frontend UX pass**, plus new form factors: a 4D view (3D agreement/disagreement/depth space across time) and anything else that makes the output compelling for audiences and moderators.
    - **Start from the design samples** in `design-explorations/2026-09-28-conversation-instrument/` (README, DIRECTION, COPY, PROMPTS, REVIEW, and mockups of the spatial field, timeline and cockpit), made by another agent to guide visual design.
    - **Additive only (Benjamin, 2026-09-28):** the 4D view is an *additional* view. Keep the existing timeline/arc, cockpit and console views; improve them, never remove or replace them.
