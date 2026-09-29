@@ -77,6 +77,21 @@ describe('SessionEngine with an injected caller', () => {
     expect(log.events.some((e) => e.type === 'session.ended')).toBe(false);
   });
 
+  it('stop() during the final cards leaves the session open', async () => {
+    let engine!: SessionEngine;
+    setCaller(async (c) => ({ ok: false, reason: 'provider_error', detail: 'offline test', log: { pass: c.pass } as never }));
+    const log = new MemLog();
+    await log.append([
+      { eventId: `${sid}:start`, sessionId: sid, type: 'session.started', actor: 'operator', mediaMs: 0, wallTs: w, payload: { title: 'T', format: 'open', participants: [{ key: 'A', displayName: 'Ann', role: 'debater' }] } },
+      utt('u1', 'A', 0, 'Only claim.'),
+    ]);
+    // The host's key is refused while the final insight pass runs.
+    engine = new SessionEngine({ sessionId: sid, log, pollMs: 5, silenceMs: 0, say: (line) => { if (line.startsWith('insight #')) engine.stop(); } });
+    engine.finishSource();
+    await engine.run();
+    expect(log.events.some((e) => e.type === 'session.ended')).toBe(false);
+  });
+
   it('resumes after a reload: turns the log shows as finished are not analysed again', async () => {
     const extracted: string[] = [];
     setCaller(async (c) => { if (c.pass === 'L1_extract') extracted.push(c.input); return { ok: false, reason: 'provider_error', detail: 'offline test', log: { pass: c.pass } as never }; });

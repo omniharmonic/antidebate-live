@@ -358,6 +358,7 @@ export class SessionEngine {
           this.startInsight();
           await this.insightRunning;
         }
+        if (this.stopped) break; // stopped during the final cards (a rejected key): the session is not finished
         await this.append([{ eventId: `${this.opts.sessionId}:end`, sessionId: this.opts.sessionId, type: 'session.ended', actor: 'system', mediaMs: this.state.lastMediaMs, wallTs: now(), payload: {} }]);
         break;
       }
