@@ -17,3 +17,12 @@ def test_fusion_confident_single_owner():
 
 def test_fusion_overlap_goes_to_operator():
     assert needs_operator(fuse(Signals(2.0, 0.55, None, True)))
+
+
+def test_merge_splits_long_monologues_at_sentence_ends():
+    from adl_capture.merge import Turn, Word, merge
+    words = [Word(f"w{i}." if i % 5 == 4 else f"w{i}", i * 1000, i * 1000 + 800) for i in range(60)]
+    utts = merge(words, [Turn("S1", 0, 61_000)], max_ms=20_000)
+    assert len(utts) > 1
+    assert all(u["text"].endswith(".") for u in utts[:-1])
+    assert all(u["endMs"] - u["startMs"] <= 25_000 for u in utts)

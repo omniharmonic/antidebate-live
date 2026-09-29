@@ -67,5 +67,13 @@
       "~44:54 the moderator's 'All right, I'm gonna stop you guys there' is inside an S2 (Dean) segment"
     ],
     "confirmedBy": "Benjamin Life"
-  }
+  },
+  "seats": {
+    "B": "aff",
+    "A": "neg",
+    "MOD": "moderator"
+  },
+  "seatsNote": "Daniel opens (\"Daniel, if you can go first here, you have up to six minutes and then Dean will go\"), so he holds the affirmative seat in this run of the format.",
+  "programStartMs": 87000,
+  "programStartNote": "0:00-0:40 is a teaser montage of out-of-order clips and 0:40-1:27 the host's to-camera podcast intro; the event itself opens at 1:27.7 ('Thank you to you all for coming out'). Replays start here; media times stay aligned with the video."
 }

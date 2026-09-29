@@ -17,14 +17,21 @@ Ordered by the critical path in [IMPLEMENTATION_PLAN §4](./IMPLEMENTATION_PLAN.
 - [ ] `ROLE_LINK_SECRET` (random string)
 - [ ] Optional: `DEEPGRAM_API_KEY` (hosted ASR fallback). `HF_TOKEN` is no longer needed; diarization runs on FluidAudio.
 
-## C. Build (workstreams in IMPLEMENTATION_PLAN §3)
-- [x] **WS2:** first real L1 run (v0.1 → v0.2; see `evals/results.md`): `pnpm --filter @adl/worker extract -- --fixture dt --turns 12 --skip 20 --llm`; inspect `.data/dt.l1.events.jsonl`; iterate the prompt in `packages/pipeline/src/prompts/l1-extract.ts`
-- [ ] **WS2:** L2 critic pass (independent prompt, ONTOLOGY §8 rubric) → `critic.verdict` events
-- [ ] **WS2:** gold-set tooling in `evals/`: annotate 12-minute segments (G1 from DT now, G2 once fetched)
-- [ ] **WS3:** worker live loop (tail events → TurnBuffer → L1/L2 → append); snapshots every 200 events
-- [ ] **WS4:** cockpit replay simulation for Stephanie (**R0 due Fri 10/2**)
-- [ ] **WS1:** live capture loop on the operator Mac (`services/capture/adl_capture/live.py`)
-- [ ] **WS5:** deterministic stratified 3D topology on replay data
+## C. Build (see docs/R0_DEMO.md for the demo architecture)
+- [x] **WS2:** L1 extract v0.3 (rhetorical questions as implied statements), graded runs in `evals/results.md`
+- [x] **WS2:** L2 critic (`l2-critic-v0.2`) + the auto-approval rule (`packages/pipeline/src/l2.ts`)
+- [x] **WS2:** round detection from moderator turns against `formats.ts` (`rounds.ts`)
+- [x] **WS2:** L3 link (identity merges incl. negated duplicates, inferred cross-speaker relations) and L4 insight (crux / higher ground / prompts / shared), all code-validated
+- [x] **WS3:** session engine: one loop for live and replay (`apps/worker/src/engine.ts`, `run:session`), Neon or JSONL log, per-call cost logging
+- [x] **WS1:** `live.py`: per-person mic channels → gate → segmenter → Parakeet (MLX) → `utterance.final` via POST /api/events (tested on synthetic frames and real audio; **not yet run with real mics**)
+- [x] Ingest any recorded debate: `pnpm --filter @adl/worker ingest -- --url … --slug …` (fetch, FluidAudio, model-proposed speakers, operator `--confirm`)
+- [x] Neon project `antidebate-live` (schema pushed); Vercel project `antidebate-live` (root `apps/web`; `DATABASE_URL`, `CAPTURE_TOKEN` set)
+- [ ] **WS4:** web surfaces: sessions, cockpit, arc (the Anti-Debate pattern), console, /new. In progress
+- [ ] Full Dean × Daniel run (`ball-kokotajlo-r1`), push to Neon, deploy, and send Stephanie the link (**R0 Fri 10/2**)
+- [ ] Mic test in a room: two people, two mics → `live.py` → deployed cockpit (M2, 10/6)
+- [ ] **WS2:** gold-set tooling in `evals/` (G1 DT, G2 Ball × Kokotajlo); critic precision measured against human judgment
+- [ ] Worker job queue so `/new` can start recordings from the web
+- [ ] **WS5:** 3D topology (after R0)
 
 ## D. People (Benjamin)
 - [ ] Stephanie: Oct 11 debaters, topic, consent; who moderates; R0 review slot (10/3–10/5); rehearsal slot (10/9–10/10)

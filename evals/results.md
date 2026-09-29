@@ -8,8 +8,23 @@ One dated entry per LLM run (HANDOFF §8). Until gold sets exist (QUALITY §2), 
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-09-28 | DT t0020–t0031 | l1-extract-v0.1 | claude-opus-5-5 / medium | 12 | $0.49 | 11.2 s / 25.5 s | 50 | ~41/50 (82%) | 1 / 9 |
 | 2026-09-28 | DT t0020–t0031 | l1-extract-v0.2 | claude-opus-5-5 / medium | 12 | $0.51 | 13.3 s / 22.8 s | 54 | ~51/54 (94%) | 1 / 4 |
+| 2026-09-28 | DT t0020–t0031 | l1-extract-v0.3 | claude-opus-5-5 / medium | 12 | ~$0.5 | — | — | rhetorical questions now extracted as implied statements (2/2 correct); t0025 misresolution persists | — |
+| 2026-09-28 | Ball×Kokotajlo 5–16 min, full engine | l1 v0.3, l2-critic v0.1, round v0.1, l3 v0.1, l4 v0.1 | opus-5-5 / per pass | 27 turns | $1.63 (67 calls) | L1+L2 ≈ 15 s per ~25 s turn | 60 | critic: 29 pass / 12 repair / 2 reject | — |
 
 QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18 s.
+
+---
+
+## 2026-09-28 · Engine test · Ball × Kokotajlo minutes 5–16
+
+`pnpm --filter @adl/worker run:session -- --fixture ball-kokotajlo-ai-governance --session bk-test1 --speed 8 --from 5 --to 16 --file`. The whole live path: feeder → log → turns → L1 → L2 → auto-approval → rounds → L3 + L4 in the background. Grader: Claude (session agent).
+
+- **Keeps up with live speech.** L1+L2 take ~15 s for a ~25 s turn (TurnBuffer window), and L3/L4 run beside it without blocking. The first debater turn after a round change gets cards at the next insight pass.
+- **Rounds:** "Opening Statements" was detected from the moderator's handover; nothing spurious.
+- **Critic (l2-critic-v0.1):** 43 items, 29 pass, 12 repair, 2 reject. Repairs were well judged: they dropped an added "publicly", restored "it seemed" framing, turned a widened "within five years" back into "next year or five years from now", and moved "will" to "may" after "we don't know". Two repairs reintroduced "we" (deixis); fixed in l2-critic-v0.2.
+- **Crux:** once Dean's opening began, L3 linked "Government stepping in to shape the trajectory of AI is bad" (Dean) as rebutting "The concentration of power from AI should be regulated" (Daniel), and L4 made it the crux (`basis: clash`). That is the debate's actual axis. Bugs fixed after this run: the clash side was missing from the card, and `downstream` ids were mis-parsed.
+- **Prompts** were specific and speakable, e.g. "Dean, Daniel's chain runs from an army of geniuses, to a 10x–1000x research speed-up, to superintelligence, to decisive power for whoever controls it. At which step, if any, do you part ways?" Addressees returned as names are now mapped to keys.
+- **Cost:** 11 minutes of debate, $1.63. Projected full event ≈ $12–15, which fits ARCHITECTURE §10's ~$30 live envelope.
 
 ---
 

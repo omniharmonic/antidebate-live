@@ -7,6 +7,9 @@
     "replay": "tsx src/replay.ts",
     "extract": "tsx src/extract.ts",
     "review": "tsx src/review.ts",
+    "run:session": "tsx src/run.ts",
+    "ingest": "tsx src/ingest.ts",
+    "push": "tsx src/push.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
   },
@@ -16,6 +19,7 @@
     "@adl/llm": "workspace:*",
     "@adl/ontology": "workspace:*",
     "@adl/pipeline": "workspace:*",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "zod": "^4.6.5"
   }
 }

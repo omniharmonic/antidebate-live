@@ -38,12 +38,21 @@ def speaker_for(word: Word, turns: list[Turn]) -> str:
     return min(turns, key=lambda t: min(abs(mid - t.start_ms), abs(mid - t.end_ms))).speaker
 
 
-def merge(words: list[Word], turns: list[Turn], pause_ms: int = 1200) -> list[dict]:
+SENTENCE_END = (".", "?", "!")
+
+
+def merge(words: list[Word], turns: list[Turn], pause_ms: int = 1200, max_ms: int = 20_000) -> list[dict]:
+    """Group words into utterances: new speaker, a pause over `pause_ms`, or a sentence
+    end once the utterance is longer than `max_ms`. The last rule keeps replays shaped
+    like live capture, which emits VAD-sized utterances rather than whole monologues."""
     utterances: list[dict] = []
     current: dict | None = None
+    prev_text = ""
     for w in sorted(words, key=lambda x: x.start_ms):
         spk = speaker_for(w, turns)
-        new = current is None or current["speaker"] != spk or w.start_ms - current["endMs"] > pause_ms
+        too_long = current is not None and current["endMs"] - current["startMs"] > max_ms and prev_text.endswith(SENTENCE_END)
+        new = current is None or current["speaker"] != spk or w.start_ms - current["endMs"] > pause_ms or too_long
+        prev_text = w.text
         if new:
             if current:
                 utterances.append(current)
