@@ -1,7 +1,9 @@
 /**
  * Words + speaker segments → utterance events (spec §5, recordings). A guess never
  * becomes a debater's claim: unnamed voices, boundary words and uncovered speech are
- * emitted as UNK or held with attribution.pending (below the 0.85 auto threshold).
+ * held as UNK with attribution.pending (below the 0.85 auto threshold); a held line's best
+ * guess appears only among the pending candidates, never as its speaker. Named voices are
+ * the diarizer's unmeasured output, so they are `confirmedBy: 'auto'`, not operator-confirmed.
  * Event ids derive from media times, so re-running a chunk after a reload is idempotent.
  * A held utterance's attribution.pending is emitted before its utterance.final so a
  * consumer reading pending state at ingest of the final already sees it.
@@ -63,26 +65,27 @@ export function buildUtterances(o: { sessionId: string; words: Word[]; segments:
       const endMs = part.words.at(-1)!.endMs;
       const id = o.mode === 'tracks' && o.trackOwner ? `u${o.trackOwner}-${startMs}` : `u${startMs}`;
       const text = part.words.map((w) => w.text).join(' ').replace(/\s+([.,!?;:])/g, '$1');
-      let participantKey = 'UNK';
+      let guess = 'UNK';
       let confidence = HOLD;
-      let confirmedBy: 'auto' | 'operator' = 'auto';
       let signals: { channel?: string; diarLabel?: string } = {};
       if (o.mode === 'tracks' && o.trackOwner) {
-        participantKey = o.trackOwner;
+        guess = o.trackOwner;
         confidence = 1;
         signals = { channel: o.trackOwner };
       } else if (part.label) {
         const named = o.voiceMap[part.label] ?? null;
         signals = { diarLabel: part.label };
         if (named) {
-          participantKey = named;
+          guess = named;
           const edge = otherVoiceNear(o.segments, startMs, endMs, part.label);
           confidence = edge ? HOLD : Math.min(0.95, ...part.segs.map((x) => x.confidence));
-          confirmedBy = edge ? 'auto' : 'operator';
         }
       }
-      if (confidence < 0.85) {
-        const candidates: Record<string, number> = participantKey === 'UNK' ? {} : { [participantKey]: confidence };
+      const held = confidence < 0.85;
+      const participantKey = held ? 'UNK' : guess;
+      const confirmedBy = 'auto' as const;
+      if (held) {
+        const candidates: Record<string, number> = guess === 'UNK' ? {} : { [guess]: confidence };
         events.push({ eventId: `${o.sessionId}:${id}:pending`, sessionId: o.sessionId, type: 'attribution.pending', actor: 'system', mediaMs: endMs, wallTs: o.wallTs, payload: { utteranceId: id, candidates } } as DomainEvent);
       }
       events.push({

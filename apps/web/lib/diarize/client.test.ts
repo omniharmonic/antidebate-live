@@ -24,14 +24,14 @@ async function loaded() {
 describe('DiarizeClient', () => {
   it('rejects pending calls when the worker errors after loading', async () => {
     const { client, worker } = await loaded();
-    const pending = client.diarize(new Float32Array(4), null);
+    const pending = client.diarize(new Float32Array(4));
     worker.onerror!({ message: 'boom' });
     await expect(pending).rejects.toThrow('Speaker separation stopped unexpectedly. Reload the page and try again.');
   });
 
   it('rejects pending calls on terminate', async () => {
     const { client } = await loaded();
-    const pending = client.diarize(new Float32Array(4), null);
+    const pending = client.diarize(new Float32Array(4));
     client.terminate();
     await expect(pending).rejects.toThrow('Speaker separation stopped unexpectedly. Reload the page and try again.');
   });
@@ -39,21 +39,23 @@ describe('DiarizeClient', () => {
   it('rejects new calls immediately after the worker has stopped', async () => {
     const { client, worker } = await loaded();
     client.terminate();
-    await expect(client.diarize(new Float32Array(4), null)).rejects.toThrow('Speaker separation stopped unexpectedly. Reload the page and try again.');
+    await expect(client.diarize(new Float32Array(4))).rejects.toThrow('Speaker separation stopped unexpectedly. Reload the page and try again.');
     expect(worker.posted).toHaveLength(0);
   });
 
   it('rejects new calls after a worker error', async () => {
     const { client } = await loaded();
     FakeWorker.last.onerror!({ message: 'boom' });
-    await expect(client.diarize(new Float32Array(4), null)).rejects.toThrow('Speaker separation stopped unexpectedly.');
+    await expect(client.diarize(new Float32Array(4))).rejects.toThrow('Speaker separation stopped unexpectedly.');
   });
 
   it('sends a transferred copy and leaves the caller array intact', async () => {
     const { client, worker } = await loaded();
     const mono = new Float32Array([1, 2, 3]);
-    void client.diarize(mono, 2);
+    void client.diarize(mono);
     const sent = worker.posted[0]!;
+    // No speaker count: the worker clusters by threshold, so an extra voice shows up to be named.
+    expect(Object.keys(sent.msg).sort()).toEqual(['id', 'samples']);
     expect(sent.msg.samples).not.toBe(mono);
     expect(sent.transfer).toEqual([sent.msg.samples.buffer]);
     expect(mono.length).toBe(3);

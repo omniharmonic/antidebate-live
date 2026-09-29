@@ -8,7 +8,8 @@ import type { OutboxStore } from '@adl/engine';
 import type { Word } from '@/lib/asr/chunks';
 import type { SpeakerSegment } from '@/lib/diarize/client';
 
-export type RecordingMeta = { fileName: string; fileSize: number; durationMs: number; segments: SpeakerSegment[]; voiceMap: Record<string, string | null> };
+/** `transcribed`: every chunk has been emitted to the log, so analysis can resume without the file. */
+export type RecordingMeta = { fileName: string; fileSize: number; durationMs: number; segments: SpeakerSegment[]; voiceMap: Record<string, string | null>; transcribed?: boolean };
 
 function open(sessionId: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {

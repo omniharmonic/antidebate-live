@@ -6,3 +6,8 @@
 export function unansweredRequest(line: string): boolean {
   return /^L[12] \S+: provider_error:/.test(line);
 }
+
+/** An engine line saying Anthropic refused the host's key (401/403) on any pass: stop and ask for a working key. */
+export function keyRejected(line: string): boolean {
+  return /provider_error: Anthropic returned 40[13]$/.test(line);
+}

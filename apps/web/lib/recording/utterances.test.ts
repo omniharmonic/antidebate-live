@@ -17,7 +17,8 @@ describe('buildUtterances', () => {
   const evs = buildUtterances({ sessionId: 's', words, segments, voiceMap: { S0: 'A', S1: 'B', S2: null }, mode: 'diarized', wallTs: new Date(0).toISOString() });
   const finals = evs.filter((e) => e.type === 'utterance.final').map((e) => (e.type === 'utterance.final' ? e.payload.utterance : null)!);
   it('attributes named voices with the diarizer label as the signal', () => {
-    expect(finals[0]).toMatchObject({ participantKey: 'A', text: 'Taxes should fall.', attribution: { confirmedBy: 'operator', signals: { diarLabel: 'S0' } } });
+    // The host named the voice, not this line: automatic output, not operator-confirmed.
+    expect(finals[0]).toMatchObject({ participantKey: 'A', text: 'Taxes should fall.', attribution: { confirmedBy: 'auto', signals: { diarLabel: 'S0' } } });
     expect(finals[1]!.participantKey).toBe('B');
   });
   it('holds an unnamed voice as UNK with attribution.pending, never as a debater', () => {
@@ -52,6 +53,21 @@ describe('buildUtterances on real diarizer output', () => {
     expect(u).toBeDefined();
     expect(u!.participantKey === 'A' || u!.participantKey === 'UNK').toBe(true);
     if (u!.participantKey === 'A') expect(u!.attribution.confidence).toBeLessThanOrEqual(0.7);
+    // Below the 0.85 gate the line is held, so it names no one.
+    if (u!.attribution.confidence < 0.85) expect(u!.participantKey).toBe('UNK');
+  });
+
+  it('a held line names no one: UNK, with the guess only among the pending candidates', () => {
+    const segs = [
+      { startMs: 0, endMs: 2_000, label: 'S0', confidence: 0.9 },
+      { startMs: 1_900, endMs: 4_000, label: 'S1', confidence: 0.9 }, // within 300 ms of the last word
+    ];
+    const evs = buildUtterances({ ...base, words: [w('Near', 1_000), w('edge', 1_400)], segments: segs, voiceMap: { S0: 'A', S1: 'B' } });
+    const u = finalsOf(evs)[0]!;
+    expect(u.participantKey).toBe('UNK');
+    expect(u.attribution.confidence).toBeLessThan(0.85);
+    const pending = evs.find((e) => e.type === 'attribution.pending');
+    expect(pending?.type === 'attribution.pending' && pending.payload).toEqual({ utteranceId: u.id, candidates: { A: u.attribution.confidence } });
   });
 
   it('never commits an utterance with another voice speaking inside it', () => {
@@ -64,6 +80,7 @@ describe('buildUtterances on real diarizer output', () => {
     const fs = finalsOf(evs);
     expect(fs.length).toBeGreaterThan(1);
     for (const u of fs) {
+      expect(u.participantKey).toBe('UNK');
       expect(u.attribution.confidence).toBeLessThan(0.85);
       expect(evs.some((e) => e.type === 'attribution.pending' && e.payload.utteranceId === u.id)).toBe(true);
     }

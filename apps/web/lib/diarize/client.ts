@@ -30,14 +30,15 @@ export class DiarizeClient {
       w.onerror = (e) => fail(new Error(e.message || 'Speaker separation could not start.'));
     });
   }
-  diarize(mono16k: Float32Array, numSpeakers: number | null): Promise<SpeakerSegment[]> {
+  /** Voices are found by a clustering threshold, not a given count: an unexpected voice surfaces for naming. */
+  diarize(mono16k: Float32Array): Promise<SpeakerSegment[]> {
     if (this.dead) return Promise.reject(new Error(STOPPED));
     const id = ++this.seq;
     return new Promise((resolve, reject) => {
       this.waiting.set(id, (r) => (r.ok ? resolve(r.segments ?? []) : reject(new Error(r.error ?? 'speaker separation failed'))));
       // Send a copy: transferring detaches the array and the caller keeps its own for later chunks.
       const samples = mono16k.slice();
-      this.worker.postMessage({ id, samples, numSpeakers }, [samples.buffer]);
+      this.worker.postMessage({ id, samples }, [samples.buffer]);
     });
   }
   private failAll() {
