@@ -37,6 +37,7 @@ export class DiarizeClient {
     return this.request(mono16k, {});
   }
   /**
+   * Callers pass anchors already trimmed with trimAnchor.
    * Share of the utterance spoken by each enrolled voice, 0..1 per anchor key. Anchors and the
    * utterance are diarized together with anchors + 1 clusters; an anchor that lands in a cluster
    * with another anchor scores 0 (see scoreFromSegments).
