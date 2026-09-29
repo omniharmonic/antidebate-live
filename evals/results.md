@@ -15,6 +15,15 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-29 · End-to-end loop 5 · ball-kokotajlo-r5 (l1 v0.5, l4 v0.3): **the demo run**
+
+- 485 calls, $0; rounds 11/11; 373 claims; **20 clashes** (r4: 13); 1 shared.
+- **Crux keeps moving after 34m (fix verified):** 58.9m (a considered return: automated-research speed) → 61.2m "Markets will channel the situation better, given people flocking to Anthropic models and the idea of alignment being a capability" (reference crux 2) → 69.5m "If everybody realizes that all power will flow through the AIs, they will use existing checks and balances…" (reference crux 1).
+- **Higher-ground recall ≥ 3/4:** auditing ("…credible private mechanisms, such as independent auditors…", 49.0m); US–China preconditions ("each government knows where its chips are, enforcement, rough parity", 52.7m; 44.5m); courts/Congress/auditors (33.7m, 35.5m); alignment partly, via the 61.2m crux.
+- **Recommended demo session for Stephanie: `ball-kokotajlo-r5`.**
+
+---
+
 ## 2026-09-29 · End-to-end loop 4 · ball-kokotajlo-r4 (l1 v0.5)
 
 - 488 calls, $0; 401 claims (cleaner with v0.5); rounds 11/11; **higher-ground recall still 4/4** (e.g. "build the preconditions for a US–China deal, meaning enforceability (tracking chips) and enough balance to give both sides a reason to deal", 44.5m).
