@@ -15,6 +15,22 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-29 · End-to-end loop 6: final consistency pass (l1 v0.5, l4 v0.3, all recordings)
+
+| Session | Calls | Claims | Stated dis. | Clashes | Shared | Distinct HG | Rounds |
+|---|---|---|---|---|---|---|---|
+| ball-kokotajlo-r5 (demo) | 485 | 373 | 0 | 20 | 1 | — | 11/11 |
+| gender-affirming-care-r3 | 364 | 202 | 0 | 12 | 5 | 9 | 12/12 |
+| belief-in-god-r3 | 487 | 380 | **2** | 14 | 3 | 18 | 12/12 |
+| destiny-shermer-r3 | 494 | 421 | **1** | 9 | 1 | 19 | adapted (Open Debate folded into rebuttals) |
+| open-source-ai-r3 | ~770 | 506 | 0 | 23 | 5 | 25 | adapted |
+
+All $0 API (subscription). Crux paths end on each debate's actual hinge: Gender-Affirming Care on trust in expertise outside ideological capture; Belief in God on "It is dangerous to call what Layman Pascal describes God" (stated); Destiny × Shermer on "Humans are not by default truth-seeking machines" (stated) and then platforming Alex Jones; Open-Source AI on "What is being called open source AI is not open source". Stated disagreements now appear where debaters answer each other directly; elsewhere cruxes are clash-based and labelled so.
+
+**Open quality items (next session):** human gold sets (QUALITY §2) so these hand-grades become measurements; canonical sentences sometimes carry attribution ("… in Dean W. Ball's view", "Michael Shermer says…"), which the critic should repair to speaker-independent form; shared ground is still thin in some debates (convergence depends on L3 `agrees` links).
+
+---
+
 ## 2026-09-29 · End-to-end loop 5 · ball-kokotajlo-r5 (l1 v0.5, l4 v0.3): **the demo run**
 
 - 485 calls, $0; rounds 11/11; 373 claims; **20 clashes** (r4: 13); 1 shared.
