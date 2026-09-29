@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { groupVoices } from '@/lib/recording/voices';
 import type { NamingRequest } from './start-recording';
 
 const button = 'min-h-11 rounded border border-border-2 px-3 text-[14px] text-ink hover:bg-field-deep disabled:opacity-50';
@@ -11,13 +12,7 @@ const clock = (ms: number) => `${Math.floor(ms / 60_000)}:${String(Math.floor((m
 
 /** Each separated voice with its three longest stretches to listen to, and who it is. */
 export function VoiceNaming({ request }: { request: NamingRequest }) {
-  const voices = useMemo(() => {
-    const by = new Map<string, NamingRequest['segments']>();
-    for (const s of request.segments) by.set(s.label, [...(by.get(s.label) ?? []), s]);
-    return [...by.entries()]
-      .map(([label, segs]) => ({ label, totalMs: segs.reduce((n, s) => n + s.endMs - s.startMs, 0), longest: [...segs].sort((a, b) => b.endMs - b.startMs - (a.endMs - a.startMs)).slice(0, 3) }))
-      .sort((a, b) => b.totalMs - a.totalMs);
-  }, [request.segments]);
+  const { voices, shortLabels } = useMemo(() => groupVoices(request.segments), [request.segments]);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const ctx = useRef<AudioContext | null>(null);
   const playing = useRef<AudioBufferSourceNode | null>(null);
@@ -42,7 +37,10 @@ export function VoiceNaming({ request }: { request: NamingRequest }) {
   const complete = voices.every((v) => choice[v.label]);
   const confirm = () => {
     playing.current?.stop();
-    request.resolve(Object.fromEntries(voices.map((v) => [v.label, choice[v.label] === OTHER ? null : (choice[v.label] ?? null)])));
+    request.resolve({
+      ...Object.fromEntries(shortLabels.map((l) => [l, null])),
+      ...Object.fromEntries(voices.map((v) => [v.label, choice[v.label] === OTHER ? null : (choice[v.label] ?? null)])),
+    });
   };
 
   return (
@@ -52,6 +50,9 @@ export function VoiceNaming({ request }: { request: NamingRequest }) {
           ? 'No separate voices were found. The transcript will be kept without speakers, and nothing will be counted as a participant\'s claim.'
           : `The recording has ${voices.length} ${voices.length === 1 ? 'voice' : 'voices'}. Listen to each and choose who it is. A voice marked as someone else stays in the transcript but is never counted as a participant's claim.`}
       </p>
+      {shortLabels.length > 0 && (
+        <p className="text-sm text-ink-3">{shortLabels.length} short {shortLabels.length === 1 ? 'voice' : 'voices'} (under 10 seconds each) {shortLabels.length === 1 ? 'is' : 'are'} left unattributed.</p>
+      )}
       <ol className="space-y-5">
         {voices.map((v, i) => (
           <li key={v.label} className="border-t border-border pt-4 first:border-t-0">

@@ -105,7 +105,7 @@ The measure is the share of speech time attributed correctly, and the share of w
    - Progress with an estimate. The tab must stay open.
 
 Every live setup includes:
-- "Prepare this laptop": download and cache the ASR model (about 700 MB, with progress and a resumable Cache Storage download), keep the laptop plugged in, turn on Do Not Disturb, keep the tab in front.
+- "Prepare this laptop": download and cache the ASR model (about 670 MB, with progress and a resumable Cache Storage download), keep the laptop plugged in, turn on Do Not Disturb, keep the tab in front.
 - A 30-second rehearsal showing the live transcript.
 - A Wake Lock request.
 - An on-page warning if the tab is hidden.

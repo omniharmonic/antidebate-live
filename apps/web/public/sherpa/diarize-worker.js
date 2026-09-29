@@ -5,12 +5,12 @@
 // value below the 0.95 cap in utterances.ts; boundary and unnamed-voice holds do the real gating.
 const SEGMENT_CONFIDENCE = 0.9;
 // The bundle's defaults, except windowShiftRatio 0.5 (default 0.1): about 5x fewer embedding
-// extractions, which were ~90% of the run time. Clustering is by threshold, never a forced count,
+// extractions, which were ~90% of the run time. Clustering is by threshold (0.8, chosen by the diarization sweep), never a forced count,
 // so a voice nobody expected (a questioner, an announcement) surfaces and can be marked "Someone else".
 const CONFIG = {
   segmentation: { pyannote: { model: './segmentation.onnx', windowShiftRatio: 0.5 } },
   embedding: { model: './embedding.onnx' },
-  clustering: { numClusters: -1, threshold: 0.5 },
+  clustering: { numClusters: -1, threshold: 0.8 },
   minDurationOn: 0.3,
   minDurationOff: 0.5,
 };

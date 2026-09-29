@@ -1,4 +1,5 @@
 import { fromHub } from 'parakeet.js';
+import { classifyLoadError } from './load-error';
 import { aggregateProgress, emptyProgress } from './progress';
 import type { AsrVariant } from './variant';
 
@@ -16,7 +17,7 @@ ctx.onmessage = async (e) => {
   const m = e.data;
   try {
     if (m.kind === 'load') {
-      // Chosen on the page (variant.ts): the fp16 encoder on WebGPU with shader-f16, else int8 on WASM.
+      // Chosen on the page (variant.ts): int8 on WASM.
       const { backend, encoderQuant, decoderQuant } = m.variant;
       let progress = emptyProgress();
       model = await fromHub('parakeet-tdt-0.6b-v3', {
@@ -42,6 +43,7 @@ ctx.onmessage = async (e) => {
     }));
     ctx.postMessage({ id: m.id, ok: true, words });
   } catch (err) {
-    ctx.postMessage({ id: m.id, ok: false, error: (err as Error).message });
+    const message = err instanceof Error ? err.message : String(err);
+    ctx.postMessage({ id: m.id, ok: false, error: message, ...(m.kind === 'load' ? { errorKind: classifyLoadError(err) } : {}) });
   }
 };

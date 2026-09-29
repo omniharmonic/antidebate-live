@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AsrClient, readiness } from '@/lib/asr/client';
+import { AsrClient, AsrLoadError, readiness } from '@/lib/asr/client';
 import { sizeLabel, type AsrVariant } from '@/lib/asr/variant';
 import { DiarizeClient } from '@/lib/diarize/client';
 
 type Status = 'ready' | 'attention' | 'progress' | 'waiting';
-type ModelState = { kind: 'idle' } | { kind: 'loading'; fileNumber: number; bytes: number } | { kind: 'ready' } | { kind: 'error' };
+type ModelState = { kind: 'idle' } | { kind: 'loading'; fileNumber: number; bytes: number } | { kind: 'ready' } | { kind: 'error'; failure: 'network' | 'load' };
 type SpeedState = { kind: 'idle' } | { kind: 'running' } | { kind: 'done'; factor: number } | { kind: 'error' };
 
 const LABEL: Record<Status, string> = { ready: 'Ready', attention: 'Needs attention', progress: 'In progress', waiting: 'Waiting' };
@@ -55,6 +55,7 @@ export function Prepare() {
   const separating = useRef(false);
   const loading = useRef(false);
   const alive = useRef(false);
+  const [modelCached, setModelCached] = useState(false);
   const [preparedOn, setPreparedOn] = useState<string | null>(null);
 
   const loadModel = useCallback(async () => {
@@ -68,8 +69,8 @@ export function Prepare() {
       client.current?.terminate();
       client.current = c;
       setModel({ kind: 'ready' });
-    } catch {
-      if (alive.current) setModel({ kind: 'error' });
+    } catch (err) {
+      if (alive.current) setModel({ kind: 'error', failure: err instanceof AsrLoadError && err.kind === 'load' ? 'load' : 'network' });
     } finally {
       loading.current = false;
     }
@@ -83,6 +84,7 @@ export function Prepare() {
       if (!live) return;
       setBrowserOk(r.browserOk);
       setVariant(r.variant);
+      setModelCached(r.modelCached);
       // Files already stored on this laptop load without a download.
       if (r.browserOk && r.modelCached) void loadModel();
     });
@@ -147,10 +149,16 @@ export function Prepare() {
               <p>{model.fileNumber === 0 ? 'Starting the download.' : `Downloading file ${model.fileNumber} (${Math.round(model.bytes / 1_000_000)} MB so far${variant ? ` of ${sizeLabel(variant.bytes)}` : ''}). This can take several minutes.`}</p>
             </>
           )}
-          {model.kind === 'error' && <p role="alert">The download stopped. Choose Download again to resume.</p>}
+          {model.kind === 'error' && (
+            <p role="alert">
+              {model.failure === 'load'
+                ? 'The transcription model could not start on this laptop. Reload the page and try again; if it keeps failing, use a different laptop or browser.'
+                : 'The download stopped. Choose Download again to resume.'}
+            </p>
+          )}
           {(model.kind === 'idle' || model.kind === 'error') && (
             <button className={button} disabled={browserOk !== true || !variant} onClick={() => void loadModel()}>
-              {model.kind === 'error' ? 'Download again' : `Download (${variant ? sizeLabel(variant.bytes) : 'checking size'}, once)`}
+              {model.kind === 'error' ? (model.failure === 'network' ? 'Download again' : 'Try again') : `Download (${variant ? sizeLabel(variant.bytes) : 'checking size'}, once)`}
             </button>
           )}
         </Row>
@@ -175,7 +183,7 @@ export function Prepare() {
         <SpeakerSeparationRow n={4} state={separation} onLoad={() => void loadSeparation()} disabled={browserOk !== true} />
       </ol>
 
-      {(allReady || (preparedOn !== null && browserOk === true)) && (
+      {(allReady || (preparedOn !== null && browserOk === true && (modelCached || model.kind === 'ready'))) && (
         <div className="mt-8 border-t border-border pt-6">
           <p className="text-[20px] text-ink">This laptop is ready</p>
           {!allReady && <p className="mt-1 text-sm text-ink-3">Prepared on {preparedOn?.slice(0, 10)}. The checks above confirm the model is still on this laptop.</p>}

@@ -19,7 +19,7 @@ For facilitators (Stephanie, Liv). Everything runs in Chrome on a laptop. Your r
    The key stays in this browser and goes only to Anthropic, never to antidebate.xyz. Anyone who uses this browser profile can run sessions on the key. Choose **Forget key** when you finish on a shared computer.
 4. **Prepare this laptop.** On the home page choose **Prepare this laptop**. Do it once, on good Wi-Fi, ideally the day before. It:
    - checks the browser;
-   - downloads the transcription model once and keeps it on the laptop. The button shows the size for this laptop: about 1.3 GB where the graphics chip supports it (it then runs on the graphics chip), about 670 MB otherwise;
+   - downloads the transcription model once and keeps it on the laptop. The model is about 670 MB. It runs on the laptop's CPU, using all its cores;
    - runs a speed test (5 seconds to warm up, then 30 seconds timed);
    - loads speaker separation (about 58 MB).
 
@@ -29,7 +29,7 @@ For facilitators (Stephanie, Liv). Everything runs in Chrome on a laptop. Your r
 
 1. Get the recording as a file. The site cannot fetch YouTube links: YouTube blocks servers from downloading. Ask the creator for their own copy, or download the video first with a tool such as yt-dlp. An .mp4, .m4a, .mp3 or .wav file works best.
 2. Home page, **Process a recording**. Enter the title, choose the format, list the participants and their seats, keep "A recording" as the audio source, choose the file and choose **Create and start**.
-3. **Name the voices.** The laptop separates the recording into voices. For each voice, play the sample stretches and choose who it is. A voice marked "Someone else (don't attribute)" stays in the transcript but is never counted as a participant's claim. Choose **Confirm voices and continue**.
+3. **Name the voices.** The laptop separates the recording into voices. For each voice, play the sample stretches and choose who it is. A voice marked "Someone else (don't attribute)" stays in the transcript but is never counted as a participant's claim. Choose **Confirm voices and continue**. Voices with under 10 seconds of speech are not listed; they are left unattributed, and the page says how many.
 4. Wait while it transcribes and analyses. The page shows the stage: Reading the file, Separating speakers (with the time so far), Name the voices, Transcribing (chunk N of M), Analysing (N of M minutes), then Done. It also shows the estimated spend so far.
 5. **Keep the tab open, in front, and the laptop awake.** Closing the tab pauses processing, and Chrome warns you first. A tab in the background is slowed down by Chrome, and the page says so. Nothing that has finished is lost. To resume, open the session from **On this laptop** on the host home page. If the transcript was finished, the analysis continues by itself; otherwise choose the same file again. A different file is refused.
 
@@ -71,6 +71,7 @@ Messages are shown exactly as written on the page.
 | Anthropic refused the check (N). | Key | Read the number in the Anthropic docs, or send it to Benjamin. |
 | Use Google Chrome (or Microsoft Edge) on a laptop. | Prepare | Open the page in Chrome on a laptop. |
 | The download stopped. Choose Download again to resume. | Prepare | Choose **Download again**. It resumes. Stay on good Wi-Fi. |
+| The transcription model could not start on this laptop. Reload the page and try again; if it keeps failing, use a different laptop or browser. | Prepare | Reload the page and choose Download again. If it fails again, use another laptop, or Chrome. |
 | The speed test did not finish. Choose Run the speed test to try again. | Prepare | Close other tabs and apps, then choose **Run the speed test**. |
 | Speaker separation did not load. Reload the page and try again. | Prepare, session | Reload the page and choose **Try again** on the row. |
 | Speaker separation could not start. | Prepare, session | Reload the page. Use Chrome. |

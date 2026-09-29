@@ -1,27 +1,31 @@
 import type { Word } from './chunks';
 import { browserSupport } from './browser-support';
 import type { DownloadReport } from './progress';
-import { chooseVariant, isCached, type AsrVariant } from './variant';
+import type { LoadErrorKind } from './load-error';
+import { ASR_VARIANT, isCached, type AsrVariant } from './variant';
 
-type NavigatorGpu = { gpu?: Parameters<typeof chooseVariant>[0] };
-/** The Parakeet build for this laptop (see variant.ts). */
-export const laptopVariant = () => chooseVariant(typeof navigator === 'undefined' ? undefined : (navigator as NavigatorGpu).gpu);
+/** A model load failure, with whether it was the download or the model starting. */
+export class AsrLoadError extends Error {
+  constructor(message: string, readonly kind: LoadErrorKind) {
+    super(message);
+  }
+}
 
 export type AsrProgress = DownloadReport;
 
 export class AsrClient {
   private seq = 0;
   private waiting = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; progress?: (p: AsrProgress) => void }>();
-  backend: 'webgpu' | 'wasm' = 'wasm';
+  backend: 'wasm' = 'wasm';
 
   private constructor(private readonly worker: Worker) {
-    worker.onmessage = (e: MessageEvent<{ id: number; ok?: boolean; error?: string; progress?: AsrProgress } & Record<string, unknown>>) => {
+    worker.onmessage = (e: MessageEvent<{ id: number; ok?: boolean; error?: string; errorKind?: LoadErrorKind; progress?: AsrProgress } & Record<string, unknown>>) => {
       const w = this.waiting.get(e.data.id);
       if (!w) return;
       if (e.data.progress) return w.progress?.(e.data.progress);
       this.waiting.delete(e.data.id);
       if (e.data.ok) w.resolve(e.data);
-      else w.reject(new Error(e.data.error ?? 'transcription failed'));
+      else w.reject(e.data.errorKind ? new AsrLoadError(e.data.error ?? 'model failed to load', e.data.errorKind) : new Error(e.data.error ?? 'transcription failed'));
     };
     worker.onerror = (e) => {
       const err = new Error(e.message || 'The transcription worker stopped.');
@@ -39,11 +43,10 @@ export class AsrClient {
   }
 
   static async load(onProgress?: (p: AsrProgress) => void): Promise<AsrClient> {
-    const variant = await laptopVariant();
     const worker = new Worker(new URL('./asr.worker.ts', import.meta.url), { type: 'module' });
     const c = new AsrClient(worker);
     try {
-      const r = await c.send<{ backend: 'webgpu' | 'wasm' }>({ kind: 'load', variant }, [], onProgress);
+      const r = await c.send<{ backend: 'wasm' }>({ kind: 'load', variant: ASR_VARIANT }, [], onProgress);
       c.backend = r.backend;
       return c;
     } catch (err) {
@@ -105,7 +108,7 @@ async function modelIsCached(variant: AsrVariant): Promise<boolean> {
 
 export async function readiness(): Promise<{ browserOk: boolean; variant: AsrVariant; modelCached: boolean; persisted: boolean }> {
   const browserOk = browserSupport(navigator.userAgent);
-  const variant = await laptopVariant();
+  const variant = ASR_VARIANT;
   const persisted = (await navigator.storage?.persisted?.()) ?? false;
   const modelCached = await modelIsCached(variant);
   return { browserOk, variant, modelCached, persisted };

@@ -14,13 +14,11 @@ import { VoiceNaming } from './VoiceNaming';
 
 const minutes = (ms: number) => Math.round(ms / 60_000);
 const clock = (ms: number) => `${Math.floor(ms / 60_000)}:${String(Math.floor((ms % 60_000) / 1000)).padStart(2, '0')}`;
-/** Speaker separation ran at 0.81× the audio length before its 5× lighter setting (measured 2026-09-29, 3-minute clip): an upper bound. */
-const SEPARATION_BOUND = 0.81;
 
 function stageLine(s: Stage, elapsedMs: number): string {
   switch (s.kind) {
     case 'decoding': return 'Reading the file';
-    case 'separating': return `Separating speakers: ${clock(elapsedMs)} so far (up to about ${Math.max(1, Math.ceil((s.audioMs * SEPARATION_BOUND) / 60_000))} min for this recording)`;
+    case 'separating': return `Separating speakers: ${clock(elapsedMs)} so far. Usually takes about a quarter of the recording's length.`;
     case 'naming': return 'Name the voices';
     case 'transcribing': return `Transcribing: chunk ${Math.min(s.done + 1, s.total)} of ${s.total}`;
     case 'analysing': return `Analysing: ${minutes(s.processedMs)} of ${minutes(s.totalMs)} minutes`;
