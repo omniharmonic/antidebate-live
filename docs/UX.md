@@ -121,6 +121,8 @@ A QR code opens a follow-along view at the phone channel's level. Tapping a prop
 
 ## 6. The 3D topology (interactive and cinematic)
 
+> **Additive (2026-09-28, Benjamin):** the 3D/4D topology is an extra view alongside the timeline (arc), cockpit and console. It never replaces them.
+
 - **Space:** participant hemispheres on X; strata on Y (ontology at the base, praxis at the top, higher ground floating above); time on Z (collapsible). Shared propositions sit on the median plane.
 - **Reading it:**
   - A disagreement is a pair of nodes, one in each hemisphere, joined by a rebut or undercut edge.

@@ -11,6 +11,7 @@ Ordered by the critical path in [IMPLEMENTATION_PLAN §4](./IMPLEMENTATION_PLAN.
    - [ ] Open-Source AI (co-moderated, ~2h15)
    - [ ] Ignite talk (one-speaker edge case)
 2. [ ] **Frontend UX pass**, plus new form factors: a 4D view (3D agreement/disagreement/depth space across time) and anything else that makes the output compelling for audiences and moderators.
+   - **Additive only (Benjamin, 2026-09-28):** the 4D view is an *additional* view. Keep the existing timeline/arc, cockpit and console views; improve them, never remove or replace them.
 3. [ ] **Comprehensive end-to-end testing loop(s)** across ALL ingested sessions and their results, for high-quality multi-dimensional insights and stunning visualizations. Several evaluate → fix → re-verify iterations: rerun sessions with the final pipeline, check every surface (cockpit, arc, 4D, console) on every session in a browser, and grade insight quality against the references. Only then wrap the session.
 
 ## A. In a LOCAL Claude Code session (needs network access the cloud container lacks)
