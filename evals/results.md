@@ -283,3 +283,95 @@ Uncontended, ball 3-minute window, Node WASM: shift 0.5 = 32.5 s (RTF 0.18), shi
 `segmentation.pyannote.windowShiftRatio 0.5`, `clustering {numClusters: -1, threshold: 0.8}`, plus a tiny-cluster rule: **a cluster with under 10 s of total speech is not offered as a voice; its turns default to "Someone else".** Hosts name the clusters of 10 s or more.
 
 Tradeoff in numbers (20-minute windows, mean of three): threshold 0.5 today = 18.3 clusters, 7.0 of them at least 10 s; recommended = 8.3 clusters, 4.0 of them at least 10 s (4 / 4 / 4 for recordings with 3 / 3 / 4 named voices). Coverage stays 96% (96% before the rule, 96% after it) (0 to 1 point lost by folding the small clusters at 0.8; at 0.5 the same rule costs 2 points and at 3 minutes 5). Impure share 0% vs 1%. Cost: at most one voice in a short window can merge (seen at 0.9, not at 0.8), which is why the threshold stops at 0.8. A speaker who talks under 10 s in total (an audience question) lands in "Someone else", as intended.
+
+## Attribution gate, 2026-09-29
+
+Thresholds for auto-accepting who spoke, per setup. A threshold is the lowest of 0.85, 0.88, 0.90, 0.92, 0.95, 0.97, 0.99 at which wrong auto-accepts are at most 2% of reference speech time, pooled over the fixtures. If none is, the host confirms every line (0.99, host confirms all).
+
+**Caveats.**
+- The reference is FluidAudio diarization plus Benjamin's confirmed speaker map, not a human gold set. Reference `UNK` is audience; a held or UNK prediction over it counts as correct, an auto-accepted debater over it counts as wrong.
+- Voice enrollment clips are taken from the scored audio, so voice match is optimistic (a real host enrolls before the session, on different audio).
+- Tracks fixtures are silent between turns; the bleed setup (each mic hears the others) is the realistic tracks case and is what the tracks threshold is calibrated on.
+- The lab's mono-live runs the room code path, which is also the call code path (channels `{}`, voice only), so call and room share these results.
+- Mono-live lines are scored as the gate would see them with the voice-only cap (0.84) lifted: predicted = candidate, else the attributed key; confidence = uncapped fused score. A line with no candidate is held by rule at every threshold. Lines that are pending in other setups stay held at every threshold.
+- Window lengths: mono-live ball-kokotajlo-ai-governance 5 min, belief-in-god 5 min, open-source-ai 5 min (first minutes of the program only); bleed ball-kokotajlo-ai-governance 20 min, belief-in-god 20 min, open-source-ai 20 min; mono-recording ball-kokotajlo-ai-governance 20 min, belief-in-god 20 min, open-source-ai 20 min.
+- Shares are of reference speech time inside the window, at 10 ms resolution. Held is all held speech; "held with a wrong guess" is the part of it whose candidate was wrong.
+
+**Verdicts (2% wrong auto-accept ceiling).**
+- tracks: passes at threshold 0.85 (wrong auto-accepts 0.2%, correct 94.7%).
+- call: passes at threshold 0.85 (wrong auto-accepts 0.2%, correct 73.0%).
+- room: passes at threshold 0.85 (wrong auto-accepts 0.2%, correct 73.0%).
+- recording: passes at threshold 0.85 (wrong auto-accepts 0.0%, correct 75.2%).
+
+### tracks (bleed results (a mic per person with cross-talk, the realistic tracks case))
+
+Wrong auto-accepted share by threshold, pooled: 0.85: 0.2%, 0.88: 0.1%, 0.9: 0.1%, 0.92: 0.1%, 0.95: 0.1%, 0.97: 0.1%, 0.99: 0.1%.
+
+#### tracks
+
+Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-source-ai (20 min). Chosen threshold 0.85.
+
+| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
+|---|---|---|---|---|---|
+| pooled | 94.7% | 0.2% | 4.0% | 4.0% | 1.1% |
+| ball-kokotajlo-ai-governance | 95.0% | 0.2% | 3.7% | 3.7% | 1.1% |
+| belief-in-god | 94.5% | 0.1% | 4.4% | 4.4% | 1.0% |
+| open-source-ai | 94.5% | 0.3% | 4.0% | 4.0% | 1.2% |
+
+### call (mono-live results: one mixed channel, voice only)
+
+Wrong auto-accepted share by threshold, pooled: 0.85: 0.2%, 0.88: 0.2%, 0.9: 0.2%, 0.92: 0.2%, 0.95: 0.2%, 0.97: 0.2%, 0.99: 0.2%.
+
+#### call
+
+Fixtures: ball-kokotajlo-ai-governance (5 min), belief-in-god (5 min), open-source-ai (5 min). Chosen threshold 0.85.
+
+| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
+|---|---|---|---|---|---|
+| pooled | 73.0% | 0.2% | 24.4% | 17.9% | 2.4% |
+| ball-kokotajlo-ai-governance | 96.2% | 0.7% | 0.0% | 0.0% | 3.1% |
+| belief-in-god | 59.0% | 0.0% | 38.0% | 34.4% | 3.0% |
+| open-source-ai | 63.8% | 0.0% | 35.1% | 19.4% | 1.1% |
+
+### room (mono-live results: the same code path as call (channels {} and voice only))
+
+Wrong auto-accepted share by threshold, pooled: 0.85: 0.2%, 0.88: 0.2%, 0.9: 0.2%, 0.92: 0.2%, 0.95: 0.2%, 0.97: 0.2%, 0.99: 0.2%.
+
+#### room
+
+Fixtures: ball-kokotajlo-ai-governance (5 min), belief-in-god (5 min), open-source-ai (5 min). Chosen threshold 0.85.
+
+| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
+|---|---|---|---|---|---|
+| pooled | 73.0% | 0.2% | 24.4% | 17.9% | 2.4% |
+| ball-kokotajlo-ai-governance | 96.2% | 0.7% | 0.0% | 0.0% | 3.1% |
+| belief-in-god | 59.0% | 0.0% | 38.0% | 34.4% | 3.0% |
+| open-source-ai | 63.8% | 0.0% | 35.1% | 19.4% | 1.1% |
+
+### recording (mono-recording results (diarized clusters named by the host))
+
+Wrong auto-accepted share by threshold, pooled: 0.85: 0.0%, 0.88: 0.0%, 0.9: 0.0%, 0.92: 0.0%, 0.95: 0.0%, 0.97: 0.0%, 0.99: 0.0%.
+
+#### recording
+
+Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-source-ai (20 min). Chosen threshold 0.85.
+
+| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
+|---|---|---|---|---|---|
+| pooled | 75.2% | 0.0% | 20.2% | 20.2% | 4.6% |
+| ball-kokotajlo-ai-governance | 91.8% | 0.0% | 3.9% | 3.9% | 4.3% |
+| belief-in-god | 68.4% | 0.1% | 26.5% | 26.5% | 5.1% |
+| open-source-ai | 65.4% | 0.0% | 30.3% | 30.3% | 4.4% |
+
+### tracks results, for reference only (isolated mics, silent between turns)
+
+#### tracks (clean)
+
+Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-source-ai (20 min). Chosen threshold 0.85.
+
+| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
+|---|---|---|---|---|---|
+| pooled | 97.0% | 0.1% | 1.8% | 1.8% | 1.1% |
+| ball-kokotajlo-ai-governance | 98.8% | 0.1% | 0.0% | 0.0% | 1.1% |
+| belief-in-god | 95.5% | 0.1% | 3.5% | 3.5% | 1.0% |
+| open-source-ai | 96.9% | 0.1% | 1.8% | 1.8% | 1.2% |

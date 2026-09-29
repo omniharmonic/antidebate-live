@@ -1,0 +1,18 @@
+{
+  "tracks": {
+    "threshold": 0.85,
+    "hostConfirmsAll": false
+  },
+  "call": {
+    "threshold": 0.85,
+    "hostConfirmsAll": false
+  },
+  "room": {
+    "threshold": 0.85,
+    "hostConfirmsAll": false
+  },
+  "recording": {
+    "threshold": 0.85,
+    "hostConfirmsAll": false
+  }
+}
