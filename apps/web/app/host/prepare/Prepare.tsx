@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AsrClient, readiness } from '@/lib/asr/client';
+import { DiarizeClient } from '@/lib/diarize/client';
 
 type Status = 'ready' | 'attention' | 'progress' | 'waiting';
 type ModelState = { kind: 'idle' } | { kind: 'loading'; fileNumber: number; bytes: number } | { kind: 'ready' } | { kind: 'error' };
@@ -24,14 +25,20 @@ function Row({ n, title, status, children }: { n: number; title: string; status:
 
 const button = 'min-h-11 rounded border border-border-2 px-4 text-[15px] text-ink hover:bg-field-deep disabled:opacity-50';
 
-/**
- * Row 4 of the checklist. The speaker-separation bundle arrives with DiarizeClient;
- * until then this row says so plainly and does not count toward "ready".
- */
-function SpeakerSeparationRow({ n }: { n: number }) {
+type SeparationState = { kind: 'idle' } | { kind: 'loading' } | { kind: 'ready' } | { kind: 'error'; message: string };
+
+/** Row 4 of the checklist: the speaker-separation bundle (about 58 MB, cached by the browser after the first load). */
+function SpeakerSeparationRow({ n, state, onLoad, disabled }: { n: number; state: SeparationState; onLoad: () => void; disabled: boolean }) {
+  const status: Status = state.kind === 'ready' ? 'ready' : state.kind === 'loading' ? 'progress' : state.kind === 'error' ? 'attention' : 'waiting';
   return (
-    <Row n={n} title="Speaker separation" status="waiting">
-      <p>Not available in this version yet. Recordings are transcribed without splitting speakers.</p>
+    <Row n={n} title="Speaker separation" status={status}>
+      {state.kind === 'ready' && <p>Speaker separation is loaded. Single-file recordings are split by voice on this laptop.</p>}
+      {state.kind === 'idle' && <p>Splits a single-file recording into voices so you can name each one. It runs inside this browser.</p>}
+      {state.kind === 'loading' && <p>Loading speaker separation (about 58 MB). This can take a minute.</p>}
+      {state.kind === 'error' && <p role="alert">{state.message}</p>}
+      {(state.kind === 'idle' || state.kind === 'error') && (
+        <button className={button} disabled={disabled} onClick={onLoad}>{state.kind === 'error' ? 'Try again' : 'Load speaker separation'}</button>
+      )}
     </Row>
   );
 }
@@ -40,7 +47,10 @@ export function Prepare() {
   const [browserOk, setBrowserOk] = useState<boolean | null>(null);
   const [model, setModel] = useState<ModelState>({ kind: 'idle' });
   const [speed, setSpeed] = useState<SpeedState>({ kind: 'idle' });
+  const [separation, setSeparation] = useState<SeparationState>({ kind: 'idle' });
   const client = useRef<AsrClient | null>(null);
+  const diarizer = useRef<DiarizeClient | null>(null);
+  const separating = useRef(false);
   const loading = useRef(false);
   const alive = useRef(false);
   const [preparedOn, setPreparedOn] = useState<string | null>(null);
@@ -73,8 +83,25 @@ export function Prepare() {
       // Files already stored on this laptop load without a download.
       if (r.browserOk && r.modelCached) void loadModel();
     });
-    return () => { live = false; alive.current = false; client.current?.terminate(); client.current = null; };
+    return () => { live = false; alive.current = false; client.current?.terminate(); client.current = null; diarizer.current?.terminate(); diarizer.current = null; };
   }, [loadModel]);
+
+  const loadSeparation = useCallback(async () => {
+    if (separating.current) return;
+    separating.current = true;
+    setSeparation({ kind: 'loading' });
+    try {
+      const d = await DiarizeClient.load();
+      if (!alive.current) { d.terminate(); return; }
+      diarizer.current?.terminate();
+      diarizer.current = d;
+      setSeparation({ kind: 'ready' });
+    } catch (err) {
+      if (alive.current) setSeparation({ kind: 'error', message: err instanceof Error ? err.message : 'Speaker separation did not load.' });
+    } finally {
+      separating.current = false;
+    }
+  }, []);
 
   const runSpeed = async () => {
     if (!client.current) return;
@@ -87,8 +114,7 @@ export function Prepare() {
     }
   };
 
-  // Rows 1 to 3 count toward "ready". Row 4 joins them when speaker separation ships.
-  const allReady = browserOk === true && model.kind === 'ready' && speed.kind === 'done';
+  const allReady = browserOk === true && model.kind === 'ready' && speed.kind === 'done' && separation.kind === 'ready';
   const markedReady = useRef(false);
   useEffect(() => {
     if (!allReady || markedReady.current) return;
@@ -143,7 +169,7 @@ export function Prepare() {
           )}
         </Row>
 
-        <SpeakerSeparationRow n={4} />
+        <SpeakerSeparationRow n={4} state={separation} onLoad={() => void loadSeparation()} disabled={browserOk !== true} />
       </ol>
 
       {(allReady || (preparedOn !== null && browserOk === true)) && (

@@ -1,0 +1,39 @@
+export type SpeakerSegment = { startMs: number; endMs: number; label: string; confidence: number };
+
+type Reply = { ok: boolean; segments?: SpeakerSegment[]; error?: string };
+
+export class DiarizeClient {
+  private seq = 0;
+  private waiting = new Map<number, (r: Reply) => void>();
+  private constructor(private readonly worker: Worker) {}
+  static load(): Promise<DiarizeClient> {
+    const w = new Worker('/sherpa/diarize-worker.js');
+    const c = new DiarizeClient(w);
+    return new Promise((resolve, reject) => {
+      const fail = (err: Error) => { clearTimeout(t); w.terminate(); reject(err); };
+      const t = setTimeout(() => fail(new Error('Speaker separation did not load. Reload the page and try again.')), 120_000);
+      w.onmessage = (e: MessageEvent<{ ready?: boolean }>) => {
+        if (e.data.ready) {
+          clearTimeout(t);
+          w.onmessage = (m: MessageEvent<Reply & { id: number }>) => {
+            c.waiting.get(m.data.id)?.(m.data);
+            c.waiting.delete(m.data.id);
+          };
+          resolve(c);
+        }
+      };
+      w.onerror = (e) => fail(new Error(e.message || 'Speaker separation could not start.'));
+    });
+  }
+  diarize(mono16k: Float32Array, numSpeakers: number | null): Promise<SpeakerSegment[]> {
+    const id = ++this.seq;
+    return new Promise((resolve, reject) => {
+      this.waiting.set(id, (r) => (r.ok ? resolve(r.segments ?? []) : reject(new Error(r.error ?? 'speaker separation failed'))));
+      this.worker.postMessage({ id, samples: mono16k, numSpeakers });
+    });
+  }
+  terminate() {
+    this.worker.terminate();
+    this.waiting.clear();
+  }
+}
