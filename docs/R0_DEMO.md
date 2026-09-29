@@ -102,3 +102,8 @@ Ctrl-C the worker to close the session. Rerun it with `--live --session <id>` an
 
 ### Costs (measured 2026-09-28)
 About $1.6 per 11 minutes of two-person debate (L1+L2 per turn, L3+L4 every ~4 turns), or ~$12–15 for a 90-minute event.
+
+### Event-day checklist (added 2026-09-29)
+- Neon: set the compute's autosuspend to "never" for the event window (cold start ~5 s otherwise), then back after.
+- Warm the deployment and database: open the cockpit and console once 15 minutes before doors.
+- Operator key: open `/?key=<OPERATOR_KEY>` once on the console laptop; the cockpit iPad needs no key (read-only).

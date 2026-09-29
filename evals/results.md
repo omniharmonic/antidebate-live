@@ -15,6 +15,16 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-29 · End-to-end loop 1 (production, all sessions)
+
+- **Browser sweep** (Playwright against https://antidebate-live.vercel.app): 6 sessions × 5 views (spatial, timeline, positions, cockpit, console) all render with **0 console errors**. Warm loads are 0.6–1.6 s; a cold first load is ~5 s (Vercel function + Neon waking). Fix for the day: Neon autosuspend off and a warm-up request before doors open; the cockpit should say it is connecting, not only show empty quadrants (it does show "Connecting").
+- **SSE catch-up:** Neon reads went from 500 to 3000 events per query (a 5k-event session now loads in 2 round trips instead of ~10).
+- **UX pass** (Section direction) shipped: 4D Spatial explorer (Y stratum, X who holds it, Z first assertion; time dock with rounds), Positions lens, restyled Cockpit/Timeline/Console; existing routes kept (additive). Spatial holds ~120 fps at 478 propositions at 16× (dev).
+- **Cockpit, Dean × Daniel r2 at the Outro:** the crux shows both sides (Dean "via" his opposing claim); higher ground "Concentrated AI power is dangerous whether it sits in the government or in a few companies, so outside checks should be built fast"; the prompt asks both to sign "verification and auditing of the frontier labs now, so that a US–China agreement to slow down is possible later if the evidence calls for it". That covers verified synthesis items 1 and 2 in one question.
+- **Pending:** r3 (final pipeline) diagnostics and reference grading.
+
+---
+
 ## 2026-09-29 · Ingest 5: Open-Source AI (Stephanie Lepp hosting, Jenny Stefanotti moderating; Jeremy Nixon × Daniel Barcay) · open-source-ai-r1 · 2h16 · subscription, $0
 
 Round-3 code (convergence, card stability, l4 v0.2, l3 v0.3). 767 calls, $0 billed.
