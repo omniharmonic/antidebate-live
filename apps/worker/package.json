@@ -18,6 +18,7 @@
   "dependencies": {
     "@adl/core": "workspace:*",
     "@adl/db": "workspace:*",
+    "@adl/engine": "workspace:*",
     "@adl/llm": "workspace:*",
     "@adl/ontology": "workspace:*",
     "@adl/pipeline": "workspace:*",

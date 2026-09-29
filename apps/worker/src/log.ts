@@ -6,17 +6,11 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import type { DomainEvent } from '@adl/core';
 import { appendEvents, getDb, hasDb, readEvents, schema } from '@adl/db';
+import type { EventLog } from '@adl/engine';
 import type { LlmCallLog } from '@adl/llm';
 import { REPO_ROOT } from './sources';
 
-export interface EventLog {
-  readonly kind: 'db' | 'file';
-  readonly where: string;
-  append(events: DomainEvent[]): Promise<void>;
-  /** Events after `cursor`, in append order, and the new cursor. */
-  read(cursor: number): Promise<{ cursor: number; events: DomainEvent[] }>;
-  logCall(log: LlmCallLog): Promise<void>;
-}
+export type { EventLog };
 
 /** Dollars billed to the API for this call: 0 on the subscription provider and for cache hits. */
 export const callCostUsd = (l: LlmCallLog) => l.billedUsd;

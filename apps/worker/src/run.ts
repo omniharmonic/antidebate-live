@@ -15,7 +15,7 @@ import { parseArgs } from 'node:util';
 import { config } from 'dotenv';
 import type { DomainEvent } from '@adl/core';
 import { provider } from '@adl/llm';
-import { SessionEngine } from './engine';
+import { SessionEngine } from '@adl/engine';
 import { callCostUsd, openLog } from './log';
 import { fixtureMeta, loadFixture, REPO_ROOT } from './sources';
 

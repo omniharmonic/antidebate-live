@@ -21,7 +21,7 @@ import {
   type PreviousCards,
   type Turn,
 } from '@adl/pipeline';
-import type { EventLog } from './log';
+import type { EventLog } from './types';
 
 export interface EngineOptions {
   sessionId: string;
@@ -33,6 +33,8 @@ export interface EngineOptions {
   insightEveryMs?: number;
   pollMs?: number;
   onCall?: (l: LlmCallLog) => void;
+  /** Called once per loop tick. */
+  onProgress?: (p: { processedMediaMs: number; queued: number; insightRunning: boolean }) => void;
   say?: (line: string) => void;
 }
 
@@ -60,7 +62,7 @@ export class SessionEngine {
   private previous: PreviousCards = {};
   private previousShared = '';
   private recentCards: { cruxPropositionId?: string; cruxHistory: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] } = { cruxHistory: [], higherGround: [], prompts: [] };
-  private readonly opts: Required<Omit<EngineOptions, 'onCall' | 'say'>> & Pick<EngineOptions, 'onCall' | 'say'>;
+  private readonly opts: Required<Omit<EngineOptions, 'onCall' | 'onProgress' | 'say'>> & Pick<EngineOptions, 'onCall' | 'onProgress' | 'say'>;
 
   constructor(opts: EngineOptions) {
     this.opts = { silenceMs: 3500, insightEveryTurns: 6, insightEveryMs: 240_000, pollMs: 400, ...opts };
@@ -308,6 +310,7 @@ export class SessionEngine {
         await this.append([{ eventId: `${this.opts.sessionId}:end`, sessionId: this.opts.sessionId, type: 'session.ended', actor: 'system', mediaMs: this.state.lastMediaMs, wallTs: now(), payload: {} }]);
         break;
       }
+      this.opts.onProgress?.({ processedMediaMs: this.processedMediaMs, queued: this.queue.length, insightRunning: Boolean(this.insightRunning) });
       await new Promise((r) => setTimeout(r, this.opts.pollMs));
     }
   }
