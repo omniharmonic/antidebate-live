@@ -34,3 +34,5 @@ fixtures/antidebate/**/transcript.utterances.json
 # sherpa-onnx diarization bundle is fetched at dev/build time; only our worker is committed
 apps/web/public/sherpa/*
 !apps/web/public/sherpa/diarize-worker.js
+test-results/
+playwright-report/

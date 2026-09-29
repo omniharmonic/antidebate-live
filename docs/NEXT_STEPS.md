@@ -17,6 +17,8 @@ Ordered by the critical path in [IMPLEMENTATION_PLAN §4](./IMPLEMENTATION_PLAN.
    - **Additive only (Benjamin, 2026-09-28):** the 4D view is an *additional* view. Keep the existing timeline/arc, cockpit and console views; improve them, never remove or replace them.
 3. [x] **Comprehensive end-to-end testing loop(s)** (loops 1–3 done: production sweep 30/30 views, catch-up and time-clamp fixes, crux hysteresis, round guard, L1 v0.5, all recordings rerun on the final pipeline, higher-ground recall 4/4 on Ball × Kokotajlo; loop 4: r4 with L1 v0.5; loop 5: crux persistence verified on r5; loop 6: every recording rerun on the final pipeline) across ALL ingested sessions and their results, for high-quality multi-dimensional insights and stunning visualizations. Several evaluate → fix → re-verify iterations: rerun sessions with the final pipeline, check every surface (cockpit, arc, 4D, console) on every session in a browser, and grade insight quality against the references. Only then wrap the session.
 
+**Host onboarding (Plan 1, 2026-09-29):** hosts sign in at `/host`, connect their own Anthropic key, prepare the laptop, and process a recording in the tab (voice naming, resume, spend estimate). Guide: [HOSTING.md](./HOSTING.md). Still to do: set `HOST_PASSWORD` and `HOST_SIGNING_SECRET` on Vercel, deploy a preview and check it, then live capture from the browser (Plan 2).
+
 **Next (needs Benjamin):** send Stephanie https://antidebate.xyz/s/ball-kokotajlo-r5/spatial when ready; a two-mic room test of `live.py` (runbook C); human gold-set annotation (QUALITY §2); Neon autosuspend off for the event day.
 
 ## A. In a LOCAL Claude Code session (needs network access the cloud container lacks)

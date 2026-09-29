@@ -34,4 +34,6 @@ Live: **https://antidebate.xyz** (also antidebate-live.vercel.app; Neon event lo
 | Capture | Offline (FluidAudio) ✅; live loop `live.py` (per-person mics → Parakeet) tested on synthetic and recorded audio; **not yet tried with real mics** |
 | Evals | Hand-graded runs and diagnostics; human gold sets still to build |
 
+Hosts can sign in at `/host` to process a recording in their own browser with their own Anthropic key (see `docs/HOSTING.md`); live capture from the browser is next.
+
 See `docs/NEXT_STEPS.md` §0 and `docs/R0_DEMO.md` (runbook).

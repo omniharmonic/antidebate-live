@@ -107,3 +107,4 @@ About $1.6 per 11 minutes of two-person debate (L1+L2 per turn, L3+L4 every ~4 t
 - Neon: set the compute's autosuspend to "never" for the event window (cold start ~5 s otherwise), then back after.
 - Warm the deployment and database: open the cockpit and console once 15 minutes before doors.
 - Operator key: open `/?key=<OPERATOR_KEY>` once on the console laptop; the cockpit iPad needs no key (read-only).
+- Hosts (Stephanie, Liv): sign in at `/host`, connect an Anthropic key with $25 of credit, and run **Prepare this laptop** on the event laptop the day before, on good Wi-Fi. See [HOSTING.md](./HOSTING.md). Live capture from the browser is not in this flow yet.
