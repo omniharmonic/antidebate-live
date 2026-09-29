@@ -32,15 +32,27 @@ importers:
       '@adl/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@adl/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@adl/graph':
         specifier: workspace:*
         version: link:../../packages/graph
+      '@adl/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
       '@adl/ontology':
         specifier: workspace:*
         version: link:../../packages/ontology
+      '@adl/pipeline':
+        specifier: workspace:*
+        version: link:../../packages/pipeline
       '@adl/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@anthropic-ai/sdk':
+        specifier: ^0.129.0
+        version: 0.129.0(zod@4.6.5)
       '@react-three/fiber':
         specifier: 9.8.1
         version: 9.8.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(three@0.186.1)
