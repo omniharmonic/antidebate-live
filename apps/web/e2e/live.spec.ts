@@ -54,3 +54,15 @@ test('a live session opened where it was not started gets the live view, and its
   await expect(page.getByRole('link', { name: 'Open the map' })).toHaveAttribute('target', '_blank');
   await expect(page.getByRole('link', { name: 'Open the cockpit' })).toHaveAttribute('target', '_blank');
 });
+
+test('the key page opened from a live session saves the key and sends the host back to that tab', async ({ page, context }) => {
+  await context.addCookies([{ name: 'adl_host', value: process.env.HOST_COOKIE!, url: base }]);
+  // Answer the key check locally: no request reaches Anthropic.
+  await page.route('https://api.anthropic.com/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: [], has_more: false, first_id: null, last_id: null }) }));
+  await page.goto('/host/key?from=live&next=%2Fhost%2Fs%2Fx');
+  await page.getByLabel('Anthropic API key').fill('sk-ant-e2e-test');
+  await page.getByRole('button', { name: 'Check and save' }).click();
+  await expect(page.getByText('Key saved. Return to your session tab.')).toBeVisible();
+  await expect(page).toHaveURL(/\/host\/key\?from=live/);
+  expect(await page.evaluate(() => localStorage.getItem('adl.anthropicKey'))).toBe('sk-ant-e2e-test');
+});
