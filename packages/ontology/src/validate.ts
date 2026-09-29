@@ -17,6 +17,7 @@ export type ValidationCode =
   | 'scope_widened'
   | 'non_attributable_stance'
   | 'non_committing_stance'
+  | 'rhetorical_overcommitted'
   | 'attribution_pending';
 
 export interface ValidationIssue {
@@ -129,10 +130,24 @@ export function validateCommittingAct(adu: Adu, stance: Stance): ValidationIssue
   return [];
 }
 
+/** A rhetorical question commits only to its implied statement: implied_by_act, at most leaning (§2.2). */
+export function validateRhetorical(adu: Adu, stance: Stance): ValidationIssue[] {
+  if (adu.speechAct !== 'rhetorical_question' || stance.participantKey !== adu.speakerKey) return [];
+  if (stance.source !== 'implied_by_act' || STRENGTH_RANK[stance.strength] > STRENGTH_RANK.leaning) {
+    return [{ code: 'rhetorical_overcommitted', message: `Implied statement must be implied_by_act at ≤ leaning (got ${stance.source}/${stance.strength})` }];
+  }
+  return [];
+}
+
 /** Checks on a stance alone: used when it attaches to an existing proposition from the index. */
 export function validateStance(adu: Adu, stance: Stance): ValidationIssue[] {
   const spanText = adu.spans.map((s) => s.quote).join(' … ');
-  return [...validateHedge(spanText, stance.strength), ...validateSpeechActStance(adu, stance), ...validateCommittingAct(adu, stance)];
+  return [
+    ...validateHedge(spanText, stance.strength),
+    ...validateSpeechActStance(adu, stance),
+    ...validateCommittingAct(adu, stance),
+    ...validateRhetorical(adu, stance),
+  ];
 }
 
 /** Items from utterances whose attribution isn't confirmed are held (ARCHITECTURE §2.1). */

@@ -44,10 +44,12 @@ A contiguous stretch of speech by one attributed participant.
 ### 2.2 ADU — argumentative discourse unit
 The smallest span that performs one argumentative act.
 - `spans[]`: one or more {utteranceId, charStart, charEnd}. Discontinuous spans are allowed when a speaker completes a thought after an interruption.
-- `speechAct` ∈ {`assert`, `concede`, `retract`, `question`, `answer`, `hypothesize` ("suppose…"), `steelman_report` (stating the other's view as the other would), `attribute` (stating what someone else holds, not as a steelman), `challenge` (demanding a reason), `commit_conditional` ("if X I'd agree"), `meta` (about the debate itself), `nonliteral` (irony, joke, rhetorical question)}
+- `speechAct` ∈ {`assert`, `concede`, `retract`, `question`, `answer`, `hypothesize` ("suppose…"), `steelman_report` (stating the other's view as the other would), `attribute` (stating what someone else holds, not as a steelman), `challenge` (demanding a reason), `commit_conditional` ("if X I'd agree"), `meta` (about the debate itself), `rhetorical_question` (a question whose point is a statement: "Why wait decades to see it?" conveys "People need not wait decades to see it"), `nonliteral` (irony, joke, sarcasm)}
+
+**Rhetorical questions** (added 2026-09-28, Benjamin Life). The ADU keeps the question as spoken; the proposition is the *implied statement*. The speaker's stance on it has `source: implied_by_act` and strength at most `leaning`, and it is always displayed next to the original question so a reader can check the reading. If the implied statement isn't unmistakable, the ADU is `question` (a real question) or `nonliteral`, never a guess. Rhetorical questions don't enter the questions ledger.
 - `addressedTo`: participantId | audience | none
 
-Only `assert`, `concede`, `commit_conditional`, `hypothesize` (scoped) and `answer` change commitment stores (§6). `attribute` and `steelman_report` never assign the proposition to the speaker. That's the single most common extraction error in debate transcripts, so it's ruled out by construction.
+Only `assert`, `concede`, `commit_conditional`, `hypothesize` (scoped), `answer` and `rhetorical_question` (implied, capped at `leaning`) change commitment stores (§6). `attribute` and `steelman_report` never assign the proposition to the speaker. That's the single most common extraction error in debate transcripts, so it's ruled out by construction.
 
 ### 2.3 Proposition
 A speaker-independent, truth-apt (or norm-apt) content, stated canonically so that different speakers' stances can attach to the same object.
@@ -231,7 +233,7 @@ Every item records the prompt version, model, pass, critic verdict, operator act
 8.3 **Hedge preservation.** Hedge markers in the span ("I think", "probably", "maybe", "I'm not sure", "arguably") must map to stance strength. There is a closed lexicon plus critic review.
 8.4 **Scope preservation.** Quantifiers and domains may not be widened ("some labs" never becomes "labs").
 8.5 **Attribution by speech act.** Content of `attribute` or `steelman_report` acts is never assigned to the speaker (§2.2).
-8.6 **Irony and hypotheticals.** `nonliteral` and `hypothesize` content doesn't enter commitment stores. If unsure, the ADU is flagged for the operator and not committed.
+8.6 **Irony, hypotheticals and rhetorical questions.** `nonliteral` and `hypothesize` content doesn't enter commitment stores. A `rhetorical_question` enters only as its implied statement, `implied_by_act`, strength ≤ `leaning`, shown with the question. If unsure, the ADU is flagged for the operator and not committed.
 8.7 **Signability.** The critic asks: "Would the speaker sign this canonical sentence as a fair statement of what they asserted?" A fail blocks release.
 8.8 **Minimal inference.** Inferred items (presuppositions, schemes, senses) are allowed only when they pass their necessity or fit tests. They are always marked inferred.
 8.9 **Neutral register.** Canonical text avoids loaded paraphrase. The speaker's own loaded term is kept in quotes if it carries weight ("a 'cosmic conspiracy'").

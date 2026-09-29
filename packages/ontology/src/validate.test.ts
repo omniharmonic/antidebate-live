@@ -10,6 +10,7 @@ import {
   validateSpeechActStance,
   validateAttribution,
   validateCommittingAct,
+  validateRhetorical,
 } from './validate';
 
 const u: Utterance = {
@@ -119,5 +120,18 @@ describe('commitment guard (§2.2)', () => {
   it('allows concessions and answers', () => {
     expect(validateCommittingAct(adu('concede'), stance)).toEqual([]);
     expect(validateCommittingAct(adu('answer'), stance)).toEqual([]);
+  });
+});
+
+describe('rhetorical questions (§2.2)', () => {
+  const adu: Adu = { id: 'a1', speakerKey: 'B', spans: [{ utteranceId: 'u1', charStart: 0, charEnd: 7, quote: 'Why wait?' }], speechAct: 'rhetorical_question', addressedTo: 'none' };
+  const stance = (source: Stance['source'], strength: Stance['strength']): Stance => ({ id: 's', participantKey: 'B', propositionId: 'p', atMs: 0, attitude: 'accepts', strength, source });
+  it('allows the implied statement at leaning or below', () => {
+    expect(validateRhetorical(adu, stance('implied_by_act', 'leaning'))).toEqual([]);
+    expect(validateRhetorical(adu, stance('implied_by_act', 'tentative'))).toEqual([]);
+  });
+  it('blocks stated or confident commitments', () => {
+    expect(validateRhetorical(adu, stance('stated', 'leaning'))[0]?.code).toBe('rhetorical_overcommitted');
+    expect(validateRhetorical(adu, stance('implied_by_act', 'confident'))[0]?.code).toBe('rhetorical_overcommitted');
   });
 });

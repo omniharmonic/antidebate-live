@@ -14,7 +14,7 @@ import {
   Stratum,
 } from '@adl/ontology';
 
-export const L1_PROMPT_VERSION = 'l1-extract-v0.2';
+export const L1_PROMPT_VERSION = 'l1-extract-v0.3';
 
 export const L1Output = z.object({
   adus: z.array(
@@ -66,11 +66,11 @@ export const L1_INSTRUCTIONS = `You extract the argumentative structure of one t
 
 DEFINITIONS (binding)
 - ADU: the smallest span performing one argumentative act. Quote it exactly, character for character, from the turn text. Several quotes are allowed if the speaker resumes a thought after an interruption.
-- Speech acts: assert, concede, retract, question, answer, hypothesize ("suppose…"), steelman_report (stating the OTHER side's view as they would), attribute (reporting what someone else holds without adopting it), challenge (demanding a reason from the other side), commit_conditional ("if X, I'd agree"), meta (about the debate), nonliteral (irony, jokes, rhetorical questions). A rhetorical question is nonliteral even when its point is obvious. A hedged claim ("I have a feeling that…", "I worry that…") is an assert with a hedge, not a challenge. When the speaker cites an authority and explicitly adopts the view to make their own point ("as X showed, …", "X found that …, so …"), it is an assert; use attribute only when they report a view without adopting it.
+- Speech acts: assert, concede, retract, question, answer, hypothesize ("suppose…"), steelman_report (stating the OTHER side's view as they would), attribute (reporting what someone else holds without adopting it), challenge (demanding a reason from the other side), commit_conditional ("if X, I'd agree"), meta (about the debate), rhetorical_question (a question whose point is a statement), nonliteral (irony, jokes, sarcasm). For a rhetorical_question, quote the question as spoken and give the IMPLIED statement as the proposition ("Why wait decades to see it?" → "People need not wait decades to see it."), with strength at most leaning. Use it only when the implied statement is unmistakable; otherwise it is a question or nonliteral. A hedged claim ("I have a feeling that…", "I worry that…") is an assert with a hedge, not a challenge. When the speaker cites an authority and explicitly adopts the view to make their own point ("as X showed, …", "X found that …, so …"), it is an assert; use attribute only when they report a view without adopting it.
 - Proposition: speaker-independent content in one neutral declarative sentence. Speaker-independent means any participant could hold a stance on the same sentence: name people by their display name from PARTICIPANTS; never write "the speaker", "the listener", "I", "you" or "we" for a participant.
 - Polarity: only when the speaker NEGATES a claim, store the positive form and put the negation in the stance ("Labs should not be licensed" → proposition "Labs should be licensed", attitude "rejects"). When the speaker states something positively, the proposition is what they said, with attitude "accepts". Never construct a contrary claim for the speaker to reject.
 - Stance: the SPEAKER's attitude toward a proposition, with strength taken only from explicit hedges: "maybe/might/not sure" → tentative; "I think/probably/likely/I feel" → leaning; unhedged assertion → confident; certain ONLY with an explicit certainty marker ("certainly", "definitely", "no doubt", "100%"). "Always", "never" and "all" are scope, not certainty.
-- Only assert, concede, answer, commit_conditional and retract produce stances for the speaker. question, challenge, meta, hypothesize, attribute, steelman_report and nonliteral produce none.
+- Only assert, concede, answer, commit_conditional, retract and rhetorical_question (implied statement, at most leaning) produce stances for the speaker. question, challenge, meta, hypothesize, attribute, steelman_report and nonliteral produce none.
 - Credence: only when the speaker states a probability ("70%", "one in ten"). Otherwise null.
 
 RULES (violations make the output unusable)

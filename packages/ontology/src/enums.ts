@@ -17,6 +17,7 @@ export const SpeechAct = z.enum([
   'challenge',
   'commit_conditional',
   'meta',
+  'rhetorical_question',
   'nonliteral',
 ]);
 export type SpeechAct = z.infer<typeof SpeechAct>;
@@ -24,6 +25,7 @@ export type SpeechAct = z.infer<typeof SpeechAct>;
 /** Speech acts that may change the speaker's commitment store (§2.2, §6). */
 export const COMMITTING_ACTS = new Set<SpeechAct>([
   'assert',
+  'rhetorical_question',
   'concede',
   'retract',
   'commit_conditional',

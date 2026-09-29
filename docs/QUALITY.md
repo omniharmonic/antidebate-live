@@ -47,7 +47,7 @@ Four layers, each with its own measurement:
 | Faithfulness | Share of released propositions judged "the speaker would sign this" (blind human judgment) | **≥ 0.97** | ≥ 0.99 |
 | Hedge fidelity | Stance strength within one step of gold, and never stronger than gold | ≥ 0.95, 0 inflated by 2+ steps | ≥ 0.98 |
 | Scope fidelity | Quantifier and domain match gold | ≥ 0.95 | ≥ 0.98 |
-| Speech-act accuracy | On assert / concede / attribute / steelman_report / question / nonliteral | ≥ 0.92; attribute and steelman_report never committed to the speaker | ≥ 0.95 |
+| Speech-act accuracy | On assert / concede / attribute / steelman_report / question / rhetorical_question / nonliteral | ≥ 0.92; attribute and steelman_report never committed to the speaker | ≥ 0.95 |
 | Identity resolution F1 | `sameAs` merges versus gold | ≥ 0.85 | ≥ 0.92 |
 | Relation F1 | By type; rebut/undercut/undermine reported separately | ≥ 0.75 overall | ≥ 0.85 |
 | Presupposition necessity | Share of inferred presuppositions that annotators judge necessary | ≥ 0.85 | ≥ 0.92 |
@@ -83,7 +83,7 @@ Four layers, each with its own measurement:
 - Double negatives and scope traps ("Not all regulation is bad" ≠ "Regulation is good").
 - Mid-sentence interruption and completion after crosstalk → discontinuous spans.
 - The same word in two senses within one speaker's turn.
-- Rhetorical questions → `nonliteral`; they don't enter the questions ledger.
+- Rhetorical questions → `rhetorical_question` with the implied statement at ≤ `leaning`, shown beside the question; they don't enter the questions ledger. Genuine questions phrased pointedly stay `question`.
 - Concessions buried in "yes, but" → a concession plus a qualification, both recorded.
 - Loaded terms → kept quoted in spans, neutral in canonical text.
 - A speaker retracting ("Actually, I take that back") → a `retract` event and a store update.

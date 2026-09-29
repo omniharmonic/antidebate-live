@@ -94,7 +94,7 @@ export function mapL1Output(turn: Turn, out: L1Output, ctx: L1Context): DomainEv
       attitude: s.attitude,
       strength: s.strength,
       ...(s.credence !== null ? { credence: s.credence } : {}),
-      source: adu.speechAct === 'concede' ? 'implied_by_act' : 'stated',
+      source: adu.speechAct === 'concede' || adu.speechAct === 'rhetorical_question' ? 'implied_by_act' : 'stated',
     };
     events.push({ ...base, eventId: `${stance.id}:proposed`, type: 'stance.proposed', wallTs: wall, payload: { stance } });
     const prop = props.get(pid);
