@@ -32,7 +32,6 @@ export class EnergyVad {
   private readonly marginDb: number;
   private readonly history: number[] = [];
   private frames: Float32Array[] = [];
-  private dbs: number[] = [];
   private startMs = 0;
   private speechMs = 0;
   private silenceMs = 0;
@@ -48,20 +47,10 @@ export class EnergyVad {
 
   push(frame: Float32Array, atMs: number): Utterance | null {
     const db = rmsDb(frame);
-    const cap = Math.round(FLOOR_WINDOW_MS / this.frameMs);
-    const floorOf = (): number => {
-      const sorted = [...this.history].sort((a, b) => a - b);
-      return sorted[Math.floor((sorted.length - 1) * 0.1)]!;
-    };
-    if (!this.open) this.history.push(db);
-    if (this.history.length > cap) this.history.shift();
-    const floor = floorOf();
-    // While an utterance is open, frames enter the history clamped to floor + margin: a long
-    // monologue cannot drag the floor up, but a sustained noise rise can creep it up.
-    if (this.open) {
-      this.history.push(Math.min(db, floor + this.marginDb));
-      if (this.history.length > cap) this.history.shift();
-    }
+    this.history.push(db);
+    if (this.history.length > Math.round(FLOOR_WINDOW_MS / this.frameMs)) this.history.shift();
+    const sorted = [...this.history].sort((a, b) => a - b);
+    const floor = sorted[Math.floor((sorted.length - 1) * 0.1)]!;
     const speech = db > floor + this.marginDb;
 
     if (!this.open) {
@@ -71,10 +60,8 @@ export class EnergyVad {
       this.speechMs = 0;
       this.silenceMs = 0;
       this.frames = [];
-      this.dbs = [];
     }
     this.frames.push(frame);
-    this.dbs.push(db);
     if (speech) {
       this.speechMs += this.frameMs;
       this.silenceMs = 0;
@@ -85,9 +72,6 @@ export class EnergyVad {
     const endMs = atMs + this.frameMs;
     if (this.silenceMs >= this.hangoverMs) return this.close(endMs);
     if (endMs - this.startMs >= this.maxUtteranceMs) {
-      // Seed the floor with the last ~2 s so a sustained noise rise is not reopened as speech.
-      this.history.length = 0;
-      this.history.push(...this.dbs.slice(-Math.round(2000 / this.frameMs)));
       return this.close(endMs);
     }
     return null;

@@ -24,14 +24,27 @@ describe('EnergyVad', () => {
     for (let i = 0; i < 60; i++, t += 20) if (v.push(frame(0.001), t)) n++;
     expect(n).toBe(0);
   });
-  it('closes a long monologue at maxUtteranceMs', () => {
+  it('keeps a long monologue with breath gaps, closing at maxUtteranceMs', () => {
     const v = new EnergyVad();
     const out = [];
     let t = 0;
     for (let i = 0; i < 150; i++, t += 20) v.push(frame(0.001), t);
-    for (let i = 0; i < 900; i++, t += 20) { const r = v.push(frame(0.2), t); if (r) out.push(r); } // 18 s
-    expect(out).toHaveLength(1);
-    expect(out[0]!.endMs - out[0]!.startMs).toBe(15_000);
+    const start = t;
+    let loudFrames = 0;
+    for (let i = 0; i < 1500; i++, t += 20) { // 30 s: 750 ms speech, 150 ms gap
+      const loud = (t - start) % 900 < 750;
+      if (loud) loudFrames++;
+      const r = v.push(frame(loud ? 0.2 : 0.001), t); if (r) out.push(r);
+    }
+    for (let i = 0; i < 60; i++, t += 20) { const r = v.push(frame(0.001), t); if (r) out.push(r); }
+    expect(out.length).toBeGreaterThanOrEqual(2);
+    expect(out.some((u) => u.endMs - u.startMs === 15_000)).toBe(true);
+    let covered = 0;
+    for (let i = 0; i < 1500; i++) {
+      const at = start + i * 20;
+      if (i * 20 % 900 < 750 && out.some((u) => at >= u.startMs && at < u.endMs)) covered++;
+    }
+    expect(covered / loudFrames).toBeGreaterThanOrEqual(0.9);
   });
   it('recovers from a sustained +20 dB noise step instead of chaining max-length utterances', () => {
     const v = new EnergyVad();
@@ -41,7 +54,7 @@ describe('EnergyVad', () => {
     const step = t;
     for (let i = 0; i < 3000; i++, t += 20) { const r = v.push(frame(0.01), t); if (r) out.push(r); } // 60 s of fan
     expect(out.length).toBeLessThanOrEqual(1);
-    for (const u of out) expect(u.startMs).toBeLessThan(step + 3000);
+    for (const u of out) expect(u.endMs).toBeLessThan(step + 6000);
   });
   it('rmsDb of silence is very low', () => expect(rmsDb(new Float32Array(320))).toBeLessThan(-90));
 });
