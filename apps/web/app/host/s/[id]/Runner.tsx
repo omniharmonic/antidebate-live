@@ -48,7 +48,7 @@ export function Runner({ id }: { id: string }) {
   const [naming, setNaming] = useState<NamingRequest | null>(null);
   const [pending, setPending] = useState(0);
   const [spend, setSpend] = useState(0);
-  const [failed, setFailed] = useState(0);
+  const [unanswered, setUnanswered] = useState(0);
   const [pickError, setPickError] = useState<string | null>(null);
   const running = useRef(false);
 
@@ -68,7 +68,7 @@ export function Runner({ id }: { id: string }) {
         onNaming: setNaming,
         onPending: setPending,
         onSpend: (usd) => setSpend((x) => x + usd),
-        onFailedCall: () => setFailed((n) => n + 1),
+        onUnanswered: () => setUnanswered((n) => n + 1),
       });
     } catch (err) {
       setStage({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
@@ -140,7 +140,7 @@ export function Runner({ id }: { id: string }) {
         )}
         {(stage?.kind === 'done' || (!stage && entry?.done)) && <DoneLinks id={id} />}
 
-        {failed > 0 && <p className="text-[15px] text-ink-2">Analysis delayed: Anthropic did not answer {failed} {failed === 1 ? 'time' : 'times'}. Turns without an answer stay off the map.</p>}
+        {unanswered > 0 && <p className="text-[15px] text-ink-2">{unanswered} analysis {unanswered === 1 ? 'request' : 'requests'} did not get an answer; those turns stay off the map.</p>}
         {pending > 0 && <p className="text-[15px] text-ink-2">{pending} {pending === 1 ? 'event' : 'events'} waiting to upload</p>}
         {spend > 0 && <p className="text-sm text-ink-3">Estimated spend: ${spend.toFixed(2)}</p>}
         {active && <p className="text-sm text-ink-3">{PAUSE_NOTE} Nothing that has finished is lost.</p>}

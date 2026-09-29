@@ -40,7 +40,7 @@ export async function runRecording(o: {
   sessionId: string;
   file: File;
   asr: { transcribe(pcm: Float32Array, offsetMs: number): Promise<Word[]> };
-  checkpoint: Pick<Checkpoint, 'outbox' | 'getChunk' | 'putChunk' | 'getMeta' | 'putMeta'>;
+  checkpoint: Pick<Checkpoint, 'outbox' | 'getChunk' | 'putChunk' | 'clearChunks' | 'getMeta' | 'putMeta'>;
   onStage: (s: Stage) => void;
   /** Speaker separation and the host's naming. Not called when the checkpoint already has a voice map for this file. */
   voices?: {
@@ -69,6 +69,8 @@ export async function runRecording(o: {
       const start = known.find((e) => e.type === 'session.started');
       if (start?.type !== 'session.started') throw new Error('This session was not found on the server.');
       const participants = start.payload.participants.filter((p) => p.role !== 'audience');
+      // Chunks saved for another file would be merged into this one's transcript.
+      if (meta) await o.checkpoint.clearChunks();
       o.onStage({ kind: 'separating' });
       const segments = await o.voices.separate(mono, participants.length || null);
       o.onStage({ kind: 'naming', segments });

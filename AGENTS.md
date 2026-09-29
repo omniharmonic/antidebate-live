@@ -54,6 +54,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 <!-- END:nextjs-agent-rules -->
 
 In this monorepo the docs are at `apps/web/node_modules/next/dist/docs/`. Known here: route `params`/`searchParams` are Promises; workspace packages are transpiled automatically by Turbopack; `middleware` is now `proxy` (see `03-api-reference/03-file-conventions/proxy.md`).
+apps/web aliases @adl/llm to its browser entry (next.config.ts); never run LLM passes from apps/web server code — they run in the host's tab or the worker.
 
 ## Conventions
 - TypeScript strict, ESM, `verbatimModuleSyntax` (use `import type`).

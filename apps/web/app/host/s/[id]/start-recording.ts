@@ -9,6 +9,7 @@ import { AsrClient } from '@/lib/asr/client';
 import { DiarizeClient } from '@/lib/diarize/client';
 import { idbCheckpoint } from '@/lib/recording/checkpoint';
 import { runRecording, type Participant, type Stage } from '@/lib/recording/pipeline';
+import { unansweredRequest } from '@/lib/recording/unanswered';
 import type { SpeakerSegment } from '@/lib/diarize/client';
 
 export type NamingRequest = { segments: SpeakerSegment[]; mono: Float32Array; participants: Participant[]; resolve: (voiceMap: Record<string, string | null>) => void };
@@ -19,7 +20,7 @@ export type RunCallbacks = {
   onNaming: (r: NamingRequest) => void;
   onPending: (n: number) => void;
   onSpend: (usd: number) => void;
-  onFailedCall: () => void;
+  onUnanswered: () => void;
 };
 
 async function sessionToken(sessionId: string): Promise<string> {
@@ -28,9 +29,6 @@ async function sessionToken(sessionId: string): Promise<string> {
   if (!res.ok || !body.token) throw new Error(body.error ?? `Could not open this session (${res.status})`);
   return body.token;
 }
-
-/** A failed analysis step, as the engine reports it (see SessionEngine.say). */
-const FAILED = /^(L1|L2) |^(L3|L4): |failed/;
 
 export async function startRecording(sessionId: string, file: File, cb: RunCallbacks): Promise<void> {
   const key = getKey();
@@ -71,7 +69,7 @@ export async function startRecording(sessionId: string, file: File, cb: RunCallb
             silenceMs: 0,
             onCall: (l) => cb.onSpend(l.billedUsd),
             onProgress: (p) => cb.onStage({ kind: 'analysing', processedMs: p.processedMediaMs, totalMs }),
-            say: (line) => { if (FAILED.test(line)) cb.onFailedCall(); },
+            say: (line) => { if (unansweredRequest(line)) cb.onUnanswered(); },
           });
           engine.finishSource();
           return engine.run();

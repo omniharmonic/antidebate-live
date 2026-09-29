@@ -24,6 +24,7 @@ function memCheckpoint(done: number[], meta: RecordingMeta | null) {
     putChunk: async (i: number, w: Word[]) => void chunks.set(i, w),
     getMeta: async () => m,
     putMeta: async (x: RecordingMeta) => void (m = x),
+    clearChunks: async () => chunks.clear(),
     get meta() { return m; },
   };
 }
@@ -92,6 +93,18 @@ describe('runRecording', () => {
     expect(name.mock.calls[0]![2]).toHaveLength(3);
     expect(stages.slice(0, 4)).toEqual(['decoding', 'separating', 'naming', 'transcribing']);
     expect(cp.meta).toMatchObject({ fileName: 'talk.mp4', fileSize: 3, durationMs: 30_000, voiceMap: { S0: 'A' } });
+  });
+
+  it('a different file discards the old transcript chunks before starting again', async () => {
+    decoded.durationMs = 100_000; // two chunks
+    const cp = memCheckpoint([0, 1], { ...oneVoice(100_000), fileName: 'old.mp4', fileSize: 99 });
+    const transcribe = vi.fn(async () => []);
+    const { log } = recordingLog([started]);
+    const stages: Stage['kind'][] = [];
+    await runRecording({ sessionId: 's', file: new File([new Uint8Array(3)], 'new.mp4'), asr: { transcribe }, checkpoint: cp, onStage: (s) => stages.push(s.kind), voices: { separate: async () => [], name: async () => ({}) }, engine: { start: async () => {} }, makeLog: () => log });
+    expect(stages.at(-1)).toBe('done');
+    expect(transcribe).toHaveBeenCalledTimes(2);
+    expect(cp.meta).toMatchObject({ fileName: 'new.mp4', fileSize: 3 });
   });
 
   it('a session that already ended goes straight to done', async () => {

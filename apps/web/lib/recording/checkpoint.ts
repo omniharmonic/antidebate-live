@@ -36,6 +36,16 @@ async function put(db: IDBDatabase, key: string, value: unknown): Promise<void> 
   });
 }
 
+/** Deletes every transcribed chunk (the recording changed). */
+async function clearChunks(db: IDBDatabase): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const t = db.transaction('kv', 'readwrite');
+    t.objectStore('kv').delete(IDBKeyRange.bound('chunk:', 'chunk:\uffff'));
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
+}
+
 export async function idbCheckpoint(sessionId: string) {
   const db = await open(sessionId);
   const outbox: OutboxStore = {
@@ -46,6 +56,7 @@ export async function idbCheckpoint(sessionId: string) {
     outbox,
     getChunk: (i: number) => get<Word[]>(db, `chunk:${i}`),
     putChunk: (i: number, w: Word[]) => put(db, `chunk:${i}`, w),
+    clearChunks: () => clearChunks(db),
     getMeta: () => get<RecordingMeta>(db, 'meta'),
     putMeta: (m: RecordingMeta) => put(db, 'meta', m),
     close: () => db.close(),
