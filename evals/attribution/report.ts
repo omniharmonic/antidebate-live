@@ -8,7 +8,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { calibrate, gatePred, pooled, type Calibration, type LabPred, type Ref, type Run } from './score';
+import { calibrate, gatePred, MIN_SAMPLE, pooled, type Calibration, type LabPred, type Ref, type Run } from './score';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SCENARIOS = path.join(ROOT, '.data/scenarios');
@@ -39,7 +39,8 @@ const SETUPS = [
 ] as const;
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
-const gate: Record<string, { threshold: number; hostConfirmsAll: boolean }> = {};
+const gate: Record<string, { threshold: number; hostConfirmsAll: boolean; insufficient?: true }> = {};
+const minutes = (ms: number) => (ms / 60_000).toFixed(1);
 const cache = new Map<string, Loaded[]>();
 const get = (s: string) => (cache.has(s) ? cache.get(s)! : (cache.set(s, load(s)), cache.get(s)!));
 
@@ -57,12 +58,18 @@ const table = (title: string, loaded: Loaded[], c: Calibration) => {
   lines.push('');
 };
 
+/** Every mono-live run enrolled from audio after its scored window (P3-R6). */
+function disjointEnrollment(): boolean {
+  const runs = get('mono-live');
+  return runs.length > 0 && runs.every((l) => l.enrolledFromMs !== undefined && l.enrolledFromMs >= l.minutes * 60_000);
+}
+
 const verdicts: string[] = [];
 for (const s of SETUPS) {
   const loaded = get(s.from);
   if (!loaded.length) throw new Error(`no ${s.from} results in ${SCENARIOS}; run evals/attribution/run.ts first`);
   const c = calibrate(loaded.map((l) => l.run));
-  gate[s.name] = { threshold: c.threshold, hostConfirmsAll: c.hostConfirmsAll };
+  gate[s.name] = { threshold: c.threshold, hostConfirmsAll: c.hostConfirmsAll, ...(c.insufficient ? { insufficient: true as const } : {}) };
   const sweep = [0.85, 0.88, 0.9, 0.92, 0.95, 0.97, 0.99].map((t) => [t, pooled(loaded.map((l) => l.run), t).wrongAuto] as const);
   const swept = sweep.map(([t, w]) => `${t}: ${pct(w)}`).join(', ');
   const flat = sweep.every(([, w]) => w === sweep[0]![1]);
@@ -72,9 +79,16 @@ for (const s of SETUPS) {
     lines.push(`The sweep is flat: ${why}. ${c.threshold} is the lowest candidate threshold, not a tuned value.`, '');
   }
   table(s.name, loaded, c);
+  const n = `${c.sample.autoLines} auto-accepted lines, ${minutes(c.sample.autoSpeechMs)} minutes of auto-accepted speech`;
+  const capped = s.name === 'call' || s.name === 'room';
+  const disjointNote = s.from === 'mono-live' && disjointEnrollment() ? ' with enrollment disjoint from the scored window' : '';
   verdicts.push(c.hostConfirmsAll
     ? `- ${s.name}: does not pass. No threshold up to 0.99 keeps wrong auto-accepts at or under 2%; the host confirms every line.`
-    : `- ${s.name}: passes at threshold ${c.threshold} (wrong auto-accepts ${pct(c.atThreshold.wrongAuto)}, correct ${pct(c.atThreshold.correct)}).`);
+    : c.insufficient
+      ? capped
+        ? `- ${s.name}: keeps host confirmation (the voice-only cap stays) because the measured sample was too small: ${n}, ${pct(c.atThreshold.correct)} correct${disjointNote}. Wrong auto-accepts were ${pct(c.atThreshold.wrongAuto)} at ${c.threshold}, but a pass needs at least ${MIN_SAMPLE.lines} auto-accepted lines and ${MIN_SAMPLE.speechMs / 60_000} minutes. A longer measured run or real enrollment clips (recorded at a sound check, not cut from the program) would lift it.`
+        : `- ${s.name}: wrong auto-accepts ${pct(c.atThreshold.wrongAuto)} at ${c.threshold} (correct ${pct(c.atThreshold.correct)}), but the sample is too small to count as passed: ${n}, against at least ${MIN_SAMPLE.lines} lines and ${MIN_SAMPLE.speechMs / 60_000} minutes. Marked insufficient in gate.json.`
+      : `- ${s.name}: passes at threshold ${c.threshold} (wrong auto-accepts ${pct(c.atThreshold.wrongAuto)}, correct ${pct(c.atThreshold.correct)}; ${n}).`);
 }
 
 // tracks (silent between turns) reported as a reference beside bleed.
@@ -86,12 +100,12 @@ if (tr.length) {
 }
 
 const monoLive = get('mono-live');
-const disjoint = monoLive.every((l) => l.enrolledFromMs !== undefined && l.enrolledFromMs >= l.minutes * 60_000);
+const disjoint = disjointEnrollment();
 const date = new Date().toISOString().slice(0, 10);
 const windows = (s: string) => get(s).map((l) => `${l.fixture} ${l.minutes.toFixed(0)} min`).join(', ');
 const head = [
   '', `## Attribution gate, ${date}`, '',
-  'Thresholds for auto-accepting who spoke, per setup. A threshold is the lowest of 0.85, 0.88, 0.90, 0.92, 0.95, 0.97, 0.99 at which wrong auto-accepts are at most 2% of reference speech time, pooled over the fixtures. If none is, the host confirms every line (0.99, host confirms all).', '',
+  `Thresholds for auto-accepting who spoke, per setup. A threshold is the lowest of 0.85, 0.88, 0.90, 0.92, 0.95, 0.97, 0.99 at which wrong auto-accepts are at most 2% of reference speech time, pooled over the fixtures. If none is, the host confirms every line (0.99, host confirms all). A threshold that meets the 2% ceiling counts as passed only on a large enough sample: at least ${MIN_SAMPLE.lines} auto-accepted lines and ${MIN_SAMPLE.speechMs / 60_000} minutes of auto-accepted speech, pooled (ruling P3-R7); otherwise the setup is marked insufficient, and call and room keep the voice-only cap (the host confirms voice-only lines).`, '',
   '**Caveats.**',
   '- The reference is FluidAudio diarization plus Benjamin\'s confirmed speaker map, not a human gold set. Reference `UNK` is audience; a held or UNK prediction over it counts as correct, an auto-accepted debater over it counts as wrong.',
   disjoint

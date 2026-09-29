@@ -58,7 +58,7 @@ function byLabel(run: Word[], segs: SpeakerSegment[]): Part[] {
   return out;
 }
 
-export function buildUtterances(o: { sessionId: string; words: Word[]; segments: SpeakerSegment[]; voiceMap: Record<string, string | null>; mode: 'diarized' | 'tracks'; wallTs: string; trackOwner?: string; gate?: Gate }): DomainEvent[] {
+export function buildUtterances(o: { sessionId: string; words: Word[]; segments: SpeakerSegment[]; voiceMap: Record<string, string | null>; mode: 'diarized' | 'tracks'; wallTs: string; trackOwner?: string; gate?: Pick<Gate, 'threshold' | 'hostConfirmsAll'> }): DomainEvent[] {
   const events: DomainEvent[] = [];
   // The measured recording gate covers diarized voices; a track's owner (confidence 1) is never below it.
   const gate = o.gate ?? gateFor('recording');

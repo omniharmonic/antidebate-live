@@ -27,7 +27,7 @@ function count(reference: Ref[], predicted: Pred[], threshold: number): Counts {
     const p = pred[b];
     if (!p) { c.missed++; continue; }
     // Auto-accepted: not held by rule (pending), not below the threshold, and names a person.
-    const auto = !p.pending && p.confidence >= threshold && p.participantKey !== 'UNK';
+    const auto = isAuto(p, threshold);
     if (auto) {
       if (r.has(p.participantKey)) c.correct++;
       else c.wrongAuto++;
@@ -60,14 +60,34 @@ export function pooled(runs: Run[], threshold: number): Scores {
   return share(sum);
 }
 
-export type Calibration = { threshold: number; hostConfirmsAll: boolean; atThreshold: Scores };
+export type Sample = { autoLines: number; autoSpeechMs: number };
+/**
+ * P3-R7: a clean error bar on a small sample is not evidence. A setup passes only when the lines
+ * auto-accepted at the chosen threshold, pooled, number at least 200 and span at least 20 minutes.
+ */
+export const MIN_SAMPLE = { lines: 200, speechMs: 20 * 60_000 };
+export type Calibration = { threshold: number; hostConfirmsAll: boolean; insufficient: boolean; atThreshold: Scores; sample: Sample };
 
-export function calibrate(runs: Run[], candidates: number[] = CANDIDATES): Calibration {
+const isAuto = (p: Pred, threshold: number) => !p.pending && p.confidence >= threshold && p.participantKey !== 'UNK';
+
+/** The lines auto-accepted at `threshold` across the runs, and their speech time. */
+export function sample(runs: Run[], threshold: number): Sample {
+  const auto = runs.flatMap((r) => r.predicted.filter((p) => isAuto(p, threshold)));
+  return { autoLines: auto.length, autoSpeechMs: auto.reduce((n, p) => n + (p.endMs - p.startMs), 0) };
+}
+
+/**
+ * The lowest candidate threshold whose pooled wrong auto-accepts are at most 2%. If that threshold's
+ * auto-accepted sample is under `min`, it is `insufficient` (not passed). If none is, the host confirms all.
+ */
+export function calibrate(runs: Run[], candidates: number[] = CANDIDATES, min = MIN_SAMPLE): Calibration {
   for (const threshold of [...candidates].sort((a, b) => a - b)) {
     const atThreshold = pooled(runs, threshold);
-    if (atThreshold.wrongAuto <= MAX_WRONG_AUTO) return { threshold, hostConfirmsAll: false, atThreshold };
+    if (atThreshold.wrongAuto > MAX_WRONG_AUTO) continue;
+    const s = sample(runs, threshold);
+    return { threshold, hostConfirmsAll: false, insufficient: s.autoLines < min.lines || s.autoSpeechMs < min.speechMs, atThreshold, sample: s };
   }
-  return { threshold: 0.99, hostConfirmsAll: true, atThreshold: pooled(runs, 0.99) };
+  return { threshold: 0.99, hostConfirmsAll: true, insufficient: false, atThreshold: pooled(runs, 0.99), sample: sample(runs, 0.99) };
 }
 
 /** A lab line: held lines add their best `candidate`; lines the voice-only cap bound add `uncapped`. */

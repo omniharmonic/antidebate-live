@@ -6,9 +6,12 @@ describe('gateFor', () => {
     for (const s of ['tracks', 'call', 'room', 'recording'] as const) expect(gateFor(s).threshold).toBeGreaterThanOrEqual(0.85);
   });
   it('clamps a measured threshold to 0.85 and falls back when a setup was not measured', () => {
-    expect(gateFor('call', { call: { threshold: 0.5, hostConfirmsAll: false } })).toEqual({ threshold: 0.85, hostConfirmsAll: false });
-    expect(gateFor('room', { call: { threshold: 0.9, hostConfirmsAll: false } })).toEqual({ threshold: 0.85, hostConfirmsAll: false });
-    expect(gateFor('recording', { recording: { threshold: 0.99, hostConfirmsAll: true } })).toEqual({ threshold: 0.99, hostConfirmsAll: true });
+    expect(gateFor('call', { call: { threshold: 0.5, hostConfirmsAll: false } })).toEqual({ threshold: 0.85, hostConfirmsAll: false, insufficient: false });
+    expect(gateFor('room', { call: { threshold: 0.9, hostConfirmsAll: false } })).toEqual({ threshold: 0.85, hostConfirmsAll: false, insufficient: false });
+    expect(gateFor('recording', { recording: { threshold: 0.99, hostConfirmsAll: true } })).toEqual({ threshold: 0.99, hostConfirmsAll: true, insufficient: false });
+  });
+  it('exposes a measured sample too small to count as passed (P3-R7)', () => {
+    expect(gateFor('room', { room: { threshold: 0.85, hostConfirmsAll: false, insufficient: true } })).toEqual({ threshold: 0.85, hostConfirmsAll: false, insufficient: true });
   });
 });
 
@@ -18,6 +21,13 @@ describe('capVoiceOnly', () => {
     expect(capVoiceOnly('room', 1, { room: { threshold: 0.99, hostConfirmsAll: true } })).toBe(VOICE_ONLY_CAP);
     expect(capVoiceOnly('room', 1, { room: { threshold: 0.85, hostConfirmsAll: false } })).toBe(1);
     expect(capVoiceOnly('call', 1, { room: { threshold: 0.85, hostConfirmsAll: false } })).toBe(VOICE_ONLY_CAP);
+  });
+  it('stays applied where the measured sample was insufficient (P3-R7)', () => {
+    expect(capVoiceOnly('room', 1, { room: { threshold: 0.85, hostConfirmsAll: false, insufficient: true } })).toBe(VOICE_ONLY_CAP);
+  });
+  it('with the measured gate.json, call and room keep the cap', () => {
+    expect(capVoiceOnly('call', 1)).toBe(VOICE_ONLY_CAP);
+    expect(capVoiceOnly('room', 1)).toBe(VOICE_ONLY_CAP);
   });
   it('never caps tracks', () => {
     expect(capVoiceOnly('tracks', 1, {})).toBe(1);

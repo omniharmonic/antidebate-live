@@ -5,14 +5,17 @@
   },
   "call": {
     "threshold": 0.85,
-    "hostConfirmsAll": false
+    "hostConfirmsAll": false,
+    "insufficient": true
   },
   "room": {
     "threshold": 0.85,
-    "hostConfirmsAll": false
+    "hostConfirmsAll": false,
+    "insufficient": true
   },
   "recording": {
     "threshold": 0.85,
-    "hostConfirmsAll": false
+    "hostConfirmsAll": false,
+    "insufficient": true
   }
 }

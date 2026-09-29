@@ -46,7 +46,20 @@ describe('calibrate', () => {
         { startMs: 9000, endMs: 10000, participantKey: 'B', confidence: 0.86, pending: false },
       ],
     };
-    expect(calibrate([run])).toMatchObject({ threshold: 0.88, hostConfirmsAll: false });
+    expect(calibrate([run], undefined, { lines: 1, speechMs: 1000 })).toMatchObject({ threshold: 0.88, hostConfirmsAll: false, insufficient: false });
+  });
+  // 250 auto-accepted 6 s lines by A (25 min), right, over matching reference speech.
+  const big = (n: number, ms: number) => ({
+    reference: Array.from({ length: n }, (_, i): [number, number, string] => [i * ms, (i + 1) * ms, 'A']),
+    predicted: Array.from({ length: n }, (_, i) => ({ startMs: i * ms, endMs: (i + 1) * ms, participantKey: 'A', confidence: 0.95, pending: false })),
+  });
+  it('passes only with at least 200 auto-accepted lines and 20 minutes of auto-accepted speech (P3-R7)', () => {
+    const c = calibrate([big(250, 6000)]);
+    expect(c).toMatchObject({ threshold: 0.85, hostConfirmsAll: false, insufficient: false, sample: { autoLines: 250, autoSpeechMs: 1_500_000 } });
+  });
+  it('a clean error bar on too small a sample is insufficient (P3-R7)', () => {
+    expect(calibrate([big(150, 10_000)])).toMatchObject({ threshold: 0.85, hostConfirmsAll: false, insufficient: true, sample: { autoLines: 150 } });
+    expect(calibrate([big(250, 3000)])).toMatchObject({ insufficient: true, sample: { autoLines: 250, autoSpeechMs: 750_000 } });
   });
 });
 

@@ -286,7 +286,7 @@ Tradeoff in numbers (20-minute windows, mean of three): threshold 0.5 today = 18
 
 ## Attribution gate, 2026-09-29
 
-Thresholds for auto-accepting who spoke, per setup. A threshold is the lowest of 0.85, 0.88, 0.90, 0.92, 0.95, 0.97, 0.99 at which wrong auto-accepts are at most 2% of reference speech time, pooled over the fixtures. If none is, the host confirms every line (0.99, host confirms all).
+Thresholds for auto-accepting who spoke, per setup. A threshold is the lowest of 0.85, 0.88, 0.90, 0.92, 0.95, 0.97, 0.99 at which wrong auto-accepts are at most 2% of reference speech time, pooled over the fixtures. If none is, the host confirms every line (0.99, host confirms all). A threshold that meets the 2% ceiling counts as passed only on a large enough sample: at least 200 auto-accepted lines and 20 minutes of auto-accepted speech, pooled (ruling P3-R7); otherwise the setup is marked insufficient, and call and room keep the voice-only cap (the host confirms voice-only lines).
 
 **Caveats.**
 - The reference is FluidAudio diarization plus Benjamin's confirmed speaker map, not a human gold set. Reference `UNK` is audience; a held or UNK prediction over it counts as correct, an auto-accepted debater over it counts as wrong.
@@ -300,10 +300,10 @@ Thresholds for auto-accepting who spoke, per setup. A threshold is the lowest of
 - Shares are of reference speech time inside the window, at 10 ms resolution. Held is all held speech; "held with a wrong guess" is the part of it whose candidate was wrong or missing.
 
 **Verdicts (2% wrong auto-accept ceiling).**
-- tracks: passes at threshold 0.85 (wrong auto-accepts 0.2%, correct 94.7%).
-- call: passes at threshold 0.85 (wrong auto-accepts 0.0%, correct 42.3%).
-- room: passes at threshold 0.85 (wrong auto-accepts 0.0%, correct 42.3%).
-- recording: passes at threshold 0.85 (wrong auto-accepts 0.0%, correct 75.2%).
+- tracks: passes at threshold 0.85 (wrong auto-accepts 0.2%, correct 94.7%; 306 auto-accepted lines, 56.4 minutes of auto-accepted speech).
+- call: keeps host confirmation (the voice-only cap stays) because the measured sample was too small: 37 auto-accepted lines, 6.3 minutes of auto-accepted speech, 42.3% correct with enrollment disjoint from the scored window. Wrong auto-accepts were 0.0% at 0.85, but a pass needs at least 200 auto-accepted lines and 20 minutes. A longer measured run or real enrollment clips (recorded at a sound check, not cut from the program) would lift it.
+- room: keeps host confirmation (the voice-only cap stays) because the measured sample was too small: 37 auto-accepted lines, 6.3 minutes of auto-accepted speech, 42.3% correct with enrollment disjoint from the scored window. Wrong auto-accepts were 0.0% at 0.85, but a pass needs at least 200 auto-accepted lines and 20 minutes. A longer measured run or real enrollment clips (recorded at a sound check, not cut from the program) would lift it.
+- recording: wrong auto-accepts 0.0% at 0.85 (correct 75.2%), but the sample is too small to count as passed: 147 auto-accepted lines, 44.6 minutes of auto-accepted speech, against at least 200 lines and 20 minutes. Marked insufficient in gate.json.
 
 ### tracks (bleed results (a mic per person with cross-talk, the realistic tracks case))
 
