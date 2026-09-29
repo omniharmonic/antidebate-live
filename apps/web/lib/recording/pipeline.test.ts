@@ -85,7 +85,7 @@ describe('runRecording', () => {
     const cp = memCheckpoint([], null);
     const stages: Stage['kind'][] = [];
     const separate = vi.fn(async () => [{ startMs: 0, endMs: 30_000, label: 'S0', confidence: 0.9 }]);
-    const name = vi.fn(async (_s: unknown, _m: Float32Array, _p: unknown[]) => ({ S0: 'A' }));
+    const name = vi.fn<(s: unknown, m: Float32Array, p: unknown[]) => Promise<Record<string, string>>>(async () => ({ S0: 'A' }));
     const { log } = recordingLog([started]);
     await runRecording({ sessionId: 's', file: new File([new Uint8Array(3)], 'talk.mp4'), asr: { transcribe: async () => [] }, checkpoint: cp, onStage: (s) => stages.push(s.kind), voices: { separate, name }, engine: { start: async () => {} }, makeLog: () => log });
     expect(separate).toHaveBeenCalledWith(expect.any(Float32Array), 3);

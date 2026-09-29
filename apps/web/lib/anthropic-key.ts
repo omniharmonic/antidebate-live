@@ -5,7 +5,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { passConfig } from '@adl/llm/browser';
 
-const STORAGE = 'adl.anthropicKey';
+export const KEY_STORAGE = 'adl.anthropicKey';
+const STORAGE = KEY_STORAGE;
 const UNREACHABLE = "The browser couldn't reach Anthropic. Check the internet connection and try again.";
 
 export function getKey(): string | null {
