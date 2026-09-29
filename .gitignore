@@ -22,3 +22,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 next-env.d.ts
+.cache/
+fixtures/antidebate/**/*.vtt
+fixtures/antidebate/**/*.info.json
+fixtures/antidebate/**/*.fluidaudio.json
+fixtures/antidebate/**/transcript.utterances.json

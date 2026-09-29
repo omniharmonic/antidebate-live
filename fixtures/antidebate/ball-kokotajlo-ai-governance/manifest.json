@@ -2,10 +2,19 @@
   "slug": "ball-kokotajlo-ai-governance",
   "title": "Should Governments or Markets control AI? Dean Ball × Daniel Kokotajlo Anti-Debate",
   "format": "anti-debate",
-  "moderator": { "key": "MOD", "displayName": "Liv Boeree" },
+  "moderator": {
+    "key": "MOD",
+    "displayName": "Liv Boeree"
+  },
   "participants": [
-    { "key": "A", "displayName": "Dean W. Ball" },
-    { "key": "B", "displayName": "Daniel Kokotajlo" }
+    {
+      "key": "A",
+      "displayName": "Dean W. Ball"
+    },
+    {
+      "key": "B",
+      "displayName": "Daniel Kokotajlo"
+    }
   ],
   "sources": {
     "video": "https://www.youtube.com/watch?v=wkPsbwzyOa8",
@@ -15,15 +24,48 @@
   "media": {
     "audio": "audio.m4a",
     "transcript": "transcript.utterances.json",
-    "status": "not_downloaded"
+    "status": "transcribed",
+    "asr": "FluidAudio Parakeet TDT v3 (asr.fluidaudio.json)",
+    "diarization": "FluidAudio offline = pyannote community-1 CoreML, VBx (diarization.fluidaudio.json)"
   },
   "reference": {
+    "doc": "docs/client/ball-kokotajlo-reference.md",
     "publishedSynthesis": [
-      "Build frontier-lab auditing and verification systems",
-      "Establish preconditions for a US–China bilateral agreement",
-      "Transparency requirements as the immediate step"
+      "Third-party verification and auditing of frontier labs is a logical next step both endorse",
+      "Establish the preconditions (e.g. enforceability, knowing where the chips are) for an eventual US–China bilateral agreement to slow down or shut down, even if the deal itself is far off",
+      "Concentration of power is dangerous whether in government or a dominant lab; neither wants the executive branch to gain unchecked power, and existing checks such as the judiciary should be strengthened",
+      "AI alignment is unresolved and urgent, and neither markets nor governments can be blindly trusted to handle it without better verification, auditing and incentives"
     ],
-    "verified": false
+    "verified": true,
+    "verifiedAgainst": "moderator summary in the recording (~01:23:38–01:24:12) plus Synthesis Media and/or Jasmine Li's notes; the earlier 'transparency as the immediate step' item was not a stated convergence and was dropped",
+    "cruxes": [
+      "At what point do risks from AI outweigh risks from centralised government power?",
+      "Do market incentives actually incentivise alignment? (would flip Ball)",
+      "Will private governance mechanisms work without regulation? (would flip Kokotajlo)",
+      "Timelines: how fast knowledge work is automated",
+      "Can third-party auditors gain enough power fast enough?"
+    ]
   },
-  "gold": { "segments": [], "heldOut": [] }
+  "gold": {
+    "segments": [],
+    "heldOut": []
+  },
+  "speakerMap": {
+    "S1": "B",
+    "S2": "A",
+    "S3": "MOD",
+    "S4": "MOD"
+  },
+  "speakerMapEvidence": {
+    "method": "transcript self-identification; confirmed by Benjamin Life 2026-09-28 (only speakers: Liv Boeree, Dean Ball, Daniel Kokotajlo)",
+    "S1": "B: 'AI 2027, which is a scenario that my team and I wrote' (~7m); 'when I was at OpenAI' (~7m); 'I'm just sitting at the AI Futures Project' (~80m)",
+    "S2": "A: 'my friends in the Trump administration think I'm criticizing the president' (~14m)",
+    "S3": "MOD: introductions and timekeeping throughout",
+    "S4": "MOD: 'we set up in the question a little bit of a false dichotomy' (~57m); 'how about a round of applause?' (~84m)",
+    "unmapped": "S5, S6, S7 are brief audience questions in the closing Q&A (self-introduced, e.g. 'Hi, Matt McCorkle'); left unmapped so they stay 'unknown' and never commit a debater",
+    "knownErrors": [
+      "~44:54 the moderator's 'All right, I'm gonna stop you guys there' is inside an S2 (Dean) segment"
+    ],
+    "confirmedBy": "Benjamin Life"
+  }
 }

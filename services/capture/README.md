@@ -8,13 +8,13 @@ Python service for live multichannel capture and speaker attribution, plus the o
 | `fusion.py`: attribution confidence | ✅ heuristic + tested; tune on the G5 gold set |
 | `merge.py`: ASR words + diarization turns → utterances | ✅ implemented + tested |
 | `emit.py`: durable spool + POST to `/api/events` | ✅ implemented (untested against the server) |
-| `offline.py`: Parakeet (MLX) + pyannote for replays | ⚠️ written; **run it on a Mac**. Verify the parakeet-mlx result fields against the installed version. |
+| `offline.py`: FluidAudio (Parakeet TDT v3 + pyannote community-1 as CoreML) for replays | ✅ run on Dean × Daniel (86 min: ASR 17 s, diarization 32 s on Apple Silicon); parsers tested |
 | `live.py`: the live loop | ⛔ not built (WS1) |
 
 ```bash
 cd services/capture
 uv sync                          # core + dev
 uv run pytest                    # tests
-uv sync --extra mac --extra diarize   # on an Apple Silicon Mac, for replays
-HF_TOKEN=… uv run python -m adl_capture.offline ../../fixtures/antidebate/ball-kokotajlo-ai-governance
+# replays (Apple Silicon): builds FluidAudio's CLI into .cache/ on first use; no Hugging Face token
+uv run python -m adl_capture.offline ../../fixtures/antidebate/ball-kokotajlo-ai-governance   # --rerun to regenerate
 ```
