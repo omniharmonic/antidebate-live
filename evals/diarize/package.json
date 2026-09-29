@@ -1,0 +1,3 @@
+{ "name": "@adl/eval-diarize", "private": true, "type": "module", "version": "0.0.0",
+  "scripts": { "sweep": "node sweep.mjs" },
+  "devDependencies": { "sherpa-onnx": "*" } }

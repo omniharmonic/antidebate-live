@@ -207,3 +207,79 @@ Grader: Claude (session agent), single pass. **Needs Benjamin's check.**
 
 ### Ontology question for Benjamin
 Rhetorical questions that plainly assert ("Why not just ask the right questions?") are common in debate. §2.2 puts all rhetorical questions under `nonliteral` (never commits). Options: keep it strict (lose these claims), or add guidance that an *unmistakable* rhetorical assertion is extracted as `assert` with strength capped at `leaning` and flagged for the operator.
+
+## Speaker separation settings, 2026-09-29
+
+Question: which sherpa-onnx diarization settings should the browser use for single-file recordings, so a host names as few voices as possible. Today's worker (shift 0.5, threshold 0.5) gave 9 clusters on the Ball × Kokotajlo 3-minute clip (45:00-48:00, three speakers).
+
+**Method.** Harness in `evals/diarize/` (`run-all.sh`, `sweep.mjs`, `report.mjs`; `npm install` there, kept out of the pnpm workspace). Models are the exact ones in the browser bundle (pyannote segmentation-3.0 + 3D-Speaker eres2net, bytes cut from `sherpa-onnx-wasm-main-speaker-diarization.data` into `.data/diarize-models/`), run through the npm `sherpa-onnx` 1.13.8 Node WASM build (bundle is 1.13.7). `minDurationOn 0.3`, `minDurationOff 0.5`. Windows: 3 minutes chosen as the 180 s span (30 s steps, inside the program) with the most even time among the top three named speakers (ball 45:00-48:00; belief-in-god 50:30-53:30; open-source-ai 51:30-54:30), and 20 minutes from `programStartMs` (ball 1:27; the other two have none, so 0:00). `k=N` uses the number of distinct voices in each manifest's `speakerMap` (3, 3, 4; open-source-ai has two moderator labels), threshold ignored.
+
+Metrics, on 10 ms frames. Cluster time: frames where the cluster is active. Each cluster maps to the reference speaker it overlaps most (unmapped labels count as one "audience" speaker). *Coverage*: share of reference speech time in which a cluster mapped to the true speaker is active. *Impure*: share of clustered speech (inside reference speech) that sits in clusters whose top reference speaker holds under 80% of the cluster. *Clusters <10 s dropped*: same coverage after treating every cluster with under 10 s of total speech as "Someone else".
+
+**Caveat.** The reference is FluidAudio diarization (pyannote community-1, VBx) plus a speaker map confirmed by Benjamin on 2026-09-28. It is not a human gold set, its speaker turns are utterance-level (pauses inside a turn count as speech), and its errors count against these settings. Three recordings, one window of each length; differences of a few points are noise.
+
+### Per fixture (ball / belief-in-god / open-source-ai)
+
+| Shift | Clustering | Clusters (3 / 20 min, per fixture) | >=10 s clusters | Coverage, all clusters | Coverage, clusters <10 s dropped | Impure |
+|---|---|---|---|---|---|---|
+| 0.5 | thr 0.5 | 3m: 8 / 6 / 11; 20m: 12 / 17 / 26 | 3m: 5 / 3 / 5; 20m: 6 / 8 / 7 | 3m: 94% / 96% / 93%; 20m: 96% / 95% / 98% | 3m: 89% / 96% / 85%; 20m: 94% / 94% / 96% | 3m: 4% / 0% / 4%; 20m: 0% / 1% / 1% |
+| 0.5 | thr 0.6 | 3m: 4 / 6 / 8; 20m: 8 / 14 / 21 | 3m: 3 / 3 / 4; 20m: 6 / 7 / 6 | 3m: 94% / 96% / 93%; 20m: 96% / 94% / 98% | 3m: 93% / 96% / 89%; 20m: 96% / 94% / 97% | 3m: 0% / 0% / 5%; 20m: 0% / 1% / 1% |
+| 0.5 | thr 0.7 | 3m: 3 / 5 / 6; 20m: 6 / 10 / 14 | 3m: 3 / 3 / 4; 20m: 4 / 5 / 4 | 3m: 94% / 96% / 93%; 20m: 96% / 94% / 97% | 3m: 94% / 96% / 90%; 20m: 96% / 94% / 97% | 3m: 0% / 0% / 0%; 20m: 0% / 0% / 1% |
+| 0.5 | thr 0.8 | 3m: 3 / 5 / 5; 20m: 6 / 9 / 10 | 3m: 3 / 3 / 4; 20m: 4 / 4 / 4 | 3m: 94% / 96% / 93%; 20m: 96% / 94% / 97% | 3m: 94% / 96% / 90%; 20m: 96% / 94% / 97% | 3m: 0% / 0% / 0%; 20m: 0% / 0% / 1% |
+| 0.5 | thr 0.9 | 3m: 3 / 3 / 4; 20m: 4 / 6 / 10 | 3m: 3 / 3 / 3; 20m: 3 / 3 / 4 | 3m: 94% / 96% / 80%; 20m: 96% / 94% / 97% | 3m: 94% / 96% / 78%; 20m: 96% / 94% / 97% | 3m: 0% / 0% / 48%; 20m: 0% / 0% / 1% |
+| 0.5 | k=N | 3m: 3 / 3 / 4; 20m: 2 / 3 / 4 | 3m: 3 / 3 / 3; 20m: 2 / 2 / 3 | 3m: 94% / 96% / 80%; 20m: 55% / 71% / 83% | 3m: 94% / 96% / 78%; 20m: 55% / 71% / 83% | 3m: 0% / 0% / 48%; 20m: 86% / 64% / 60% |
+| 0.25 | thr 0.5 | 3m: 9 / 6 / 12; 20m: 15 / 21 / 27 | 3m: 5 / 3 / 5; 20m: 8 / 7 / 8 | 3m: 96% / 96% / 92%; 20m: 96% / 94% / 97% | 3m: 83% / 95% / 84%; 20m: 93% / 90% / 93% | 3m: 0% / 0% / 3%; 20m: 0% / 1% / 1% |
+| 0.25 | thr 0.6 | 3m: 5 / 6 / 9; 20m: 11 / 17 / 22 | 3m: 3 / 3 / 5; 20m: 5 / 6 / 6 | 3m: 96% / 96% / 92%; 20m: 96% / 94% / 97% | 3m: 87% / 95% / 87%; 20m: 94% / 91% / 93% | 3m: 0% / 0% / 3%; 20m: 0% / 1% / 2% |
+| 0.25 | thr 0.7 | 3m: 4 / 6 / 5; 20m: 8 / 12 / 16 | 3m: 3 / 3 / 5; 20m: 3 / 5 / 5 | 3m: 96% / 96% / 92%; 20m: 96% / 94% / 97% | 3m: 92% / 95% / 92%; 20m: 94% / 93% / 95% | 3m: 0% / 0% / 0%; 20m: 0% / 1% / 2% |
+| 0.25 | thr 0.8 | 3m: 3 / 5 / 4; 20m: 7 / 8 / 12 | 3m: 3 / 3 / 4; 20m: 3 / 5 / 4 | 3m: 96% / 96% / 92%; 20m: 96% / 94% / 97% | 3m: 96% / 95% / 92%; 20m: 95% / 94% / 96% | 3m: 0% / 0% / 0%; 20m: 0% / 0% / 1% |
+| 0.25 | thr 0.9 | 3m: 3 / 3 / 4; 20m: 7 / 6 / 10 | 3m: 3 / 3 / 4; 20m: 3 / 4 / 5 | 3m: 96% / 95% / 92%; 20m: 96% / 94% / 97% | 3m: 96% / 95% / 92%; 20m: 95% / 94% / 97% | 3m: 0% / 0% / 0%; 20m: 0% / 0% / 1% |
+| 0.25 | k=N | 3m: 3 / 3 / 4; 20m: 3 / 2 / 4 | 3m: 3 / 3 / 3; 20m: 2 / 2 / 4 | 3m: 96% / 95% / 80%; 20m: 54% / 71% / 82% | 3m: 96% / 95% / 80%; 20m: 54% / 71% / 82% | 3m: 0% / 0% / 44%; 20m: 86% / 64% / 60% |
+
+Fixture order in each cell: ball-kokotajlo-ai-governance / belief-in-god / open-source-ai
+
+Means over the 3 fixtures (20 min windows):
+| Shift | Clustering | mean clusters | mean >=10 s | mean coverage | mean coverage (<10 s dropped) | mean impure | mean RTF |
+|---|---|---|---|---|---|---|---|
+| **3 min** | | | | | | | |
+| 0.5 | thr 0.5 | 8.3 | 4.3 | 95% | 90% | 3% | 0.28 |
+| 0.5 | thr 0.6 | 6.0 | 3.3 | 94% | 92% | 2% | 0.27 |
+| 0.5 | thr 0.7 | 4.7 | 3.3 | 94% | 93% | 0% | 0.27 |
+| 0.5 | thr 0.8 | 4.3 | 3.3 | 94% | 93% | 0% | 0.27 |
+| 0.5 | thr 0.9 | 3.3 | 3.0 | 90% | 89% | 16% | 0.27 |
+| 0.5 | k=N | 3.3 | 3.0 | 90% | 89% | 16% | 0.27 |
+| 0.25 | thr 0.5 | 9.0 | 4.3 | 95% | 87% | 1% | 0.54 |
+| 0.25 | thr 0.6 | 6.7 | 3.7 | 95% | 90% | 1% | 0.53 |
+| 0.25 | thr 0.7 | 5.0 | 3.7 | 95% | 93% | 0% | 0.54 |
+| 0.25 | thr 0.8 | 4.0 | 3.3 | 95% | 95% | 0% | 0.45 |
+| 0.25 | thr 0.9 | 3.3 | 3.3 | 95% | 95% | 0% | 0.44 |
+| 0.25 | k=N | 3.3 | 3.0 | 90% | 90% | 15% | 0.47 |
+| **20 min** | | | | | | | |
+| 0.5 | thr 0.5 | 18.3 | 7.0 | 96% | 94% | 1% | 0.28 |
+| 0.5 | thr 0.6 | 14.3 | 6.3 | 96% | 96% | 1% | 0.23 |
+| 0.5 | thr 0.7 | 10.0 | 4.3 | 96% | 96% | 0% | 0.20 |
+| 0.5 | thr 0.8 | 8.3 | 4.0 | 96% | 96% | 0% | 0.20 |
+| 0.5 | thr 0.9 | 6.7 | 3.3 | 96% | 96% | 0% | 0.33 |
+| 0.5 | k=N | 3.0 | 2.3 | 70% | 70% | 70% | 0.29 |
+| 0.25 | thr 0.5 | 21.0 | 7.7 | 96% | 92% | 1% | 0.51 |
+| 0.25 | thr 0.6 | 16.7 | 5.7 | 96% | 93% | 1% | 0.40 |
+| 0.25 | thr 0.7 | 12.0 | 4.3 | 96% | 94% | 1% | 0.62 |
+| 0.25 | thr 0.8 | 9.0 | 4.0 | 96% | 95% | 0% | 0.37 |
+| 0.25 | thr 0.9 | 7.7 | 4.0 | 96% | 95% | 0% | 0.37 |
+| 0.25 | k=N | 3.0 | 2.7 | 69% | 69% | 70% | 0.37 |
+
+The per-fixture table's "Clusters" column is total clusters; the means table's RTF is measured while 12 sweep processes shared 12 cores, so it overstates wall time (about 1.5x).
+
+### Speed
+Uncontended, ball 3-minute window, Node WASM: shift 0.5 = 32.5 s (RTF 0.18), shift 0.25 = 65.8 s (RTF 0.37). The Chrome number already in hand: 145 s for 180 s at shift 0.1 (RTF 0.81). Node has not been measured at 0.1, and Chrome at 0.5/0.25 has not been measured, so the Chrome cost of the recommendation is an extrapolation (embedding work scales with windows, roughly 5x fewer than at 0.1, so around 30 s per 3 minutes, unmeasured).
+
+### Findings
+- The current setting (threshold 0.5) over-splits: 3-minute windows give 8 / 6 / 11 clusters and 20-minute windows 12 / 17 / 26, for 3 to 4 real voices. Coverage is already 93-98%; the extra clusters are mostly short fragments (only 5-8 of them exceed 10 s).
+- Raising the threshold to 0.8 cuts 20-minute clusters to 6 / 9 / 10 (4 / 4 / 4 lasting 10 s or more) with coverage 96% / 94% / 97% and impure share 0-1%. At 0.9 the 3-minute open-source-ai window merges two voices (coverage 80%, impure 48%); 0.8 does not.
+- Forcing the cluster count (`k=N`) is unusable on long windows: coverage 55% / 71% / 83% and impure share 86% / 64% / 60% at 20 minutes. It also merges voices in the 3-minute open-source-ai window (80% coverage, 44-48% impure). Do not use it.
+- Shift 0.25 gives no coverage gain over 0.5 at the same threshold (within 1 point at every threshold) and doubles run time. Keep 0.5.
+- Cluster count grows with window length at any threshold (0.8, shift 0.5: 3-minute 3 / 5 / 5, 20-minute 6 / 9 / 10). The extras are small, so a full 90-minute recording will produce more clusters to name than a 20-minute one unless tiny clusters are folded (not measured).
+
+### Recommendation
+`segmentation.pyannote.windowShiftRatio 0.5`, `clustering {numClusters: -1, threshold: 0.8}`, plus a tiny-cluster rule: **a cluster with under 10 s of total speech is not offered as a voice; its turns default to "Someone else".** Hosts name the clusters of 10 s or more.
+
+Tradeoff in numbers (20-minute windows, mean of three): threshold 0.5 today = 18.3 clusters, 7.0 of them at least 10 s; recommended = 8.3 clusters, 4.0 of them at least 10 s (4 / 4 / 4 for recordings with 3 / 3 / 4 named voices). Coverage stays 96% (96% before the rule, 96% after it) (0 to 1 point lost by folding the small clusters at 0.8; at 0.5 the same rule costs 2 points and at 3 minutes 5). Impure share 0% vs 1%. Cost: at most one voice in a short window can merge (seen at 0.9, not at 0.8), which is why the threshold stops at 0.8. A speaker who talks under 10 s in total (an audience question) lands in "Someone else", as intended.
