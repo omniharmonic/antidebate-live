@@ -79,7 +79,20 @@ export default async function Home() {
     failed = true;
   }
   const active = sessions.filter((s) => isActive(s));
-  const past = sessions.filter((s) => !isActive(s));
+  // Recordings are replayed several times as the pipeline improves: show one row per
+  // recording (its newest non-test run) and keep earlier runs one click away.
+  const groups = new Map<string, SessionSummary[]>();
+  for (const s of sessions.filter((x) => !isActive(x))) {
+    const key = s.source?.fixture ?? s.id;
+    groups.set(key, [...(groups.get(key) ?? []), s]);
+  }
+  const isTest = (s: SessionSummary) => /(^|-)test/.test(s.id);
+  const past = [...groups.values()]
+    .map((runs) => {
+      const sorted = [...runs].sort((x, y) => Number(isTest(x)) - Number(isTest(y)) || y.startedAt.localeCompare(x.startedAt));
+      return { primary: sorted[0]!, earlier: sorted.slice(1) };
+    })
+    .sort((x, y) => (y.primary.lastActivityAt ?? y.primary.startedAt).localeCompare(x.primary.lastActivityAt ?? x.primary.startedAt));
 
   return (
     <main className="min-h-dvh bg-field">
@@ -122,8 +135,27 @@ export default async function Home() {
             <>
               <Head />
               <ul>
-                {past.map((s) => (
-                  <Row key={s.id} s={s} active={false} />
+                {past.map(({ primary, earlier }) => (
+                  <li key={primary.id} className="list-none">
+                    <ul>
+                      <Row s={primary} active={false} />
+                    </ul>
+                    {earlier.length ? (
+                      <details className="-mt-2 border-b border-border pb-3 text-[13px] text-ink-3">
+                        <summary className="cursor-pointer py-1 hover:text-ink">Earlier runs ({earlier.length})</summary>
+                        <ul className="mt-1 space-y-1 pl-4">
+                          {earlier.map((r) => (
+                            <li key={r.id} className="flex items-center gap-3">
+                              <Link href={`/s/${encodeURIComponent(r.id)}/spatial`} className="font-mono text-[12px] hover:text-ink">
+                                {r.id}
+                              </Link>
+                              <span className="font-mono text-[12px]">{when(r.lastActivityAt ?? r.startedAt)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </li>
                 ))}
               </ul>
             </>
