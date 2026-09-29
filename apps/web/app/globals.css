@@ -9,28 +9,102 @@
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
+  --color-ink-ghost: var(--ink-ghost);
   --color-border: var(--border);
+  --color-border-2: var(--border-2);
   --color-voice-a: var(--voice-a);
+  --color-voice-a-faint: var(--voice-a-faint);
   --color-voice-b: var(--voice-b);
+  --color-voice-b-faint: var(--voice-b-faint);
+  --color-voice-mod: var(--voice-mod);
   --color-convergence: var(--convergence);
+  --color-convergence-soft: var(--convergence-soft);
+  --color-convergence-faint: var(--convergence-faint);
   --color-insight: var(--insight);
+  --color-insight-faint: var(--insight-faint);
   --font-display: var(--font-display);
   --font-sans: var(--font-text);
   --font-mono: var(--font-mono);
 }
 
-html,
-body {
-  background: var(--field);
-  color: var(--ink);
-  font-family: var(--font-text);
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  html,
+  body {
+    background: var(--field);
+    color: var(--ink);
+    font-family: var(--font-text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    text-wrap: balance;
+  }
 }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-display);
-  font-weight: 400;
-  text-wrap: balance;
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Arrival: fade and settle (UX §2 rule 2). Keyed elements re-run it when their content changes. */
+@keyframes adl-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.arrive {
+  animation: adl-arrive var(--arrive-ms) var(--ease-resolve) both;
+}
+
+@keyframes adl-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.live-dot {
+  animation: adl-breathe 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arrive,
+  .live-dot {
+    animation: none;
+  }
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Arc SVG */
+.arc-mark {
+  cursor: pointer;
+  transition: opacity 300ms var(--ease-resolve);
+}
+.arc-mark:focus-visible {
+  outline: none;
+}
+.arc-mark:focus-visible > .arc-hit,
+.arc-mark:hover > .arc-hit {
+  stroke: var(--ink);
+  stroke-width: 1.5;
+}
+@media (prefers-reduced-motion: reduce) {
+  .arc-mark {
+    transition: none;
+  }
 }

@@ -1,5 +1,6 @@
-import { NotBuilt } from '@/components/NotBuilt';
+import { redirect } from 'next/navigation';
 
-export default function ConsolePage() {
-  return <NotBuilt name="Operator console" spec="§4" workstream="WS4" due="10/5" />;
+/** Surfaces are per session now: /s/<session>/… */
+export default function Page() {
+  redirect('/');
 }
