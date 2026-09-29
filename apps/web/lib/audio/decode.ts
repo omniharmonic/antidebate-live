@@ -13,6 +13,10 @@ export async function decodeToChannels(file: Blob): Promise<{ channels: Float32A
   if (decoded.duration === 0) {
     throw new Error('That file has no audio we can read.');
   }
+  // Every sample index downstream (chunks, speaker segments, clips) assumes 16 kHz.
+  if (decoded.sampleRate !== 16_000) {
+    throw new Error(`This browser decoded the audio at ${decoded.sampleRate} Hz, not 16000 Hz. Use Google Chrome or Microsoft Edge.`);
+  }
   const n = Math.min(2, decoded.numberOfChannels);
   const channels = Array.from({ length: n }, (_, i) => decoded.getChannelData(i).slice());
   const frames = decoded.length;
