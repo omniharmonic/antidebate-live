@@ -4,7 +4,7 @@ For facilitators (Stephanie, Liv). Everything runs in Chrome on a laptop. Your r
 
 ## Message to send
 
-> Hi Stephanie and Liv. You can now map a recorded debate yourselves, no help from me needed. Open https://antidebate.xyz/host in Chrome on a laptop and sign in with the host password I sent you separately. The page walks you through the rest: connecting an Anthropic key (you pay Anthropic directly; about $12–15 for a 90-minute debate, so $25 of credit is comfortable), then preparing the laptop once on good Wi-Fi. Please do the Anthropic account and the laptop preparation a day or more ahead. I will send the full guide with this message. Live capture from the browser is coming next; today the flow is for recordings.
+> Hi Stephanie and Liv. You can now map a recorded debate yourselves, no help from me needed. Open https://antidebate.xyz/host in Chrome on a laptop and sign in with the host password I sent you separately. The page walks you through the rest: connecting an Anthropic key (you pay Anthropic directly; about $12–15 for a 90-minute debate (measured 2026-09-28), so $25 of credit is comfortable), then preparing the laptop once on good Wi-Fi. Please do the Anthropic account and the laptop preparation a day or more ahead. The full step-by-step guide is attached. Live capture from the browser is coming next; today the flow is for recordings.
 
 ## Set up on a fresh laptop
 
