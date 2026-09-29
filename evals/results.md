@@ -15,6 +15,14 @@ QUALITY §4 gates for reference: faithfulness ≥ 0.97, L1 latency ≤ 10 s / 18
 
 ---
 
+## 2026-09-29 · End-to-end loop 3 (in progress)
+
+- **Timeline and Positions review (belief-in-god-r2):** the timeline reads well (dense clarifying lanes, then the shared-ground corridor filling with higher-ground rings and crux diamonds). Positions exposed noise: autobiographical asides extracted as claims ("Layman Pascal would be happy to go along with the commandments if God came to him personally…").
+- **l1-extract-v0.5:** asides and personal preferences are skipped unless they carry the argument (a stated update, a conditional commitment, experience offered as evidence). A/B on Belief in God 11–18m: claims 55 → 42 (−24%), autobiographical 5 → 3 (the remaining ones state positions, e.g. "Layman Pascal is pro God").
+- Reruns destiny-shermer-r2 and open-source-ai-r2 (l1 v0.4 + hysteresis) are running.
+
+---
+
 ## 2026-09-29 · End-to-end loop 2 (final pipeline reruns + browser review)
 
 - **gender-affirming-care-r2:** 376 calls (r1: 519) thanks to the 6-turn cadence and card stability; rounds 12/12; 14 distinct higher-ground ideas. The crux path is sharper and reaches the real crux: "In the world as it currently is, the people doing science are not free of ideological capture" (Bishay accepts / Pascal rejects), then "A trustworthy health professional would have to not believe that gender and sex are different".

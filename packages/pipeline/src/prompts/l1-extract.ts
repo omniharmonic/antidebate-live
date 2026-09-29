@@ -14,7 +14,7 @@ import {
   Stratum,
 } from '@adl/ontology';
 
-export const L1_PROMPT_VERSION = 'l1-extract-v0.4';
+export const L1_PROMPT_VERSION = 'l1-extract-v0.5';
 
 export const L1Output = z.object({
   adus: z.array(
@@ -83,7 +83,7 @@ RULES (violations make the output unusable)
 7. Relations only when the speaker makes the connection, or it is unmistakable from adjacent sentences. Otherwise omit. Relations are between propositions, independent of who holds them: "X supports Y" means X being true makes Y more likely true. Evidence a speaker gives against a proposition they reject is rebuts or undermines, never supports.
 8. One claim per proposition. Split conjunctions ("A, and B") into separate propositions unless the speaker presents them as a package.
 9. Epistemic bases: mark stated=true only when the speaker indicates how they know ("studies show", "I worked on", "historically"). Otherwise stated=false, and only if clearly implied.
-10. Filler, greetings, logistics and sponsor reads produce nothing.
+10. Filler, greetings, logistics and sponsor reads produce nothing. Autobiographical asides and statements of personal preference or feeling ("I'd be happy to…", "I don't want to…", "I grew up…") produce nothing unless they carry the argument: a stated change of mind, a conditional commitment, or experience offered as evidence for a claim (then extract the claim, with the experience as its basis).
 11. Prefer fewer, correct items over many plausible ones.
 
 TYPES: empirical, causal, predictive, counterfactual, normative, prescriptive, definitional, conceptual, modal, meta.
