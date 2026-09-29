@@ -53,7 +53,7 @@ Four layers, each with its own measurement:
 | Presupposition necessity | Share of inferred presuppositions that annotators judge necessary | ≥ 0.85 | ≥ 0.92 |
 | Crux agreement | Overlap of the system's top 3 with the adjudicated gold top 3, per segment | ≥ 0.6 | ≥ 0.7 |
 | Higher-ground signability | Candidates both sides' proxies judge they "could sign" | ≥ 0.75 | ≥ 0.8, plus participant review |
-| Higher-ground recall (G2) | Published synthesis items recovered as candidates | ≥ 2 of 3 | 3 of 3 |
+| Higher-ground recall (G2) | Verified synthesis items (manifest `reference.publishedSynthesis`) recovered as candidates | ≥ 3 of 4 | 4 of 4 |
 | Prompt usefulness | Facilitator rating of sampled prompts as "I'd ask this" | ≥ 0.6 | ≥ 0.75 |
 | L1 latency | End of turn → approvable proposition, p50 / p90 | ≤ 10 s / 18 s | ≤ 6 s / 12 s |
 

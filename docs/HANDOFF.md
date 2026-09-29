@@ -52,8 +52,8 @@ These are blocked in the cloud container, which is why you're running locally.
    - Update PRD §7 and the `session.started` payload's `format` to reference it.
 2. **Prior-debate write-ups** listed in `docs/client/prior-debates.md` (Synthesis Media post, Jasmine Li's notes, EA Forum). Verify the three "published synthesis" items; set `reference.verified: true` in `fixtures/antidebate/ball-kokotajlo-ai-governance/manifest.json` or correct the list.
 3. **Media:** `brew install yt-dlp ffmpeg && tools/fetch-replays.sh --playlist`. Choose 2 more playlist events for G3 and add their `manifest.json`. **Media stays gitignored.**
-4. **Offline transcript** (Apple Silicon): `cd services/capture && uv sync --extra mac --extra diarize && HF_TOKEN=… uv run python -m adl_capture.offline ../../fixtures/antidebate/ball-kokotajlo-ai-governance`
-   - `offline.py` assumes parakeet-mlx result fields `result.sentences[].tokens[].{text,start,end}` and the pyannote 3.1 API. **Verify both against the installed versions** and fix them before trusting the output.
+4. **Offline transcript** (Apple Silicon): `cd services/capture && uv run python -m adl_capture.offline ../../fixtures/antidebate/ball-kokotajlo-ai-governance` (FluidAudio; done 2026-09-28, see NEXT_STEPS)
+   - `offline.py` now parses FluidAudio's JSON (`wordTimings`, `segments`); the parsers are tested.
    - Then have Benjamin (or you, by listening) fill `speakerMap` in the manifest. No named attribution without that step.
    - `pnpm --filter @adl/worker replay -- --fixture ball-kokotajlo-ai-governance --out ../../.data/ball-kokotajlo-ai-governance.events.jsonl`
 
@@ -85,6 +85,8 @@ After R0: the operator console (UX §4), live capture (WS1, `services/capture/ad
 - **The DT fixture has one `unknown`-speaker segment** (key `UNK`). Tests allow ≤ 1.
 - **The web app reads replay files from `../../.data/`** relative to `apps/web` (dev only). On Vercel, use `DATABASE_URL`.
 - **Opus 5.5 thinking can't be disabled;** control depth with `output_config.effort` (its default is `medium`, so set it explicitly per pass, as `models.ts` does).
+- **YouTube audio needs impersonation:** plain `yt-dlp` gets HTTP 403. `tools/fetch-replays.sh` runs `uvx --with curl_cffi --with yt-dlp-ejs yt-dlp --js-runtimes node`.
+- **Offline diarization is FluidAudio** (`tools/fluidaudio.sh`, pyannote community-1 as CoreML, ungated), not pyannote in Python. No `HF_TOKEN`. The first build takes ~3 min and downloads Swift packages.
 - **The cloud container blocks** youtube.com, googlevideo.com, synthesismedia.org, anti-debate.org, substack.com and forum.effectivealtruism.org. Do network fetching locally.
 
 ## 6. Rules that must not bend (summary of AGENTS.md)
