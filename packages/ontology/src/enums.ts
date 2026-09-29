@@ -29,6 +29,8 @@ export const COMMITTING_ACTS = new Set<SpeechAct>([
   'commit_conditional',
   'answer',
 ]);
+/** Speech acts that never change the speaker's commitment store (§2.2): asking, demanding a reason, talking about the debate. */
+export const NON_COMMITTING_ACTS = new Set<SpeechAct>(['question', 'challenge', 'meta']);
 /** Speech acts whose content must never be assigned to the speaker (§8.5). */
 export const NON_ATTRIBUTABLE_ACTS = new Set<SpeechAct>(['attribute', 'steelman_report', 'nonliteral']);
 

@@ -6,6 +6,7 @@ import type { DomainEvent } from '@adl/core';
 import { callStructured, type LlmCallLog } from '@adl/llm';
 import {
   validateProposal,
+  validateStance,
   type Adu,
   type Proposition,
   type Relation,
@@ -75,7 +76,11 @@ export function mapL1Output(turn: Turn, out: L1Output, ctx: L1Context): DomainEv
     events.push({ ...base, eventId: `${prop.id}:proposed`, type: 'proposition.proposed', wallTs: wall, payload: { proposition: prop } });
   }
 
-  // Stances, validated against their ADU and proposition
+  // Names, the rest of this turn and the context turns may supply resolved references
+  // (prompt rule 3), so they count as antecedents for the new-content check.
+  const antecedents = [...ctx.participants.map((p) => p.displayName), turn.text, ...ctx.recentTurns.map((t) => t.text)];
+
+  // Stances, validated against their ADU and proposition (or ADU alone for an existing proposition)
   out.stances.forEach((s, i) => {
     const adu = adus.get(s.aduRef);
     const pid = resolveProp(s.propositionRef, localProp);
@@ -93,10 +98,10 @@ export function mapL1Output(turn: Turn, out: L1Output, ctx: L1Context): DomainEv
     };
     events.push({ ...base, eventId: `${stance.id}:proposed`, type: 'stance.proposed', wallTs: wall, payload: { stance } });
     const prop = props.get(pid);
-    if (prop) {
-      const issues = validateProposal({ adu, proposition: prop, stance, utterances: ctx.utterances });
-      events.push({ ...base, eventId: `${stance.id}:validation`, type: 'validation.result', wallTs: wall, payload: { itemId: prop.id, issues: issues.map(({ code, message }) => ({ code, message })) } });
-    }
+    const issues = prop
+      ? validateProposal({ adu, proposition: prop, stance, utterances: ctx.utterances, resolvedAntecedents: antecedents })
+      : validateStance(adu, stance);
+    events.push({ ...base, eventId: `${stance.id}:validation`, type: 'validation.result', wallTs: wall, payload: { itemId: prop ? prop.id : stance.id, issues: issues.map(({ code, message }) => ({ code, message })) } });
   });
 
   // Relations

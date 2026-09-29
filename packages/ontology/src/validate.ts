@@ -4,8 +4,8 @@
  * unless the operator overrides with a logged reason.
  */
 import type { Adu, Proposition, Span, Stance, Utterance } from './entities';
-import { NON_ATTRIBUTABLE_ACTS, STRENGTH_RANK, type Quantifier, type Strength } from './enums';
-import { HEDGES, QUANTIFIER_WIDTH, QUANTIFIER_WORDS } from './lexicons';
+import { NON_ATTRIBUTABLE_ACTS, NON_COMMITTING_ACTS, STRENGTH_RANK, type Quantifier, type Strength } from './enums';
+import { HEDGE_NEUTRAL_PHRASES, HEDGES, QUANTIFIER_NEUTRAL_PHRASES, QUANTIFIER_WIDTH, QUANTIFIER_WORDS } from './lexicons';
 
 export type ValidationCode =
   | 'span_missing_utterance'
@@ -16,6 +16,7 @@ export type ValidationCode =
   | 'hedge_inflated'
   | 'scope_widened'
   | 'non_attributable_stance'
+  | 'non_committing_stance'
   | 'attribution_pending';
 
 export interface ValidationIssue {
@@ -40,7 +41,9 @@ export function validateSpan(span: Span, utterances: ReadonlyMap<string, Utteran
   return [];
 }
 
-const NUMBER_RE = /\b\d+(?:[.,]\d+)?%?|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|fifty|hundred|thousand|million|billion|percent)\b/gi;
+// "one" is left out: as a pronoun or determiner ("one pole", "which side one takes") it
+// produced only false positives (evals/results.md 2026-09-28). Digits still catch "1".
+const NUMBER_RE = /\b\d+(?:[.,]\d+)?%?|\b(?:two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|fifty|hundred|thousand|million|billion|percent)\b/gi;
 /** Capitalized tokens not at sentence start: a cheap proper-noun proxy. */
 const ENTITY_RE = /(?<![.!?]\s|^)\b[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*/g;
 
@@ -60,14 +63,20 @@ export function validateNoNewContent(canonical: string, sourceTexts: string[]): 
   return issues;
 }
 
+const phraseRe = (phrase: string) => new RegExp(`(^|[^a-z'])${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[^a-z']|$)`, 'g');
+
 function containsPhrase(text: string, phrase: string): boolean {
-  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(^|[^a-z'])${escaped}([^a-z']|$)`).test(text);
+  return phraseRe(phrase).test(text);
+}
+
+/** Blank out phrases that look like hedges or quantifiers but aren't (see lexicons). */
+function stripPhrases(text: string, phrases: ReadonlyArray<string>): string {
+  return phrases.reduce((t, p) => t.replace(phraseRe(p), '$1 '), text);
 }
 
 /** The strongest strength the span's hedges allow, or 'certain' if unhedged. */
 export function maxStrengthForSpan(spanText: string): Strength {
-  const t = norm(spanText);
+  const t = stripPhrases(norm(spanText), HEDGE_NEUTRAL_PHRASES);
   let max: Strength = 'certain';
   for (const [phrase, cap] of HEDGES) {
     if (containsPhrase(t, phrase) && STRENGTH_RANK[cap] < STRENGTH_RANK[max]) max = cap;
@@ -86,7 +95,7 @@ export function validateHedge(spanText: string, strength: Strength): ValidationI
 
 /** The narrowest quantifier word in the span; null when none appears. */
 export function narrowestQuantifier(spanText: string): Quantifier | null {
-  const t = norm(spanText);
+  const t = stripPhrases(norm(spanText), QUANTIFIER_NEUTRAL_PHRASES);
   let found: Quantifier | null = null;
   for (const [word, q] of QUANTIFIER_WORDS) {
     if (containsPhrase(t, word) && (found === null || QUANTIFIER_WIDTH[q] < QUANTIFIER_WIDTH[found])) found = q;
@@ -110,6 +119,20 @@ export function validateSpeechActStance(adu: Adu, stance: Stance): ValidationIss
     return [{ code: 'non_attributable_stance', message: `A "${adu.speechAct}" act cannot commit ${adu.speakerKey} to a proposition` }];
   }
   return [];
+}
+
+/** question / challenge / meta ADUs don't change the speaker's commitment store (§2.2). */
+export function validateCommittingAct(adu: Adu, stance: Stance): ValidationIssue[] {
+  if (stance.participantKey === adu.speakerKey && NON_COMMITTING_ACTS.has(adu.speechAct) && stance.source !== 'inferred') {
+    return [{ code: 'non_committing_stance', message: `A "${adu.speechAct}" act does not change ${adu.speakerKey}'s commitments` }];
+  }
+  return [];
+}
+
+/** Checks on a stance alone: used when it attaches to an existing proposition from the index. */
+export function validateStance(adu: Adu, stance: Stance): ValidationIssue[] {
+  const spanText = adu.spans.map((s) => s.quote).join(' … ');
+  return [...validateHedge(spanText, stance.strength), ...validateSpeechActStance(adu, stance), ...validateCommittingAct(adu, stance)];
 }
 
 /** Items from utterances whose attribution isn't confirmed are held (ARCHITECTURE §2.1). */
@@ -137,10 +160,7 @@ export function validateProposal(args: {
   const spanText = adu.spans.map((s) => s.quote).join(' … ');
   issues.push(...validateNoNewContent(proposition.canonical, [spanText, ...(args.resolvedAntecedents ?? [])]));
   issues.push(...validateScope(spanText, proposition.scope.quantifier));
-  if (stance) {
-    issues.push(...validateHedge(spanText, stance.strength));
-    issues.push(...validateSpeechActStance(adu, stance));
-  }
+  if (stance) issues.push(...validateStance(adu, stance));
   issues.push(...validateAttribution(adu.spans, utterances));
   return issues;
 }
