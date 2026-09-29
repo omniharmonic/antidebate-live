@@ -26,8 +26,7 @@ export function StageOutput({ channel, session }: { channel: string; session: st
       ) : (
         <div className="text-center">
           <p className="font-mono text-xs uppercase tracking-widest text-ink-3">{view.frame?.round ?? ''}</p>
-          <h1 className="mt-4 text-6xl">{view.frame?.title}</h1>
-          <p className="mt-6 font-mono text-sm text-ink-3">Level {view.level} layout not built yet</p>
+          <h1 className="mx-auto mt-4 max-w-[24ch] text-[clamp(32px,5vw,72px)] leading-tight">{view.frame?.title}</h1>
         </div>
       )}
     </main>

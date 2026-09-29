@@ -36,6 +36,7 @@ export function Console({ sessionId }: { sessionId: string }) {
   const { live: s, meta } = data;
   const [pending, setPending] = useState<Record<string, Action>>({});
   const [error, setError] = useState<string | null>(null);
+  const [panel, setPanel] = useState<'transcript' | 'review' | 'insights'>('review');
 
   const act = async (itemId: string, type: Action) => {
     setPending((p) => ({ ...p, [itemId]: type }));
@@ -50,17 +51,20 @@ export function Console({ sessionId }: { sessionId: string }) {
   };
 
   return (
-    <main className="flex h-dvh flex-col bg-field text-ink">
+    <main className="console-screen session-screen flex h-dvh flex-col bg-field text-ink">
       <SessionBar meta={meta} current="console" status={data.status} />
       {error ? (
         <p role="alert" className="border-b border-border bg-insight-faint px-6 py-2 text-sm">
           Action not saved: {error}
         </p>
       ) : null}
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)_minmax(320px,400px)]">
-        <Transcript s={s} meta={meta} />
-        <Queue s={s} meta={meta} pending={pending} act={act} />
-        <div className="min-h-0 overflow-y-auto border-t border-border lg:border-l lg:border-t-0">
+      <nav aria-label="Console panels" className="console-panel-tabs">
+        {([['transcript', 'Transcript'], ['review', 'Review queue'], ['insights', 'Insights & rounds']] as const).map(([id, label]) => <button key={id} type="button" aria-pressed={panel === id} onClick={() => setPanel(id)}>{label}</button>)}
+      </nav>
+      <div className="console-workspace" data-panel={panel}>
+        <div className="console-panel" data-console-panel="transcript"><Transcript s={s} meta={meta} /></div>
+        <div className="console-panel" data-console-panel="review"><Queue s={s} meta={meta} pending={pending} act={act} /></div>
+        <div className="console-panel scroll-quiet overflow-y-auto border-border xl:border-l" data-console-panel="insights">
           <RoundControl s={s} meta={meta} onError={setError} />
           <Insights s={s} meta={meta} pending={pending} act={act} />
         </div>
@@ -71,8 +75,8 @@ export function Console({ sessionId }: { sessionId: string }) {
 
 function Column({ title, aside, children, className = '' }: { title: string; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section aria-label={title} className={`flex min-h-0 flex-col ${className}`}>
-      <div className="flex items-baseline justify-between gap-4 border-b border-border px-5 py-2.5">
+    <section aria-label={title} className={`flex min-h-0 min-w-0 flex-1 flex-col ${className}`}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border px-4 py-3">
         <h2 className="font-sans text-sm font-medium text-ink-2">{title}</h2>
         {aside}
       </div>
@@ -84,14 +88,21 @@ function Column({ title, aside, children, className = '' }: { title: string; asi
 function Transcript({ s, meta }: { s: SessionState; meta: SessionMeta }) {
   const box = useRef<HTMLOListElement>(null);
   const stick = useRef(true);
-  const ids = s.utteranceOrder.slice(-300);
+  const [search, setSearch] = useState('');
+  const needle = search.trim().toLowerCase();
+  const matching = needle ? s.utteranceOrder.filter((id) => { const u = s.utterances.get(id)!; return u.text.toLowerCase().includes(needle) || personOf(meta, u.participantKey).displayName.toLowerCase().includes(needle); }) : s.utteranceOrder;
+  const ids = matching.slice(-300);
   const newest = ids.at(-1);
   useEffect(() => {
     const el = box.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [newest]);
   return (
-    <Column title="Transcript" aside={<span className="font-mono text-xs text-ink-3 tabular">{s.utteranceOrder.length} lines</span>}>
+    <Column title="Transcript" aside={<span className="text-xs text-ink-3 tabular">{matching.length} {needle ? 'matches' : 'lines'}</span>}>
+      <div className="border-b border-border px-4 py-3">
+        <input type="search" aria-label="Search transcript" placeholder="Search words or speaker" value={search} onChange={(e) => { stick.current = false; setSearch(e.target.value); box.current?.scrollTo({top:0}); }} className="h-11 w-full min-w-0 rounded-[3px] border border-border bg-field px-3 text-[14px]" />
+        {matching.length > 300 ? <p className="mt-2 text-[12px] text-ink-3">Showing the latest 300 {needle ? 'matches' : 'lines'}. Search to find an earlier moment.</p> : null}
+      </div>
       <ol
         ref={box}
         onScroll={(e) => {
@@ -100,7 +111,7 @@ function Transcript({ s, meta }: { s: SessionState; meta: SessionMeta }) {
         }}
         className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4"
       >
-        {ids.length === 0 ? <li className="text-sm text-ink-3">Waiting for the first utterance.</li> : null}
+        {ids.length === 0 ? <li className="text-sm text-ink-3">{needle ? 'No transcript lines match. Try another word or speaker.' : 'Waiting for the first utterance.'}</li> : null}
         {ids.map((id) => {
           const u = s.utterances.get(id)!;
           const low = u.attribution.confidence < 0.8;
@@ -162,10 +173,10 @@ function Checks({ t }: { t: Tracked<unknown> }) {
 
 function Buttons({ id, t, pending, act, send = false }: { id: string; t: Tracked<unknown>; pending: Record<string, Action>; act: (id: string, a: Action) => void; send?: boolean }) {
   const busy = pending[id];
-  const btn = 'rounded border border-border-2 px-2.5 py-1 text-xs hover:bg-field-deep disabled:opacity-40';
+  const btn = 'min-h-11 rounded border border-border-2 px-2.5 py-1 text-xs hover:bg-field-deep disabled:opacity-40';
   const blocked = t.issues.length > 0;
   return (
-    <span className="flex gap-1.5">
+    <span className="flex flex-wrap gap-1.5">
       <button
         type="button"
         className={btn}
@@ -191,7 +202,7 @@ function Buttons({ id, t, pending, act, send = false }: { id: string; t: Tracked
 }
 
 function Queue({ s, meta, pending, act }: { s: SessionState; meta: SessionMeta; pending: Record<string, Action>; act: (id: string, a: Action) => void }) {
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>('review');
   const stancesByProp = useMemo(() => {
     const m = new Map<string, Tracked<import('@adl/ontology').Stance>[]>();
     for (const t of s.stances.values()) m.set(t.value.propositionId, [...(m.get(t.value.propositionId) ?? []), t]);
@@ -217,7 +228,7 @@ function Queue({ s, meta, pending, act }: { s: SessionState; meta: SessionMeta; 
       aside={
         <div role="group" aria-label="Filter" className="flex gap-1 text-xs">
           {(['review', 'issues', 'all', 'rejected'] as Filter[]).map((f) => (
-            <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)} className={`rounded px-2 py-0.5 ${filter === f ? 'bg-field-deep text-ink' : 'text-ink-3 hover:text-ink'}`}>
+            <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)} className={`min-h-11 rounded px-2 py-0.5 ${filter === f ? 'bg-field-deep text-ink' : 'text-ink-3 hover:text-ink'}`}>
               {LABEL[f]} <span className="font-mono tabular">{counts[f]}</span>
             </button>
           ))}

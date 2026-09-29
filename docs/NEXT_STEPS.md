@@ -2,6 +2,8 @@
 
 Ordered by the critical path in [IMPLEMENTATION_PLAN §4](./IMPLEMENTATION_PLAN.md). Check items off in PRs.
 
+**2026-09-29 polish pass:** responsive exploration, evidence sheets, touch timeline navigation, mobile cockpit and console, transcript search, setup refinements and legacy route redirects are implemented locally. See [POLISH_REVIEW.md](./POLISH_REVIEW.md) for verification and scope. Deployed to https://antidebate.xyz on 2026-09-29 (`dpl_BbvqW2SPpFqTnDBBN1KGU6PKgqsm`).
+
 ## 0. The long-running build loop (Benjamin, 2026-09-28). Work through in order in one session
 1. [x] **Ingest loop** over every playlist debate (subscription only, $0 API): run the full pipeline → `diagnose` → write the findings and an improvement plan in `evals/results.md` → implement → verify on the next ingest.
    - [x] Ball × Kokotajlo (r1 on Opus/API, stopped at 80m; r2 on Sonnet, full)

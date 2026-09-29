@@ -7,10 +7,9 @@
  * state and Blackout stay visible at all times. The quadrant bodies are also
  * used, compact, by the timeline's side panel for the state at the playhead.
  */
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { DomainEvent, SessionState } from '@adl/core';
-import { StatusDot, Wordmark } from '@/components/SessionBar';
+import { SessionBar } from '@/components/SessionBar';
 import {
   ATTITUDE_LABEL,
   CONSTRUCTION_LABEL,
@@ -31,42 +30,25 @@ export function Cockpit({ sessionId }: { sessionId: string }) {
   const data = useSession();
   const { live: s, meta } = data;
   const round = s.round;
-  const roundPhase = round ? meta.format.phases.find((p) => p.id === meta.format.rounds.find((r) => r.id === round.roundId)?.phase)?.name : null;
-  const base = `/s/${encodeURIComponent(sessionId)}`;
+  void sessionId;
 
   return (
-    <main data-surface="stage" className="flex h-dvh min-h-[640px] flex-col bg-field text-ink">
-      <header className="flex h-16 shrink-0 items-center gap-6 border-b border-border px-8">
-        <Wordmark />
-        <span aria-hidden className="h-6 w-px bg-border" />
-        <p className="min-w-0 flex-1 truncate text-[18px]">
-          {round ? (
-            <>
-              <span className="text-ink">{round.name}</span>
-              {roundPhase && roundPhase !== round.name ? <span className="text-ink-3"> · {roundPhase}</span> : null}
-              <span className="ml-3 font-mono text-[16px] text-ink-2 tabular" title="Time in this round (recording time)">
-                {clock(s.lastMediaMs - round.startedMediaMs)}
-              </span>
-            </>
-          ) : (
-            <span className="text-ink-2">{meta.title}</span>
-          )}
-        </p>
-        <nav aria-label="Role" className="hidden items-center gap-4 text-[14px] text-ink-3 xl:flex">
-          <Link href={`${base}/spatial`} className="hover:text-ink">
-            Explore
-          </Link>
-          <Link href={`${base}/console`} className="hover:text-ink">
-            Operate
-          </Link>
+    <main data-surface="stage" className="cockpit-screen flex min-h-dvh flex-col bg-field text-ink">
+      <div className="cockpit-header">
+        <SessionBar meta={meta} current="cockpit" status={data.status} />
+        <div className="cockpit-round-bar">
+          <p className="min-w-0 text-[14px] text-ink-2">
+            <span className="text-ink">{round?.name ?? 'Waiting for a round'}</span>
+            {round ? <span className="ml-3 font-mono text-[12px]">{clock(s.lastMediaMs - round.startedMediaMs)} in round</span> : null}
+          </p>
+          <AudienceControl s={s} />
+        </div>
+        <nav className="cockpit-jumps" aria-label="Facilitator sections">
+          <a href="#the-crux-now">Crux</a><a href="#higher-ground">Higher ground</a><a href="#already-shared">Shared</a><a href="#try-asking">Questions</a>
         </nav>
-        <span className="hidden text-[14px] md:inline">
-          <StatusDot status={data.status} />
-        </span>
-        <AudienceControl s={s} />
-      </header>
+      </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2 md:grid-rows-2">
+      <div className="cockpit-grid grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
         <Quadrant title="The crux now" tag={currentCard(s, 'crux') ? <span className="text-ink-2">Candidate</span> : null} className="md:border-r">
           <CruxBody s={s} meta={meta} size="full" />
         </Quadrant>
@@ -107,8 +89,8 @@ function AudienceControl({ s }: { s: SessionState }) {
     }
   };
   return (
-    <div className="flex items-center gap-4">
-      <p className="text-[16px] text-ink-2" role="status" aria-live="polite" title={error ?? undefined}>
+    <div className="audience-control flex items-center gap-3">
+      <p className="text-[13px] text-ink-2" role="status" aria-live="polite" title={error ?? undefined}>
         {waiting ? 'Updating stage…' : error ? <span className="text-insight">Not sent. Try again.</span> : label}
       </p>
       <button
@@ -116,7 +98,7 @@ function AudienceControl({ s }: { s: SessionState }) {
         onClick={toggle}
         disabled={waiting}
         aria-pressed={s.blackout}
-        className={`h-11 min-w-[120px] rounded-[3px] border px-5 text-[16px] disabled:opacity-50 ${s.blackout ? 'border-ink bg-ink text-field' : 'border-border-2 text-ink hover:bg-field-deep'}`}
+        className={`h-11 shrink-0 rounded-[3px] border px-4 text-[14px] disabled:opacity-50 ${s.blackout ? 'border-ink bg-ink text-field' : 'border-border-2 text-ink hover:bg-field-deep'}`}
       >
         {s.blackout ? 'End blackout' : 'Blackout'}
       </button>
@@ -142,17 +124,17 @@ function Quadrant({ title, tag, className = '', children }: { title: string; tag
     };
   }, []);
   return (
-    <section aria-label={title} className={`flex min-h-0 flex-col border-b border-border px-8 pb-5 pt-6 ${className}`}>
-      <div className="mb-5 flex items-baseline gap-4">
+    <section id={title.toLowerCase().replaceAll(' ', '-')} aria-label={title} className={`cockpit-quadrant flex min-h-0 flex-col border-b border-border px-5 pb-6 pt-6 md:px-8 ${className}`}>
+      <div className="mb-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className="text-[22px] font-medium tracking-[-0.01em] text-ink">{title}</h2>
         {tag ? <p className="font-mono text-[14px]">{tag}</p> : null}
         {more ? (
-          <button type="button" onClick={() => box.current?.scrollBy({ top: box.current.clientHeight * 0.8 })} className="ml-auto text-[15px] text-ink-3 hover:text-ink">
+          <button type="button" onClick={() => box.current?.scrollBy({ top: box.current.clientHeight * 0.8 })} className="hidden min-h-11 xl:block ml-auto text-[15px] text-ink-3 hover:text-ink">
             More below ↓
           </button>
         ) : null}
       </div>
-      <div ref={box} className={`scroll-quiet min-h-0 flex-1 overflow-y-auto pr-2 ${more ? 'border-b border-border-2' : ''}`}>
+      <div ref={box} className={`cockpit-content scroll-quiet min-h-0 flex-1 pr-2 ${more ? 'border-b border-border-2' : ''}`}>
         <div>{children}</div>
       </div>
     </section>
@@ -438,7 +420,7 @@ function LedgerStrip({ s, meta }: { s: SessionState; meta: SessionMeta }) {
     }
   }
   return (
-    <footer className="flex h-14 shrink-0 items-center gap-x-10 border-t border-border px-8 text-[17px] text-ink-2">
+    <footer className="flex min-h-14 shrink-0 flex-wrap items-center gap-x-6 gap-y-2 border-t border-border px-5 py-3 text-[14px] text-ink-2 md:px-8">
       <span title="Question speech acts in the map">
         Questions asked <span className="ml-1 font-mono text-ink tabular">{questions}</span>
       </span>

@@ -25,13 +25,13 @@ export function TimeDock({ rounds, bands, ended, windowControl = false }: { roun
   const mode = following ? 'Following live' : t === null ? 'End of recording' : 'Replay';
 
   return (
-    <div className="shrink-0 border-t border-border bg-field">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-5 py-3 md:px-6">
+    <div className="time-dock shrink-0 border-t border-border bg-field">
+      <div className="time-dock-inner">
         <button
           type="button"
           onClick={ph.togglePlay}
           aria-label={ph.playing ? 'Pause' : 'Play'}
-          className="flex h-11 min-w-[92px] items-center justify-center gap-2.5 rounded-[3px] border border-border-2 px-4 text-[14px] text-ink hover:bg-field-deep"
+          className="transport-play flex h-11 min-w-[92px] items-center justify-center gap-2.5 rounded-[3px] border border-border-2 px-4 text-[14px] text-ink hover:bg-field-deep"
         >
           {ph.playing ? (
             <svg width="12" height="12" aria-hidden>
@@ -45,7 +45,7 @@ export function TimeDock({ rounds, bands, ended, windowControl = false }: { roun
           )}
           {ph.playing ? 'Pause' : 'Play'}
         </button>
-        <div role="group" aria-label="Playback speed" className="flex h-9 overflow-hidden rounded-[3px] border border-border">
+        <div role="group" aria-label="Playback speed" className="transport-speed flex h-11 overflow-hidden rounded-[3px] border border-border">
           {([1, 4, 16] as Speed[]).map((v) => (
             <button
               key={v}
@@ -59,7 +59,7 @@ export function TimeDock({ rounds, bands, ended, windowControl = false }: { roun
           ))}
         </div>
 
-        <div className="min-w-[280px] flex-1">
+        <div className="transport-track min-w-0">
           {/* phases and rounds */}
           <div className="relative h-5 text-[12px] text-ink-3" aria-hidden>
             {bands
@@ -95,7 +95,10 @@ export function TimeDock({ rounds, bands, ended, windowControl = false }: { roun
             </label>
           </div>
           <div className="flex items-baseline justify-between gap-4 text-[12px]">
-            <span className="truncate text-ink-2">{currentRound ? currentRound.name : 'No round marked'}</span>
+            {rounds.length ? <select aria-label="Jump to round" value={currentRound ? String(currentRound.startMs) : ''} onChange={(e) => { ph.pause(); ph.setT(Number(e.target.value)); }} className="round-jump min-w-0 max-w-[60%] bg-field text-ink-2">
+              {!currentRound ? <option value="" disabled>Jump to round</option> : null}
+              {rounds.map((r) => <option key={`${r.roundId}:${r.startMs}`} value={String(r.startMs)}>{r.name}</option>)}
+            </select> : <span className="text-ink-3">No rounds marked</span>}
             <span className="shrink-0 font-mono text-ink-3 tabular">
               <span className="text-ink">{clock(tNow)}</span> / {clock(endMs)}
             </span>
@@ -103,7 +106,7 @@ export function TimeDock({ rounds, bands, ended, windowControl = false }: { roun
         </div>
 
         {windowControl ? (
-          <label className="flex items-center gap-2 text-[13px] text-ink-3">
+          <label className="transport-window flex items-center gap-2 text-[13px] text-ink-3">
             <span>Time window</span>
             <select
               value={String(ph.window)}
@@ -111,7 +114,7 @@ export function TimeDock({ rounds, bands, ended, windowControl = false }: { roun
                 const v = e.target.value;
                 ph.setWindow(v === 'full' || v === 'round' ? v : (Number(v) as TimeWindow));
               }}
-              className="h-9 rounded-[3px] border border-border bg-field px-2 text-[13px] text-ink"
+              className="h-11 rounded-[3px] border border-border bg-field px-2 text-[13px] text-ink"
             >
               {WINDOWS.map((w) => (
                 <option key={String(w.v)} value={String(w.v)}>
@@ -122,8 +125,8 @@ export function TimeDock({ rounds, bands, ended, windowControl = false }: { roun
           </label>
         ) : null}
 
-        <div className="flex items-center gap-3">
-          <span className="text-[13px] text-ink-2" role="status">
+        <div className="transport-live flex items-center justify-end gap-3">
+          <span className="hidden text-[13px] text-ink-2 2xl:inline" role="status">
             {mode}
           </span>
           <button
@@ -133,9 +136,9 @@ export function TimeDock({ rounds, bands, ended, windowControl = false }: { roun
               ph.setT(null);
             }}
             disabled={t === null}
-            className="h-9 rounded-[3px] border border-border px-3 text-[13px] text-ink-2 hover:text-ink disabled:opacity-40"
+            className="h-11 whitespace-nowrap rounded-[3px] border border-border px-3 text-[13px] text-ink-2 hover:text-ink disabled:opacity-40"
           >
-            {ended ? 'Go to end' : 'Return to live'}
+            {t === null ? (ended ? 'At end' : 'Following live') : (ended ? 'Go to end' : 'Return to live')}
           </button>
         </div>
       </div>

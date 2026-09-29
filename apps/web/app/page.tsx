@@ -10,16 +10,16 @@ function when(iso: string | undefined): string {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-const COLS = 'md:grid-cols-[minmax(0,1fr)_110px_140px_320px]';
+const COLS = 'xl:grid-cols-[minmax(0,1fr)_88px_120px_290px]';
 
 function Row({ s, active }: { s: SessionSummary; active: boolean }) {
   const debaters = s.participants.filter((p) => p.role === 'debater').map((p) => p.displayName);
   const moderators = s.participants.filter((p) => p.role === 'moderator').map((p) => p.displayName);
   const base = `/s/${encodeURIComponent(s.id)}`;
-  const role = 'inline-flex h-9 items-center px-2.5 text-[13px] text-ink-3 hover:text-ink';
+  const role = 'inline-flex h-11 items-center px-2.5 text-[13px] text-ink-3 hover:text-ink';
   const state = active ? 'Live' : s.ended ? (s.source?.kind === 'live' ? 'Ended' : 'Recorded') : s.source?.kind === 'recording' ? 'Recording' : 'Not running';
   return (
-    <li className={`grid grid-cols-1 items-center gap-x-8 gap-y-3 border-b border-border py-5 ${COLS}`}>
+    <li className={`grid grid-cols-1 items-center gap-x-5 gap-y-3 border-b border-border py-5 ${COLS}`}>
       <div className="min-w-0">
         <Link href={`${base}/spatial`} className="block text-[17px] font-medium leading-snug text-ink hover:underline hover:decoration-border-2 hover:underline-offset-4">
           {s.title}
@@ -28,9 +28,9 @@ function Row({ s, active }: { s: SessionSummary; active: boolean }) {
           {debaters.join(' and ') || 'No debaters listed'}
           {moderators.length ? <span className="text-ink-3"> · moderated by {moderators.join(' and ')}</span> : null}
         </p>
-        <p className="mt-1 text-[12px] text-ink-3">
+        <p className="mt-1 break-words text-[12px] text-ink-3">
           {getFormat(s.format).name}
-          <span className="ml-3 font-mono">{s.id}</span>
+
         </p>
       </div>
       <p className="text-[13px]">
@@ -40,8 +40,8 @@ function Row({ s, active }: { s: SessionSummary; active: boolean }) {
         </span>
       </p>
       <p className="font-mono text-[12px] text-ink-3 tabular">{when(s.lastActivityAt ?? s.startedAt)}</p>
-      <nav aria-label={`Open ${s.title}`} className="flex items-center gap-1">
-        <Link href={`${base}/spatial`} className="mr-2 inline-flex h-9 items-center rounded-[3px] border border-border-2 px-4 text-[13px] text-ink hover:bg-field-deep">
+      <nav aria-label={`Open ${s.title}`} className="flex flex-wrap items-center gap-1">
+        <Link href={`${base}/spatial`} className="mr-2 inline-flex h-11 items-center rounded-[3px] border border-border-2 px-4 text-[13px] text-ink hover:bg-field-deep">
           Explore
         </Link>
         <Link href={`${base}/arc`} className={role}>
@@ -60,7 +60,7 @@ function Row({ s, active }: { s: SessionSummary; active: boolean }) {
 
 function Head() {
   return (
-    <div className={`hidden gap-x-8 border-b border-border pb-2 text-[12px] text-ink-3 md:grid ${COLS}`} aria-hidden>
+    <div className={`hidden gap-x-5 border-b border-border pb-2 text-[12px] text-ink-3 xl:grid ${COLS}`} aria-hidden>
       <span>Conversation</span>
       <span>State</span>
       <span>Last activity</span>
@@ -98,14 +98,14 @@ export default async function Home() {
     <main className="min-h-dvh bg-field">
       <header className="flex h-14 items-center justify-between border-b border-border px-6">
         <span className="label-caps !text-[13px] !tracking-[0.24em] text-ink">Anti-Debate</span>
-        <Link href="/new" className="inline-flex h-9 items-center rounded-[3px] border border-border-2 px-4 text-[13px] text-ink hover:bg-field-deep">
+        <Link href="/new" className="inline-flex h-11 items-center rounded-[3px] border border-border-2 px-4 text-[13px] text-ink hover:bg-field-deep">
           Start a session
         </Link>
       </header>
 
-      <div className="mx-auto max-w-6xl px-6 pb-20 pt-12">
+      <div className="mx-auto max-w-[1440px] px-5 sm:px-8 pb-20 pt-12">
         <h1 className="text-[30px] leading-tight text-ink">Sessions</h1>
-        <p className="mt-2 max-w-[62ch] text-[15px] text-ink-2">Explore a conversation in space and time, facilitate from the cockpit, or operate the review console.</p>
+        <p className="mt-2 max-w-[62ch] text-[15px] text-ink-2">See where a conversation diverges, what it shares, and how it changes. Open a session to explore the map and its sources.</p>
 
         {failed ? <p className="mt-10 text-[14px] text-ink-2">Sessions could not be loaded. Try again.</p> : null}
 
@@ -123,7 +123,7 @@ export default async function Home() {
               </ul>
             </>
           ) : (
-            <p className="border-y border-border py-5 text-[14px] text-ink-3">Nothing is running. A session shows here while its log is growing.</p>
+            <p className="border-y border-border py-5 text-[14px] text-ink-3">No live sessions. Explore a recording below or start a new conversation.</p>
           )}
         </section>
 
@@ -142,11 +142,11 @@ export default async function Home() {
                     </ul>
                     {earlier.length ? (
                       <details className="-mt-2 border-b border-border pb-3 text-[13px] text-ink-3">
-                        <summary className="cursor-pointer py-1 hover:text-ink">Earlier runs ({earlier.length})</summary>
+                        <summary className="cursor-pointer py-3 hover:text-ink">Earlier runs ({earlier.length})</summary>
                         <ul className="mt-1 space-y-1 pl-4">
                           {earlier.map((r) => (
-                            <li key={r.id} className="flex items-center gap-3">
-                              <Link href={`/s/${encodeURIComponent(r.id)}/spatial`} className="font-mono text-[12px] hover:text-ink">
+                            <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                              <Link href={`/s/${encodeURIComponent(r.id)}/spatial`} className="break-all py-2 font-mono text-[12px] hover:text-ink">
                                 {r.id}
                               </Link>
                               <span className="font-mono text-[12px]">{when(r.lastActivityAt ?? r.startedAt)}</span>
@@ -160,7 +160,7 @@ export default async function Home() {
               </ul>
             </>
           ) : (
-            <p className="border-y border-border py-5 text-[14px] text-ink-3">No sessions yet. Start one, or replay a recording with the worker.</p>
+            <p className="border-y border-border py-5 text-[14px] text-ink-3">No recordings yet. Start a session to map your first conversation.</p>
           )}
         </section>
 

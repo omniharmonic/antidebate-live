@@ -98,7 +98,8 @@ function Controls({
   /** The camera follows this depth as the playhead moves, keeping the user's angle and zoom. */
   focusZ: number;
 }) {
-  const { camera, gl } = useThree();
+  const { camera, gl, size } = useThree();
+  const framing = size.width < 600 ? 1.24 : 1.08;
   const ctl = useRef<OrbitControls | null>(null);
   const focusTo = useRef<THREE.Vector3 | null>(null);
   const followed = useRef<number | null>(null);
@@ -111,7 +112,7 @@ function Controls({
     const c = new OrbitControls(camera, gl.domElement);
     const z = wantZ.current;
     followed.current = z;
-    camera.position.copy(CAMERA_HOME.pos).add(new THREE.Vector3(0, 0, z));
+    camera.position.copy(CAMERA_HOME.pos).sub(CAMERA_HOME.target).multiplyScalar(framing).add(CAMERA_HOME.target).add(new THREE.Vector3(0, 0, z));
     c.target.copy(CAMERA_HOME.target).add(new THREE.Vector3(0, 0, z));
     c.enableDamping = !reducedMotion;
     c.dampingFactor = 0.09;
@@ -124,7 +125,7 @@ function Controls({
     c.update();
     ctl.current = c;
     return () => c.dispose();
-  }, [camera, gl, reducedMotion]);
+  }, [camera, gl, reducedMotion, framing]);
 
   useImperativeHandle(
     api,
@@ -135,7 +136,7 @@ function Controls({
         focusTo.current = null;
         const z = wantZ.current;
         followed.current = z;
-        camera.position.copy(CAMERA_HOME.pos).add(new THREE.Vector3(0, 0, z));
+        camera.position.copy(CAMERA_HOME.pos).sub(CAMERA_HOME.target).multiplyScalar(framing).add(CAMERA_HOME.target).add(new THREE.Vector3(0, 0, z));
         c.target.copy(CAMERA_HOME.target).add(new THREE.Vector3(0, 0, z));
         c.update();
       },
@@ -150,7 +151,7 @@ function Controls({
         } else focusTo.current = p.clone();
       },
     }),
-    [camera, reducedMotion, positions],
+    [camera, reducedMotion, positions, framing],
   );
 
   useFrame((state, dt) => {

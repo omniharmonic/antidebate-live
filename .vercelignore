@@ -1,0 +1,30 @@
+# Local data and working artifacts are not deployment inputs.
+.data/
+.cache/
+.turbo/
+.playwright-mcp/
+.spool/
+design-explorations/
+recordings/
+**/node_modules/
+**/.next/
+**/dist/
+**/*.tsbuildinfo
+**/.DS_Store
+.env*
+**/.env*
+
+# Capture environments and source recordings stay on the operator machine.
+services/capture/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+fixtures/antidebate/**/*.wav
+fixtures/antidebate/**/*.mp3
+fixtures/antidebate/**/*.m4a
+fixtures/antidebate/**/*.webm
+fixtures/antidebate/**/*.mp4
+fixtures/antidebate/**/*.vtt
+fixtures/antidebate/**/*.info.json
+fixtures/antidebate/**/*.fluidaudio.json
+fixtures/antidebate/**/transcript.utterances.json

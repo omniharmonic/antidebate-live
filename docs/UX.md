@@ -10,14 +10,26 @@ The facilitator glances down and sees, in under two seconds: what the disagreeme
 
 ## 2. Design language and the anti-slop rules
 
-**Open Field** is inherited from Dialectical Topology:
-- a light field (#FAFAFA) with an ink scale
-- per-participant voice colors (warm/cool pairs generated per event, checked for contrast in both themes and for color-blind separation)
-- violet for convergence and higher ground
-- amber for drift and insight, used rarely
-- a dark "stage" variant for projection and the dimmed cockpit
+**Section** supersedes the inherited Open Field aesthetic (2026-09-29):
+- a cool near-black canvas (#090D11), restrained raised surfaces (#111820), and thin structural rules
+- readable cool-white text, cyan and periwinkle participant accents, always accompanied by names
+- muted violet for convergence and higher-ground candidates; candidacy remains explicit
+- amber for caution, used rarely; no decorative glow
+- the same visual language across exploration, facilitation, operation and projection
 
-Type: Instrument Serif for display, Inter for text, JetBrains Mono for timecodes, credences and ids.
+Type: Inter for display and text, JetBrains Mono for timecodes, credences and ids. The token source is `packages/ui/tokens.css`.
+
+### Implemented responsive behavior (2026-09-29)
+
+Explore has three complementary lenses: Spatial, Timeline and Positions. Lens navigation preserves the selected proposition and playhead. Playback starts at 1×; a round selector provides direct navigation.
+
+At 1280 px and above, evidence occupies a persistent right pane. Below that, selecting an item opens a modal evidence sheet with native focus containment, Escape dismissal and focus restoration. Verbatim source words and expandable transcript context stay together, without seeking to a time before extraction created the selected proposition.
+
+On phones, Positions becomes a list with named participant stances, a native filter selector and search. The Timeline pans by touch; the scrubber controls playback independently. The Spatial map has explicit camera controls, a reading key and a Positions fallback if rendering fails. Dense projected prose is hidden on phones so it does not cover the map.
+
+The facilitator cockpit keeps four quadrants on wide screens, two columns on tablets, and a flowing document with sticky section navigation and Blackout on phones. The operator console switches among Transcript, Review queue and Insights & rounds below 1280 px; larger screens show all three. Primary actions use 44 px or larger heights; mobile form fields use 16 px text to avoid input zoom.
+
+The remaining sections describe the broader product specification, including capabilities not yet implemented. See [POLISH_REVIEW.md](./POLISH_REVIEW.md) for this pass's verification and limits.
 
 **Rules (enforced in design review and in prompts):**
 1. Every string is a verbatim quote, a canonical proposition, a label from the ontology, or a sentence of ≤ 25 words that cites node ids. There are no generated "summaries" in audience outputs.
@@ -99,7 +111,7 @@ Designed for the chair on stage: dark theme at low brightness, large type (minim
 ### 5.1 Stage (`/stage/stage`)
 Full-bleed, dark stage theme, readable from 20 m. Renders the channel's dial level:
 - **L0 Dark:** the event title slate, or black.
-- **L1 Frame:** the round title and the question on the table, set in display serif.
+- **L1 Frame:** the round title and the question on the table, set in clear sans-serif display type.
 - **L2 Positions:** two columns, 1–3 theses each, each with an epistemic badge.
 - **L3 Clash:** positions + a centered crux band where the two colors meet + a shared-ground strip. Higher ground rises above the band when it's released.
 - **L4 Map:** the 2D stratified map, or the 3D topology in cinematic mode.

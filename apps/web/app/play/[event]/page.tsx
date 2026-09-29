@@ -1,10 +1,13 @@
-import { notFound } from 'next/navigation';
-import { loadLocalEvents } from '@/lib/events-source';
-import { PlaybackSkeleton } from '@/components/PlaybackSkeleton';
+import { notFound, redirect } from 'next/navigation';
+import { isValidSessionId } from '@/lib/session-id';
 
-export default async function PlayPage({ params }: { params: Promise<{ event: string }> }) {
+/** Keep existing playback links on the full, responsive explorer. */
+export default async function PlayPage({ params, searchParams }: { params: Promise<{ event: string }>; searchParams: Promise<{ t?: string; sel?: string }> }) {
   const { event } = await params;
-  const events = loadLocalEvents(event);
-  if (events.length === 0) notFound();
-  return <PlaybackSkeleton sessionId={event} events={events} />;
+  if (!isValidSessionId(event)) notFound();
+  const { t, sel } = await searchParams;
+  const query = new URLSearchParams();
+  if (t && Number.isFinite(Number(t))) query.set('t', t);
+  if (sel) query.set('sel', sel);
+  redirect(`/s/${encodeURIComponent(event)}/arc${query.size ? `?${query}` : ''}`);
 }

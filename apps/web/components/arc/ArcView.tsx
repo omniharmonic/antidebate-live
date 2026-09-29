@@ -9,6 +9,7 @@
  * replays it at 1×, 4× or 16× and drives the side panel.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { EvidencePane } from '@/components/explore/EvidencePane';
 import { TimeDock } from '@/components/explore/TimeDock';
 import { PropositionInspector } from '@/components/explore/Inspector';
 import type { SessionState } from '@adl/core';
@@ -142,7 +143,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
     return ((e.clientX - r.left) / r.width) * width;
   };
   const onDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if ((e.target as Element).closest('.arc-mark')) return;
+    if (e.pointerType === 'touch' || (e.target as Element).closest('.arc-mark')) return;
     dragging.current = true;
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     ph.pause();
@@ -183,7 +184,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
   };
 
   return (
-    <main className="flex h-dvh flex-col bg-field text-ink">
+    <main className="session-screen flex h-dvh flex-col bg-field text-ink">
       <SessionBar meta={meta} current="arc" status={data.status} query={ph.query}>
         <span className="hidden text-ink-3 md:inline tabular">
           <span className="text-ink-2">{counts.disputes}</span> open {counts.disputes === 1 ? 'disagreement' : 'disagreements'} · <span className="text-convergence">{counts.shared}</span> shared
@@ -193,8 +194,9 @@ export function Arc({ sessionId }: { sessionId: string }) {
         </span>
       </SessionBar>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px]">
-        <section className="scroll-quiet min-h-0 min-w-0 overflow-y-auto px-6 pb-8 pt-5">
+      <div className="explore-workspace">
+        <section className="timeline-viewport scroll-quiet min-h-0 min-w-0 flex-1 overflow-auto px-4 pb-6 pt-5 md:px-6">
+          <p className="mb-3 text-[13px] text-ink-3 xl:hidden">Swipe across the timeline. Tap a point to read its sources.</p>
           <div ref={wrap} className="relative w-full select-none">
             <svg
               ref={svgRef}
@@ -207,7 +209,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
               onPointerMove={onMove}
               onPointerUp={onUp}
               onPointerCancel={onUp}
-              style={{ touchAction: 'none', cursor: 'crosshair', display: 'block' }}
+              style={{ touchAction: 'pan-x pan-y', cursor: 'crosshair', display: 'block' }}
             >
               {/* phase bands */}
               {model.bands.map((b, i) => {
@@ -491,10 +493,10 @@ export function Arc({ sessionId }: { sessionId: string }) {
           <Legend />
         </section>
 
-        <aside className="scroll-quiet min-h-0 overflow-y-auto border-t border-border px-6 py-6 xl:border-l xl:border-t-0" aria-label="Inspector">
+        <EvidencePane selected={selected} onClose={() => setSelected(null)}>
           {selected && !selected.startsWith('hg:') ? (
             <PropositionInspector
-              s={live}
+              s={atT}
               meta={meta}
               pid={selected}
               tNow={tNow}
@@ -523,7 +525,7 @@ export function Arc({ sessionId }: { sessionId: string }) {
               }}
             />
           )}
-        </aside>
+        </EvidencePane>
       </div>
 
       <TimeDock rounds={model.rounds} bands={model.bands} ended={meta.ended} />

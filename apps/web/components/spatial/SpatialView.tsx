@@ -7,11 +7,15 @@
  * passes them; the layout is a deterministic function of the log.
  */
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
+import { Component } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { SessionBar } from '@/components/SessionBar';
+import { EvidencePane } from '@/components/explore/EvidencePane';
 import { TimeDock } from '@/components/explore/TimeDock';
 import { HigherGroundInspector, PropositionInspector } from '@/components/explore/Inspector';
 import { ATTITUDE_LABEL, VOICE_VAR, clock, personOf, type SessionMeta } from '@/lib/derive';
+import { useStateAt } from '@/lib/use-session';
 import { usePlayhead, useSession } from '@/lib/session-context';
 import { GEOM, HG_Y, STRATA, STRATUM_GLOSS, STRATUM_LABEL, arrangeAt, buildSpatialModel, planeY, windowRange, type Arrangement, type SRel, type SpatialModel } from '@/lib/spatial-model';
 import type { LabelSpec, SceneApi } from './Scene';
@@ -20,6 +24,15 @@ const Scene = dynamic(() => import('./Scene'), {
   ssr: false,
   loading: () => <p className="absolute inset-0 grid place-items-center text-[14px] text-ink-3">Loading the 3D map.</p>,
 });
+
+class MapBoundary extends Component<{ href: string; children: React.ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    if (this.state.failed) return <div className="absolute inset-0 grid content-center justify-items-center gap-4 px-6 text-center"><p className="text-ink-2">The 3D map is unavailable on this device.</p><Link className="control-button" href={this.props.href}>Open positions and sources</Link></div>;
+    return this.props.children;
+  }
+}
 
 function subscribeReducedMotion(cb: () => void) {
   const m = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -42,6 +55,7 @@ export function Spatial() {
   const data = useSession();
   const { live, meta, events, version } = data;
   const ph = usePlayhead();
+  const atT = useStateAt(data, ph.t);
   const { tNow, endMs, selected, select } = ph;
   const reducedMotion = useReducedMotion();
 
@@ -110,7 +124,7 @@ export function Spatial() {
   const single = !sb;
 
   return (
-    <main className="flex h-dvh flex-col bg-field text-ink">
+    <main className="session-screen flex h-dvh flex-col bg-field text-ink">
       <SessionBar meta={meta} current="spatial" status={data.status} query={ph.query}>
         <span className="hidden text-ink-3 md:inline tabular">
           <span className="text-ink-2">{arrangement.counts.propositions}</span> propositions · <span className="text-ink-2">{arrangement.counts.disputed}</span> disputed ·{' '}
@@ -121,8 +135,8 @@ export function Spatial() {
         </span>
       </SessionBar>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <section className="flex min-h-[420px] flex-col" aria-label="Spatial map">
+      <div className="explore-workspace">
+        <section className="spatial-viewport flex min-h-0 min-w-0 flex-1 flex-col" aria-label="Spatial map">
           <div className="relative min-h-0 flex-1 overflow-hidden">
           <div
             className="absolute inset-0"
@@ -132,7 +146,7 @@ export function Spatial() {
             aria-label={`Spatial map of ${arrangement.counts.propositions} propositions at ${clock(tNow)}. Height is stratum, left to right is who holds it, depth is time first asserted. Press ] or [ to step through propositions, F to centre the selection. The Positions lens lists the same content.`}
           >
             {model.nodes.length > 0 ? (
-              <Scene
+              <MapBoundary href={`/s/${encodeURIComponent(meta.sessionId)}/positions${ph.query}`}><Scene
                 model={model}
                 arrangement={arrangement}
                 range={range}
@@ -147,7 +161,7 @@ export function Spatial() {
                 reducedMotion={reducedMotion}
                 onHover={setHovered}
                 onSelect={onSelect}
-              />
+              /></MapBoundary>
             ) : (
               <p className="absolute inset-0 grid place-items-center px-8 text-center text-[15px] text-ink-3">
                 {events.length === 0 && data.status !== 'open' ? 'Loading the session.' : live.utteranceOrder.length ? 'Transcript arriving. No propositions mapped yet.' : 'Waiting for the first utterance.'}
@@ -155,6 +169,7 @@ export function Spatial() {
             )}
           </div>
 
+          <p className="pointer-events-none absolute left-4 top-3 text-[12px] text-ink-3 xl:hidden">Drag to rotate. Pinch or scroll to zoom.</p>
           {/* labels projected from the scene */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
             {labels.nodes.map(({ key, node }) => (
@@ -164,7 +179,7 @@ export function Spatial() {
                   if (el) labelEls.current.set(key, el);
                   else labelEls.current.delete(key);
                 }}
-                className="absolute left-0 top-0 will-change-transform"
+                className="spatial-projection-label absolute left-0 top-0 will-change-transform" data-map-label={key}
                 style={{ visibility: 'hidden' }}
               >
                 {node}
@@ -173,15 +188,15 @@ export function Spatial() {
           </div>
 
           {keyOpen ? (
-            <div className="absolute bottom-3 left-4">
+            <div className="absolute inset-x-3 bottom-3 z-20 max-h-[85%] overflow-y-auto">
               <Key meta={meta} model={model} single={single} />
             </div>
           ) : null}
           </div>
 
           {/* legend and camera */}
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-2.5">
-            <div className="max-w-[760px]">
+          <div className="map-tools flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-2.5">
+            <div className="hidden max-w-[760px] xl:block">
               <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-ink-3">
                 <span>
                   <span className="text-ink-2">Height</span> stratum
@@ -198,7 +213,8 @@ export function Spatial() {
                 </button>
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setKeyOpen((v) => !v)} aria-expanded={keyOpen} className="control-button xl:hidden">{keyOpen ? 'Hide key' : 'How to read'}</button>
               {selected ? (
                 <button type="button" onClick={() => api.current?.focus(selected)} className="h-9 rounded-[3px] border border-border bg-field px-3 text-[13px] text-ink-2 hover:text-ink">
                   Centre selection
@@ -212,7 +228,7 @@ export function Spatial() {
                 title={reducedMotion ? 'Off while reduced motion is requested' : 'Slow orbit for presenting. Press again to pause.'}
                 className={`h-9 rounded-[3px] border px-3 text-[13px] disabled:opacity-40 ${present ? 'border-border-2 bg-field-deep text-ink' : 'border-border bg-field text-ink-2 hover:text-ink'}`}
               >
-                {present ? 'Pause orbit' : 'Present'}
+                {present ? 'Pause orbit' : 'Orbit'}
               </button>
               <button
                 type="button"
@@ -228,10 +244,10 @@ export function Spatial() {
           </div>
         </section>
 
-        <aside className="scroll-quiet min-h-0 overflow-y-auto border-t border-border px-6 py-6 lg:border-l lg:border-t-0" aria-label="Inspector">
+        <EvidencePane selected={selected} onClose={() => select(null)}>
           {selPid ? (
             <PropositionInspector
-              s={live}
+              s={atT}
               meta={meta}
               pid={selPid}
               alias={model.byId.get(selPid) ? `P${model.byId.get(selPid)!.n}` : undefined}
@@ -247,11 +263,11 @@ export function Spatial() {
               onClose={() => select(null)}
             />
           ) : selHg ? (
-            <HigherGroundInspector s={live} meta={meta} body={selHg.body} tMs={selHg.tMs} onSelect={onSelect} onClose={() => select(null)} />
+            <HigherGroundInspector s={atT} meta={meta} body={selHg.body} tMs={selHg.tMs} onSelect={onSelect} onClose={() => select(null)} />
           ) : (
             <Moment arrangement={arrangement} meta={meta} tNow={tNow} onSelect={onSelect} model={model} live={live} />
           )}
-        </aside>
+        </EvidencePane>
       </div>
 
       <TimeDock rounds={model.rounds} bands={model.bands} ended={meta.ended} windowControl />
@@ -386,6 +402,7 @@ function Key({ meta, model, single }: { meta: SessionMeta; model: SpatialModel; 
   const row = 'flex items-center gap-2.5';
   return (
     <div className="max-w-[640px] border border-border bg-field px-4 py-3 text-[12px] leading-[1.5] text-ink-2">
+      <p className="mb-3 text-ink-2">Height: praxis, empirical, axiology, epistemology, ontology. Depth: time first asserted.</p>
       <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2">
         {sa ? (
           <span className={row}>

@@ -110,7 +110,7 @@ export function PropositionInspector({
     return (
       <div>
         <CloseRow onClose={onClose} />
-        <p className="text-[15px] text-ink-3">This proposition is not in the map.</p>
+        <p className="text-[15px] text-ink-3">This proposition is not present at this moment.</p>
       </div>
     );
   }
@@ -215,14 +215,21 @@ export function PropositionInspector({
                   <span className="font-medium" style={{ color: voiceColor(meta, speaker) }}>
                     {personOf(meta, speaker).displayName}
                   </span>
-                  <button type="button" onClick={() => onSeek(at)} className="font-mono text-[12px] text-ink-3 underline decoration-border underline-offset-2 hover:text-ink" aria-label={`Go to ${clock(at)}`}>
-                    {clock(at)}
-                  </button>
+                  <span className="font-mono text-[12px] text-ink-3" title="Source time in the recording">{clock(at)}</span>
                   {act ? <span className="text-ink-3">{act}</span> : null}
                   {speaker !== st.participantKey ? <span className="text-ink-3">stance of {personOf(meta, st.participantKey).displayName}</span> : null}
                 </p>
                 {adu ? (
-                  <blockquote className="mt-1.5 text-[15px] leading-[1.5] text-ink">&ldquo;{adu.spans.map((x) => x.quote).join(' … ')}&rdquo;</blockquote>
+                  <>
+                    <blockquote className="mt-1.5 text-[15px] leading-[1.5] text-ink">&ldquo;{adu.spans.map((x) => x.quote).join(' … ')}&rdquo;</blockquote>
+                    {u ? <details className="mt-2 border-l border-border pl-3">
+                      <summary className="cursor-pointer py-3 text-[13px] text-ink-2 hover:text-ink">Read transcript context</summary>
+                      <ol className="space-y-3 pb-3">{s.utteranceOrder.slice(Math.max(0, s.utteranceOrder.indexOf(u.id) - 1), s.utteranceOrder.indexOf(u.id) + 2).map((id) => {
+                        const line = s.utterances.get(id)!;
+                        return <li key={id} className="text-[14px] leading-relaxed"><p className="mb-1 text-[12px] text-ink-3"><span style={{ color: voiceColor(meta, line.participantKey) }}>{personOf(meta, line.participantKey).displayName}</span> <span className="ml-2 font-mono">{clock(line.startMs)}</span></p><p className={id === u.id ? 'text-ink' : 'text-ink-2'}>{line.text}</p></li>;
+                      })}</ol>
+                    </details> : null}
+                  </>
                 ) : (
                   <p className="mt-1 text-[14px] text-ink-3">Source span unavailable.</p>
                 )}
@@ -258,17 +265,17 @@ export function PropositionInspector({
 
       <div className="flex flex-wrap gap-2 border-t border-border pt-4">
         {from !== 'arc' ? (
-          <Link href={`${base}/arc${query(pid)}`} className="inline-flex h-9 items-center gap-2 rounded-[3px] border border-border-2 px-3 text-[13px] text-ink hover:bg-field-deep">
+          <Link href={`${base}/arc${query(pid)}`} className="inline-flex h-11 items-center gap-2 rounded-[3px] border border-border-2 px-3 text-[13px] text-ink hover:bg-field-deep">
             View in timeline <span aria-hidden>→</span>
           </Link>
         ) : null}
         {from !== 'spatial' ? (
-          <Link href={`${base}/spatial${query(pid)}`} className="inline-flex h-9 items-center gap-2 rounded-[3px] border border-border px-3 text-[13px] text-ink-2 hover:text-ink">
+          <Link href={`${base}/spatial${query(pid)}`} className="inline-flex h-11 items-center gap-2 rounded-[3px] border border-border px-3 text-[13px] text-ink-2 hover:text-ink">
             View in spatial
           </Link>
         ) : null}
         {from !== 'positions' ? (
-          <Link href={`${base}/positions${query(pid)}`} className="inline-flex h-9 items-center gap-2 rounded-[3px] border border-border px-3 text-[13px] text-ink-2 hover:text-ink">
+          <Link href={`${base}/positions${query(pid)}`} className="inline-flex h-11 items-center gap-2 rounded-[3px] border border-border px-3 text-[13px] text-ink-2 hover:text-ink">
             View in positions
           </Link>
         ) : null}
@@ -285,7 +292,7 @@ function CloseRow({ onClose, alias, kind }: { onClose: () => void; alias?: strin
         {alias && kind ? <span className="mx-2 text-ink-ghost">/</span> : null}
         {kind}
       </p>
-      <button type="button" onClick={onClose} className="h-8 rounded-[3px] px-2 text-[13px] text-ink-3 hover:bg-field-deep hover:text-ink" aria-label="Close inspector (Escape)">
+      <button type="button" onClick={onClose} className="h-11 rounded-[3px] px-3 text-[13px] text-ink-3 hover:bg-field-deep hover:text-ink" aria-label="Close inspector (Escape)">
         Close
       </button>
     </div>
@@ -298,7 +305,7 @@ export function HigherGroundInspector({ s, meta, body, tMs, onSelect, onClose }:
       <div>
         <div className="mb-3 flex items-center justify-between gap-4">
           <p className="label-caps text-convergence">Higher ground · Candidate</p>
-          <button type="button" onClick={onClose} className="h-8 rounded-[3px] px-2 text-[13px] text-ink-3 hover:bg-field-deep hover:text-ink">
+          <button type="button" onClick={onClose} className="h-11 rounded-[3px] px-3 text-[13px] text-ink-3 hover:bg-field-deep hover:text-ink">
             Close
           </button>
         </div>

@@ -9,9 +9,11 @@
 import { useMemo, useRef, useState } from 'react';
 import type { Stance } from '@adl/ontology';
 import { SessionBar } from '@/components/SessionBar';
+import { EvidencePane } from '@/components/explore/EvidencePane';
 import { TimeDock } from '@/components/explore/TimeDock';
 import { HigherGroundInspector, PropositionInspector, StanceGlyph } from '@/components/explore/Inspector';
 import { ATTITUDE_LABEL, VOICE_VAR, clock, voiceColor, type SessionMeta } from '@/lib/derive';
+import { useStateAt } from '@/lib/use-session';
 import { usePlayhead, useSession } from '@/lib/session-context';
 import { STRATA, STRATUM_GLOSS, STRATUM_LABEL, arrangeAt, buildSpatialModel, type Placed, type Tone } from '@/lib/spatial-model';
 
@@ -34,6 +36,7 @@ export function Positions() {
   const data = useSession();
   const { live, meta, events, version } = data;
   const ph = usePlayhead();
+  const atT = useStateAt(data, ph.t);
   const { tNow, endMs, selected, select } = ph;
   const [filter, setFilter] = useState<Filter>('all');
   const [q, setQ] = useState('');
@@ -101,45 +104,50 @@ export function Positions() {
 
   const selHg = selected?.startsWith('hg:') ? model.hgs.find((h) => `hg:${h.id}` === selected) ?? null : null;
   const selPid = selected && !selected.startsWith('hg:') ? selected : null;
-  const grid = single ? 'grid-cols-[52px_minmax(0,1fr)_200px_60px]' : 'grid-cols-[52px_minmax(0,1fr)_190px_190px_60px]';
+  const grid = single ? 'positions-single' : 'positions-pair';
 
   return (
-    <main className="flex h-dvh flex-col bg-field text-ink">
+    <main className="session-screen flex h-dvh flex-col bg-field text-ink">
       <SessionBar meta={meta} current="positions" status={data.status} query={ph.query}>
         <span className="font-mono text-ink-2 tabular">
           {ph.t === null && !meta.ended ? 'Live' : 'Replay'} / {clock(tNow)}
         </span>
       </SessionBar>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px]">
-        <section className="flex min-h-0 flex-col" aria-label="Positions">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-border px-5 py-3 md:px-6">
-            <div role="group" aria-label="Filter" className="flex flex-wrap gap-1">
+      <div className="explore-workspace">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label="Positions">
+          <div className="positions-toolbar border-b border-border px-4 py-3 md:px-6">
+            <label className="flex items-center gap-3 text-[13px] text-ink-3 sm:hidden">Show
+              <select aria-label="Filter propositions" value={filter} onChange={(e) => setFilter(e.target.value as Filter)} className="h-11 min-w-0 flex-1 rounded-[3px] border border-border bg-field px-3 text-ink">
+                {FILTERS.map((f) => <option key={f.id} value={f.id}>{f.label} ({counts[f.id]})</option>)}
+              </select>
+            </label>
+            <div role="group" aria-label="Filter" className="positions-filters hidden gap-1 overflow-x-auto sm:flex">
               {FILTERS.map((f) => (
                 <button
                   key={f.id}
                   type="button"
                   aria-pressed={filter === f.id}
                   onClick={() => setFilter(f.id)}
-                  className={`h-8 rounded-[3px] px-2.5 text-[13px] ${filter === f.id ? 'bg-field-deep text-ink' : 'text-ink-3 hover:text-ink'}`}
+                  className={`h-11 shrink-0 whitespace-nowrap rounded-[3px] px-2.5 text-[13px] ${filter === f.id ? 'bg-field-deep text-ink' : 'text-ink-3 hover:text-ink'}`}
                 >
                   {f.label} <span className="font-mono text-[11px] text-ink-3 tabular">{counts[f.id]}</span>
                 </button>
               ))}
             </div>
-            <label className="ml-auto flex items-center gap-2">
+            <label className="positions-search flex items-center gap-2">
               <span className="sr-only">Search propositions</span>
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search propositions"
-                className="h-8 w-[220px] rounded-[3px] border border-border bg-field px-2.5 text-[13px] text-ink placeholder:text-ink-3"
+                type="search" className="h-11 w-full min-w-0 rounded-[3px] border border-border bg-field px-2.5 text-[13px] text-ink placeholder:text-ink-3"
               />
             </label>
           </div>
 
           <div ref={listRef} className="scroll-quiet min-h-0 flex-1 overflow-y-auto">
-            <div className={`sticky top-0 z-10 grid ${grid} gap-4 border-b border-border bg-field px-5 py-2 text-[12px] text-ink-3 md:px-6`} aria-hidden>
+            <div className={`positions-columns sticky top-0 z-10 ${grid} gap-4 border-b border-border bg-field px-5 py-2 text-[12px] text-ink-3 md:px-6`} aria-hidden>
               <span>Id</span>
               <span>Proposition</span>
               {sa ? <span style={{ color: VOICE_VAR[sa.voice] }}>{sa.displayName}</span> : <span />}
@@ -147,7 +155,7 @@ export function Positions() {
               <span className="text-right">First</span>
             </div>
             {shown.length === 0 ? (
-              <p className="px-6 py-8 text-[14px] text-ink-3">{rows.length ? 'Nothing matches at this moment.' : 'No propositions mapped by this moment.'}</p>
+              <div className="px-6 py-8 text-[14px] text-ink-3"><p>{rows.length ? 'No propositions match these filters.' : 'No propositions mapped by this moment.'}</p>{rows.length > 0 ? <button type="button" className="control-button mt-4" onClick={() => { setQ(''); setFilter('all'); }}>Clear filters</button> : null}</div>
             ) : null}
             {STRATA.map((st) => {
               const group = shown.filter((r) => r.stratum === st).sort((a, b) => a.firstMs - b.firstMs);
@@ -174,10 +182,10 @@ export function Positions() {
                               e.preventDefault();
                               moveFocus(e.currentTarget, e.key === 'ArrowDown' ? 1 : -1);
                             }}
-                            className={`grid w-full ${grid} items-start gap-4 border-b border-l-2 border-b-border px-5 py-3 text-left md:px-6 ${on ? 'border-l-focus bg-surface' : 'border-l-transparent hover:bg-field-subtle'}`}
+                            className={`position-row w-full ${grid} items-start gap-4 border-b border-l-2 border-b-border px-5 py-3 text-left md:px-6 ${on ? 'border-l-focus bg-surface' : 'border-l-transparent hover:bg-field-subtle'}`}
                           >
-                            <span className="pt-0.5 font-mono text-[12px] text-ink-3">{r.alias}</span>
-                            <span className="min-w-0">
+                            <span className="position-alias pt-0.5 font-mono text-[12px] text-ink-3">{r.alias}</span>
+                            <span className="position-claim min-w-0">
                               <span className="block text-[15px] leading-[1.45] text-ink">{r.canonical}</span>
                               <span className="mt-1 flex flex-wrap gap-x-3 text-[12px] text-ink-3">
                                 <span>{r.type}</span>
@@ -186,9 +194,9 @@ export function Positions() {
                                 {r.crux ? <span className="font-medium uppercase tracking-[0.12em] text-ink">Crux · candidate</span> : null}
                               </span>
                             </span>
-                            <StanceCell st={r.a} meta={meta} />
-                            {!single ? <StanceCell st={r.b} meta={meta} /> : null}
-                            <span className="pt-0.5 text-right font-mono text-[12px] text-ink-3 tabular">{clock(r.firstMs)}</span>
+                            <StanceCell st={r.a} meta={meta} name={sa?.displayName} />
+                            {!single ? <StanceCell st={r.b} meta={meta} name={sb?.displayName} /> : null}
+                            <span className="position-time pt-0.5 text-right font-mono text-[12px] text-ink-3 tabular">{clock(r.firstMs)}</span>
                           </button>
                         </li>
                       );
@@ -200,10 +208,10 @@ export function Positions() {
           </div>
         </section>
 
-        <aside className="scroll-quiet min-h-0 overflow-y-auto border-t border-border px-6 py-6 lg:border-l lg:border-t-0" aria-label="Inspector">
+        <EvidencePane selected={selected} onClose={() => select(null)}>
           {selPid ? (
             <PropositionInspector
-              s={live}
+              s={atT}
               meta={meta}
               pid={selPid}
               alias={model.byId.get(selPid) ? `P${model.byId.get(selPid)!.n}` : undefined}
@@ -219,7 +227,7 @@ export function Positions() {
               onClose={() => select(null)}
             />
           ) : selHg ? (
-            <HigherGroundInspector s={live} meta={meta} body={selHg.body} tMs={selHg.tMs} onSelect={select} onClose={() => select(null)} />
+            <HigherGroundInspector s={atT} meta={meta} body={selHg.body} tMs={selHg.tMs} onSelect={select} onClose={() => select(null)} />
           ) : (
             <div className="space-y-4">
               <p className="label-caps text-ink-3">At {clock(tNow)}</p>
@@ -235,7 +243,7 @@ export function Positions() {
               ) : null}
             </div>
           )}
-        </aside>
+        </EvidencePane>
       </div>
 
       <TimeDock rounds={model.rounds} bands={model.bands} ended={meta.ended} />
@@ -243,15 +251,16 @@ export function Positions() {
   );
 }
 
-function StanceCell({ st, meta }: { st?: Stance; meta: SessionMeta }) {
-  if (!st) return <span className="pt-0.5 text-[13px] text-ink-ghost">—</span>;
+function StanceCell({ st, meta, name }: { st?: Stance; meta: SessionMeta; name?: string }) {
+  if (!st) return <span className="position-stance text-[13px] text-ink-3"><span className="position-person">{name}</span>No stance</span>;
   const color = voiceColor(meta, st.participantKey);
   return (
-    <span className="flex items-start gap-2 pt-0.5 text-[13px] leading-snug text-ink-2">
+    <span className="position-stance flex items-start gap-2 pt-0.5 text-[13px] leading-snug text-ink-2">
       <span className="pt-[3px]">
         <StanceGlyph attitude={st.attitude} color={color} />
       </span>
       <span>
+        <span className="position-person" style={{ color }}>{name}</span>
         {ATTITUDE_LABEL[st.attitude]}
         <span className="text-ink-3"> · {st.strength}</span>
       </span>

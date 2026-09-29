@@ -48,21 +48,22 @@ export function SessionProvider({ sessionId, children }: { sessionId: string; ch
 
   const [t, setTState] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
-  const [speed, setSpeed] = useState<Speed>(4);
+  const [speed, setSpeed] = useState<Speed>(1);
   const [win, setWindow] = useState<TimeWindow>('full');
   const [selected, setSelected] = useState<string | null>(null);
 
-  // restore ?t= and ?sel= once
+  // Restore shared links and browser Back/Forward without losing the selected moment.
   useEffect(() => {
-    try {
+    const restore = () => {
       const q = new URLSearchParams(window.location.search);
       const ts = q.get('t');
-      const sel = q.get('sel');
-      // one-time restore from the URL on mount
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (ts !== null && Number.isFinite(Number(ts))) setTState(Math.max(0, Number(ts) * 1000));
-      if (sel) setSelected(sel);
-    } catch {}
+      setTState(ts !== null && ts.trim() !== '' && Number.isFinite(Number(ts)) ? Math.max(0, Number(ts) * 1000) : null);
+      setSelected(q.get('sel'));
+      setPlaying(false);
+    };
+    restore();
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
   }, []);
 
   const endRef = useRef(endMs);
