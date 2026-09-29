@@ -23,43 +23,8 @@ import { fileURLToPath } from 'node:url';
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
-import { passConfig, PRICES, type Pass } from './models';
-
-export type Provider = 'subscription' | 'api' | 'cache';
-
-export interface LlmCallLog {
-  pass: Pass;
-  promptVersion: string;
-  model: string;
-  effort: string;
-  provider: Provider;
-  cached: boolean;
-  inputTokens: number;
-  cacheReadTokens: number;
-  cacheCreationTokens: number;
-  outputTokens: number;
-  latencyMs: number;
-  stopReason: string | null;
-  /** Dollars billed to the API account (0 for subscription and cache hits). */
-  billedUsd: number;
-  sessionId?: string;
-}
-
-export type LlmResult<T> =
-  | { ok: true; data: T; log: LlmCallLog }
-  | { ok: false; reason: 'refusal' | 'parse_error' | 'max_tokens' | 'provider_error' | 'budget' | 'cache_miss'; detail: string; log: LlmCallLog };
-
-export interface StructuredCall<S extends z.ZodType> {
-  pass: Pass;
-  promptVersion: string;
-  /** Frozen per pass + prompt version. Must not contain timestamps or per-call data. */
-  instructions: string;
-  /** Session context (e.g. a bounded proposition index). Sent with the input. */
-  sessionContext?: string;
-  input: string;
-  schema: S;
-  sessionId?: string;
-}
+import { emitLog, type Caller, type LlmCallLog, type LlmResult, type Provider, type StructuredCall } from './core';
+import { passConfig, PRICES } from './models';
 
 const CACHE_DIR = fileURLToPath(new URL('../../../.cache/llm/', import.meta.url));
 const LEDGER = `${CACHE_DIR}api-spend.json`;
@@ -68,12 +33,6 @@ export function provider(): Provider {
   const p = (process.env.LLM_PROVIDER ?? 'subscription').toLowerCase();
   if (p === 'api' || p === 'cache' || p === 'subscription') return p;
   throw new Error(`LLM_PROVIDER must be subscription, api or cache (got ${p})`);
-}
-
-export type LogSink = (log: LlmCallLog) => void | Promise<void>;
-let sink: LogSink = () => {};
-export function setLlmLogSink(s: LogSink): void {
-  sink = s;
 }
 
 /** JSON Schema for a zod schema, without the `$schema` draft header (the CLI validator rejects it). */
@@ -226,7 +185,7 @@ async function viaSubscription(call: StructuredCall<z.ZodType>, cfg: ReturnType<
   }
 }
 
-export async function callStructured<S extends z.ZodType>(call: StructuredCall<S>): Promise<LlmResult<z.infer<S>>> {
+export const nodeCaller: Caller = async (call) => {
   const cfg = passConfig(call.pass);
   const prov = provider();
   const key = cacheKey(call, cfg.model, cfg.effort);
@@ -254,13 +213,13 @@ export async function callStructured<S extends z.ZodType>(call: StructuredCall<S
     const parsed = call.schema.safeParse(hit);
     if (parsed.success) {
       const l = log({ cached: true });
-      await sink(l);
+      await emitLog(l);
       return { ok: true, data: parsed.data, log: l };
     }
   }
   if (prov === 'cache') {
     const l = log({});
-    await sink(l);
+    await emitLog(l);
     return { ok: false, reason: 'cache_miss', detail: `No cached response for ${call.pass} (LLM_PROVIDER=cache)`, log: l };
   }
   if (prov === 'api') {
@@ -268,7 +227,7 @@ export async function callStructured<S extends z.ZodType>(call: StructuredCall<S
     if (!Number.isFinite(budget) || budget <= 0) throw new Error('LLM_PROVIDER=api requires LLM_API_BUDGET_USD (a hard cap in dollars)');
     if (apiSpentUsd() >= budget) {
       const l = log({});
-      await sink(l);
+      await emitLog(l);
       return { ok: false, reason: 'budget', detail: `API budget $${budget} reached ($${apiSpentUsd().toFixed(2)} spent); see .cache/llm/api-spend.json`, log: l };
     }
   }
@@ -278,7 +237,7 @@ export async function callStructured<S extends z.ZodType>(call: StructuredCall<S
     raw = prov === 'api' ? await viaApi(call, cfg) : await viaSubscription(call, cfg);
   } catch (e) {
     const l = log({});
-    await sink(l);
+    await emitLog(l);
     return { ok: false, reason: 'provider_error', detail: (e as Error).message, log: l };
   }
   const billedUsd = prov === 'api' ? apiCost(cfg.model, raw.usage) : 0;
@@ -292,10 +251,10 @@ export async function callStructured<S extends z.ZodType>(call: StructuredCall<S
     stopReason: raw.stopReason,
     billedUsd,
   });
-  await sink(l);
+  await emitLog(l);
   if (raw.error) return { ok: false, reason: raw.error.reason, detail: raw.error.detail, log: l };
   const parsed = call.schema.safeParse(raw.data);
   if (!parsed.success) return { ok: false, reason: 'parse_error', detail: parsed.error.message, log: l };
   writeCache(key, parsed.data, { pass: call.pass, promptVersion: call.promptVersion, model: raw.model, provider: prov, at: new Date().toISOString() });
   return { ok: true, data: parsed.data, log: l };
-}
+};

@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": { "browser": "./src/index.browser.ts", "default": "./src/index.ts" },
+    "./browser": "./src/index.browser.ts"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests"

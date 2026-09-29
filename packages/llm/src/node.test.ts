@@ -2,7 +2,7 @@ import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { callStructured } from './client';
+import { callStructured } from './index';
 
 const schema = z.object({ answer: z.string() });
 const call = (input: string) => ({ pass: 'round_detect' as const, promptVersion: `test-${Date.now()}-${Math.random()}`, instructions: 'Return JSON.', input, schema });
