@@ -167,4 +167,30 @@ describe('LiveRunner', () => {
     await r.onUtterance('mono', { startMs: 9000, endMs: 9900, pcm }, {}, false);
     expect(log.events.length).toBe(n);
   });
+  it('keeps confirm ids unique across reloads (a new runner reuses no id)', async () => {
+    const log = new Mem();
+    const make = (t: number) => new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({}) }, log, onStatus: () => {}, now: () => t });
+    await make(1_000).confirm('umono-0', 'A');
+    await make(2_000).confirm('umono-0', 'A');
+    const ids = log.events.map((e) => e.eventId);
+    expect(ids).toEqual(['s:umono-0:confirmed:1000-1', 's:umono-0:confirmed:2000-1']);
+  });
+  it('retries a failed utterance by channel and start, whatever its position', async () => {
+    const log = new Mem();
+    let broken = true;
+    const statuses: import('./runner').LiveStatus[] = [];
+    const r = new LiveRunner({
+      sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
+      asr: { transcribe: async (_p, off) => { if (broken) throw new Error('boom'); return [{ text: 'ok', startMs: off, endMs: off + 200 }]; } },
+      voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s),
+    });
+    await r.onUtterance('mono', { startMs: 1000, endMs: 1900, pcm }, {}, false);
+    await r.onUtterance('mono', { startMs: 3000, endMs: 3900, pcm }, {}, false);
+    broken = false;
+    await r.retryAt('mono', 3000);
+    expect(statuses.at(-1)!.failed.map((f) => f.startMs)).toEqual([1000]);
+    expect((log.events[0] as Final).payload.utterance.id).toBe('umono-3000');
+    await r.retryAt('mono', 9999);
+    expect(statuses.at(-1)!.failed).toHaveLength(1);
+  });
 });

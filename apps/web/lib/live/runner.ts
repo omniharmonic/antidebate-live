@@ -14,7 +14,7 @@ export type LiveStatus = {
   unconfirmed: { utteranceId: string; text: string; candidates: Record<string, number> }[];
   /** Voices nobody enrolled, in the order they were heard, with the utterances to confirm together. */
   newVoices: { label: string; utteranceIds: string[] }[];
-  /** Utterances that could not be transcribed or written. `retry(index)` runs one again. */
+  /** Utterances that could not be transcribed or written. `retryAt(channel, startMs)` runs one again. */
   failed: { channel: string; startMs: number; endMs: number; reason: string }[];
 };
 
@@ -75,10 +75,15 @@ export class LiveRunner {
 
   /** Runs a failed utterance again (index into status.failed). */
   retry(index: number): Promise<void> {
-    const item = this.failed[index];
+    const item = index >= 0 ? this.failed[index] : undefined;
     if (!item) return Promise.resolve();
     this.failed.splice(index, 1);
     return this.enqueue({ ...item.job, arrivedAt: this.now() });
+  }
+
+  /** Runs a failed utterance again by its channel and start: stable while other items come and go. */
+  retryAt(channel: string, startMs: number): Promise<void> {
+    return this.retry(this.failed.findIndex((f) => f.job.channel === channel && f.job.u.startMs === startMs));
   }
 
   private enqueue(job: Job): Promise<void> {
@@ -102,7 +107,7 @@ export class LiveRunner {
     const held = this.unconfirmed.get(utteranceId);
     await this.o.log.append([
       {
-        eventId: `${this.o.sessionId}:${utteranceId}:confirmed:${++this.confirmSeq}`,
+        eventId: `${this.o.sessionId}:${utteranceId}:confirmed:${this.now()}-${++this.confirmSeq}`,
         sessionId: this.o.sessionId,
         type: 'attribution.confirmed',
         actor: 'operator',
