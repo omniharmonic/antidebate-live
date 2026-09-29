@@ -1,6 +1,6 @@
 /** Projection state (ARCHITECTURE §4.2): the current view of a session. */
 import type { Adu, Proposition, Relation, Stance, Utterance } from '@adl/ontology';
-import type { ChannelId, DialLevel, Insight, Module } from './events';
+import type { ChannelId, DialLevel, Insight, Module, SessionSource } from './events';
 
 export type ItemState = 'proposed' | 'approved' | 'rejected' | 'merged' | 'released' | 'retracted';
 
@@ -27,8 +27,10 @@ export interface SessionState {
   /** Format id (formats.ts); null until session.started. */
   formatId: string | null;
   seats: Record<string, 'aff' | 'neg' | 'moderator' | 'audience'>;
-  source: { kind: 'live' | 'recording'; fixture?: string; url?: string; speed?: number } | null;
+  source: SessionSource | null;
   ended: boolean;
+  /** On the public list (host sessions only; see session.published). */
+  published: boolean;
   participants: { key: string; displayName: string; role: 'debater' | 'moderator' | 'audience' }[];
   round: { roundId: string; name: string; startedMediaMs: number } | null;
   utterances: Map<string, Utterance>;
@@ -66,6 +68,7 @@ export function emptyState(sessionId: string): SessionState {
     seats: {},
     source: null,
     ended: false,
+    published: false,
     participants: [],
     round: null,
     utterances: new Map(),

@@ -95,3 +95,15 @@ describe('identity merges (L3)', () => {
     expect(s.stances.get('s3')?.value.attitude).toBe('rejects');
   });
 });
+
+describe('publishing a host session', () => {
+  const at = new Date(0).toISOString();
+  const started: DomainEvent = { eventId: 'h:start', sessionId: 'h', type: 'session.started', actor: 'operator', mediaMs: 0, wallTs: at, payload: { title: 'T', format: 'open', participants: [], source: { kind: 'recording', host: true } } };
+  const pub = (n: number, published: boolean): DomainEvent => ({ eventId: `h:pub${n}`, sessionId: 'h', type: 'session.published', actor: 'operator', mediaMs: 0, wallTs: at, payload: { published } });
+  it('starts unpublished and the latest publish event wins', () => {
+    expect(project('h', [started]).published).toBe(false);
+    expect(project('h', [started]).source).toEqual({ kind: 'recording', host: true });
+    expect(project('h', [started, pub(1, true)]).published).toBe(true);
+    expect(project('h', [started, pub(1, true), pub(2, false)]).published).toBe(false);
+  });
+});

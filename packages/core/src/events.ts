@@ -49,6 +49,12 @@ export interface Insight {
   refs: string[];
 }
 
+/**
+ * `host`: created from the host flow (/host), written by the server. Host sessions stay off
+ * the public list until the host publishes them, and only they accept host session tokens.
+ */
+export type SessionSource = { kind: 'live' | 'recording'; fixture?: string; url?: string; speed?: number; host?: boolean };
+
 /** Discriminated union of every event the system writes. */
 export type DomainEvent =
   | EventEnvelope<
@@ -61,10 +67,12 @@ export type DomainEvent =
         /** participantKey → seat in the format (aff / neg / moderator). */
         seats?: Record<string, 'aff' | 'neg' | 'moderator' | 'audience'>;
         /** Where utterances come from: a live room, or a recording replayed through the live path. */
-        source?: { kind: 'live' | 'recording'; fixture?: string; url?: string; speed?: number };
+        source?: SessionSource;
       }
     >
   | EventEnvelope<'session.ended', Record<string, never>>
+  /** A host session's place on the public list (host sessions start unlisted). The latest one wins. */
+  | EventEnvelope<'session.published', { published: boolean }>
   | EventEnvelope<'round.started', { roundId: string; name: string; plannedMs?: number }>
   | EventEnvelope<'round.ended', { roundId: string }>
   | EventEnvelope<'utterance.partial', { utteranceId: string; participantKey: string; text: string }>

@@ -1,13 +1,30 @@
 /** Create a host session (spec §3) or re-issue its token. Cookie required. */
 import { cookies } from 'next/headers';
-import type { DomainEvent } from '@adl/core';
+import { FORMATS, type DomainEvent } from '@adl/core';
 import { HOST_COOKIE, signSessionToken, verifyHostCookie } from '@/lib/host-auth';
 import { hostEnv } from '@/lib/host-env';
-import { appendAny } from '@/lib/event-store';
+import { appendAny, sessionFlags } from '@/lib/event-store';
 import { isValidSessionId, newSessionId } from '@/lib/session-id';
 
 export const dynamic = 'force-dynamic';
 type Started = Extract<DomainEvent, { type: 'session.started' }>;
+type Participant = Started['payload']['participants'][number];
+
+const ROLES = new Set(['debater', 'moderator', 'audience']);
+const isParticipant = (p: unknown): p is Participant => {
+  const x = p as Partial<Participant> | null;
+  return Boolean(x) && typeof x!.key === 'string' && /^[A-Za-z0-9_-]{1,32}$/.test(x!.key) && typeof x!.displayName === 'string' && x!.displayName.trim() !== '' && ROLES.has(x!.role as string);
+};
+
+/** What is wrong with a new-session body, or null. */
+function invalid(b: Partial<Started['payload']>): string | null {
+  if (!b.title?.trim()) return 'a title is required';
+  if (!b.format || !Object.hasOwn(FORMATS, b.format)) return 'unknown format';
+  if (!Array.isArray(b.participants) || b.participants.length === 0 || !b.participants.every(isParticipant)) return 'participants need a key, a name and a role';
+  if (new Set(b.participants.map((p) => p.key)).size !== b.participants.length) return 'participant keys must be unique';
+  if (b.source !== undefined && b.source?.kind !== 'recording' && b.source?.kind !== 'live') return "source.kind must be 'recording' or 'live'";
+  return null;
+}
 
 export async function POST(req: Request) {
   const env = hostEnv();
@@ -19,10 +36,15 @@ export async function POST(req: Request) {
 
   if (body.sessionId) {
     if (!isValidSessionId(body.sessionId)) return Response.json({ error: 'invalid sessionId' }, { status: 400 });
+    // Only sessions the host flow created: never the showcase debates or an operator's live room.
+    const flags = await sessionFlags(body.sessionId);
+    if (!flags.exists) return Response.json({ error: 'This session was not found.' }, { status: 404 });
+    if (!flags.host) return Response.json({ error: 'This session was not created by a host.' }, { status: 403 });
     return Response.json({ sessionId: body.sessionId, token: await signSessionToken(env.secret, body.sessionId, Date.now()) });
   }
-  const title = body.title?.trim();
-  if (!title || !body.format || !Array.isArray(body.participants) || body.participants.length === 0) return Response.json({ error: 'title, format and participants are required' }, { status: 400 });
+  const problem = invalid(body);
+  if (problem) return Response.json({ error: problem }, { status: 400 });
+  const title = body.title!.trim();
   const sessionId = newSessionId(title);
   const started: Started = {
     eventId: `${sessionId}:start`,
@@ -31,7 +53,13 @@ export async function POST(req: Request) {
     actor: 'operator',
     mediaMs: 0,
     wallTs: new Date().toISOString(),
-    payload: { title, format: body.format, participants: body.participants, ...(body.seats ? { seats: body.seats } : {}), source: body.source ?? { kind: 'live' } },
+    payload: {
+      title,
+      format: body.format!,
+      participants: body.participants!.map(({ key, displayName, role }) => ({ key, displayName: displayName.trim(), role })),
+      ...(body.seats ? { seats: body.seats } : {}),
+      source: { kind: body.source?.kind ?? 'live', host: true },
+    },
   };
   await appendAny([started]);
   return Response.json({ sessionId, token: await signSessionToken(env.secret, sessionId, Date.now()) });

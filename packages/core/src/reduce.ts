@@ -30,6 +30,9 @@ export function apply(s: SessionState, e: DomainEvent): SessionState {
     case 'session.ended':
       s.ended = true;
       break;
+    case 'session.published':
+      s.published = e.payload.published;
+      break;
     case 'round.started':
       s.round = { roundId: e.payload.roundId, name: e.payload.name, startedMediaMs: e.mediaMs };
       break;

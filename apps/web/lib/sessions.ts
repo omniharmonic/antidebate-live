@@ -5,8 +5,8 @@
 import 'server-only';
 import { closeSync, openSync, readdirSync, readSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { desc, eq, inArray, sql } from 'drizzle-orm';
-import type { EventOf } from '@adl/core';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import type { EventOf, SessionSource } from '@adl/core';
 import { getDb, hasDb, schema, toIso } from '@adl/db';
 import { DATA_DIR, isValidSessionId } from './events-source';
 
@@ -14,13 +14,17 @@ export interface SessionSummary {
   id: string;
   title: string;
   format: string;
-  source: { kind: 'live' | 'recording'; fixture?: string; url?: string; speed?: number } | null;
+  source: SessionSource | null;
   participants: { key: string; displayName: string; role: string }[];
   startedAt: string;
   eventCount?: number;
   /** Wall time of the newest event we know of (ISO). */
   lastActivityAt?: string;
   ended: boolean;
+  /** Created from the host flow (source.host). */
+  host: boolean;
+  /** The latest session.published says so (host sessions only). */
+  published: boolean;
 }
 
 type Started = EventOf<'session.started'>;
@@ -34,6 +38,8 @@ function summarize(e: Started, extra: Partial<SessionSummary>): SessionSummary {
     participants: e.payload.participants,
     startedAt: e.wallTs,
     ended: false,
+    host: e.payload.source?.host === true,
+    published: false,
     ...extra,
   };
 }
@@ -83,6 +89,21 @@ function countLines(file: string, size: number): number {
   }
 }
 
+/** The latest session.published among these JSONL lines (they follow session.ended, so the tail has them). */
+function lastPublished(lines: string[]): boolean {
+  let published = false;
+  for (const l of lines) {
+    if (!l.includes('"session.published"')) continue;
+    try {
+      const e = JSON.parse(l) as EventOf<'session.published'>;
+      if (e.type === 'session.published') published = e.payload.published === true;
+    } catch {
+      // the tail's first line can be cut
+    }
+  }
+  return published;
+}
+
 function listLocal(): SessionSummary[] {
   let names: string[];
   try {
@@ -112,6 +133,7 @@ function listLocal(): SessionSummary[] {
         eventCount: countLines(file, st.size),
         lastActivityAt: st.mtime.toISOString(),
         ended: tail.includes('"session.ended"'),
+        published: lastPublished(tail.split('\n')),
       }),
     );
   }
@@ -139,6 +161,12 @@ async function listNeon(): Promise<SessionSummary[]> {
     .where(inArray(schema.events.sessionId, ids))
     .groupBy(schema.events.sessionId);
   const byId = new Map(stats.map((s) => [s.sessionId, s]));
+  const publishes = await db
+    .select({ sessionId: schema.events.sessionId, payload: schema.events.payload })
+    .from(schema.events)
+    .where(and(eq(schema.events.type, 'session.published'), inArray(schema.events.sessionId, ids)))
+    .orderBy(asc(schema.events.id));
+  const published = new Map(publishes.map((p) => [p.sessionId, (p.payload as { published?: boolean }).published === true]));
   const seen = new Set<string>();
   const out: SessionSummary[] = [];
   for (const r of started) {
@@ -146,7 +174,7 @@ async function listNeon(): Promise<SessionSummary[]> {
     seen.add(r.sessionId);
     const e = { eventId: r.eventId, sessionId: r.sessionId, type: 'session.started', actor: r.actor, mediaMs: r.mediaMs, wallTs: toIso(r.wallTs), payload: r.payload } as Started;
     const s = byId.get(r.sessionId);
-    out.push(summarize(e, { eventCount: s?.count, lastActivityAt: s?.last ? toIso(s.last) : undefined, ended: Boolean(s?.ended) }));
+    out.push(summarize(e, { eventCount: s?.count, lastActivityAt: s?.last ? toIso(s.last) : undefined, ended: Boolean(s?.ended), published: published.get(r.sessionId) ?? false }));
   }
   return out;
 }
@@ -155,9 +183,12 @@ export async function listSessions(): Promise<SessionSummary[]> {
   return hasDb() ? listNeon() : listLocal();
 }
 
-/** The public home page lists finished debates only; a live session is reachable by its link (spec §3). */
+/**
+ * The public list: finished debates only, and a host's session only once the host publishes it
+ * (a rehearsal must not go public by ending). Any session stays reachable by its link (spec §3).
+ */
 export function publicSessions(all: SessionSummary[]): SessionSummary[] {
-  return all.filter((s) => s.ended);
+  return all.filter((s) => s.ended && (!s.host || s.published));
 }
 
 /** "In progress" = not ended and something was appended in the last few minutes. */
