@@ -1,5 +1,7 @@
 export type SpeakerSegment = { startMs: number; endMs: number; label: string; confidence: number };
 
+const STOPPED = 'Speaker separation stopped unexpectedly. Reload the page and try again.';
+
 type Reply = { ok: boolean; segments?: SpeakerSegment[]; error?: string };
 
 export class DiarizeClient {
@@ -19,6 +21,7 @@ export class DiarizeClient {
             c.waiting.get(m.data.id)?.(m.data);
             c.waiting.delete(m.data.id);
           };
+          w.onerror = () => c.failAll();
           resolve(c);
         }
       };
@@ -29,11 +32,18 @@ export class DiarizeClient {
     const id = ++this.seq;
     return new Promise((resolve, reject) => {
       this.waiting.set(id, (r) => (r.ok ? resolve(r.segments ?? []) : reject(new Error(r.error ?? 'speaker separation failed'))));
-      this.worker.postMessage({ id, samples: mono16k, numSpeakers });
+      // Send a copy: transferring detaches the array and the caller keeps its own for later chunks.
+      const samples = mono16k.slice();
+      this.worker.postMessage({ id, samples, numSpeakers }, [samples.buffer]);
     });
+  }
+  private failAll() {
+    const pending = [...this.waiting.values()];
+    this.waiting.clear();
+    for (const f of pending) f({ ok: false, error: STOPPED });
   }
   terminate() {
     this.worker.terminate();
-    this.waiting.clear();
+    this.failAll();
   }
 }

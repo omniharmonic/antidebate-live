@@ -37,3 +37,63 @@ describe('buildUtterances', () => {
     expect(again.map((e) => e.eventId)).toEqual(evs.map((e) => e.eventId));
   });
 });
+
+const finalsOf = (evs: ReturnType<typeof buildUtterances>) => evs.flatMap((e) => (e.type === 'utterance.final' ? [e.payload.utterance] : []));
+const base = { sessionId: 's', mode: 'diarized' as const, wallTs: new Date(0).toISOString() };
+
+describe('buildUtterances on real diarizer output', () => {
+  it('does not throw when a word midpoint falls in a gap between same-label segments', () => {
+    const segs = [
+      { startMs: 0, endMs: 400, label: 'S0', confidence: 0.9 },
+      { startMs: 800, endMs: 1_300, label: 'S0', confidence: 0.7 },
+    ];
+    const evs = buildUtterances({ ...base, words: [w('Hello', 0), w('again', 900)], segments: segs, voiceMap: { S0: 'A' } });
+    const [u] = finalsOf(evs);
+    expect(u).toBeDefined();
+    expect(u!.participantKey === 'A' || u!.participantKey === 'UNK').toBe(true);
+    if (u!.participantKey === 'A') expect(u!.attribution.confidence).toBeLessThanOrEqual(0.7);
+  });
+
+  it('never commits an utterance with another voice speaking inside it', () => {
+    const segs = [
+      { startMs: 0, endMs: 10_000, label: 'S0', confidence: 0.9 },
+      { startMs: 4_000, endMs: 6_000, label: 'S1', confidence: 0.9 },
+    ];
+    const ws = Array.from({ length: 20 }, (_, i) => ({ text: `w${i}`, startMs: i * 450, endMs: i * 450 + 450 }));
+    const evs = buildUtterances({ ...base, words: ws, segments: segs, voiceMap: { S0: 'A', S1: 'B' } });
+    const fs = finalsOf(evs);
+    expect(fs.length).toBeGreaterThan(1);
+    for (const u of fs) {
+      expect(u.attribution.confidence).toBeLessThan(0.85);
+      expect(evs.some((e) => e.type === 'attribution.pending' && e.payload.utteranceId === u.id)).toBe(true);
+    }
+  });
+
+  it('treats a word inside overlapping segments as unattributed', () => {
+    const segs = [
+      { startMs: 0, endMs: 3_000, label: 'S0', confidence: 0.9 },
+      { startMs: 1_000, endMs: 3_000, label: 'S1', confidence: 0.9 },
+    ];
+    const evs = buildUtterances({ ...base, words: [w('both', 1_500)], segments: segs, voiceMap: { S0: 'A', S1: 'B' } });
+    expect(finalsOf(evs)[0]).toMatchObject({ participantKey: 'UNK' });
+    expect(finalsOf(evs)[0]!.attribution.confidence).toBeLessThan(0.85);
+  });
+
+  it('holds speech outside any segment as UNK with attribution.pending', () => {
+    const evs = buildUtterances({ ...base, words: [w('stray', 20_000)], segments, voiceMap: { S0: 'A' } });
+    const u = finalsOf(evs)[0]!;
+    expect(u.participantKey).toBe('UNK');
+    expect(evs.some((e) => e.type === 'attribution.pending' && e.payload.utteranceId === u.id)).toBe(true);
+  });
+});
+
+describe('track mode', () => {
+  it('attributes to the track owner at confidence 1 with the channel signal and owner-scoped ids', () => {
+    const a = buildUtterances({ ...base, mode: 'tracks', trackOwner: 'A', words: [w('One', 0)], segments: [], voiceMap: {} });
+    const b = buildUtterances({ ...base, mode: 'tracks', trackOwner: 'B', words: [w('Two', 0)], segments: [], voiceMap: {} });
+    expect(finalsOf(a)[0]).toMatchObject({ participantKey: 'A', id: 'uA-0', attribution: { confidence: 1, signals: { channel: 'A' } } });
+    expect(a.some((e) => e.type === 'attribution.pending')).toBe(false);
+    expect(finalsOf(b)[0]!.id).toBe('uB-0');
+    expect(a[0]!.eventId).not.toBe(b[0]!.eventId);
+  });
+});

@@ -23,22 +23,34 @@ export function splitIntoUtterances(words: Word[], gapMs = 800): Word[][] {
   return out;
 }
 
-function segmentAt(segs: SpeakerSegment[], ms: number): SpeakerSegment | undefined {
-  return segs.find((s) => ms >= s.startMs && ms < s.endMs);
+type Part = { label: string | null; segs: SpeakerSegment[]; words: Word[] };
+
+/**
+ * Segments covering a word's midpoint. Exactly one distinct label gives that label;
+ * none (a gap) or several labels (overlap) leave the word unattributed.
+ */
+function coverOf(segs: SpeakerSegment[], w: Word): { label: string | null; segs: SpeakerSegment[] } {
+  const mid = (w.startMs + w.endMs) / 2;
+  const hit = segs.filter((s) => mid >= s.startMs && mid < s.endMs);
+  const labels = new Set(hit.map((s) => s.label));
+  return labels.size === 1 ? { label: hit[0]!.label, segs: hit } : { label: null, segs: [] };
 }
 
-function nearChange(segs: SpeakerSegment[], startMs: number, endMs: number, label: string): boolean {
-  return segs.some((s) => s.label !== label && (Math.abs(s.startMs - startMs) < BOUNDARY_MS || Math.abs(s.endMs - startMs) < BOUNDARY_MS || Math.abs(s.startMs - endMs) < BOUNDARY_MS));
+/** Another voice active within BOUNDARY_MS of the utterance: never auto-committed. */
+function otherVoiceNear(segs: SpeakerSegment[], startMs: number, endMs: number, label: string): boolean {
+  return segs.some((s) => s.label !== label && s.startMs < endMs + BOUNDARY_MS && s.endMs > startMs - BOUNDARY_MS);
 }
 
 /** Split each pause-delimited run again wherever the speaker label changes. */
-function byLabel(run: Word[], segs: SpeakerSegment[]): { label: string | null; words: Word[] }[] {
-  const out: { label: string | null; words: Word[] }[] = [];
+function byLabel(run: Word[], segs: SpeakerSegment[]): Part[] {
+  const out: Part[] = [];
   for (const w of run) {
-    const label = segmentAt(segs, (w.startMs + w.endMs) / 2)?.label ?? null;
+    const c = coverOf(segs, w);
     const cur = out.at(-1);
-    if (cur && cur.label === label) cur.words.push(w);
-    else out.push({ label, words: [w] });
+    if (cur && cur.label === c.label) {
+      cur.words.push(w);
+      for (const s of c.segs) if (!cur.segs.includes(s)) cur.segs.push(s);
+    } else out.push({ label: c.label, segs: [...c.segs], words: [w] });
   }
   return out;
 }
@@ -46,10 +58,10 @@ function byLabel(run: Word[], segs: SpeakerSegment[]): { label: string | null; w
 export function buildUtterances(o: { sessionId: string; words: Word[]; segments: SpeakerSegment[]; voiceMap: Record<string, string | null>; mode: 'diarized' | 'tracks'; wallTs: string; trackOwner?: string }): DomainEvent[] {
   const events: DomainEvent[] = [];
   for (const run of splitIntoUtterances(o.words)) {
-    for (const part of o.mode === 'tracks' ? [{ label: null, words: run }] : byLabel(run, o.segments)) {
+    for (const part of o.mode === 'tracks' ? [{ label: null, segs: [], words: run } as Part] : byLabel(run, o.segments)) {
       const startMs = part.words[0]!.startMs;
       const endMs = part.words.at(-1)!.endMs;
-      const id = `u${startMs}`;
+      const id = o.mode === 'tracks' && o.trackOwner ? `u${o.trackOwner}-${startMs}` : `u${startMs}`;
       const text = part.words.map((w) => w.text).join(' ').replace(/\s+([.,!?;:])/g, '$1');
       let participantKey = 'UNK';
       let confidence = HOLD;
@@ -60,13 +72,12 @@ export function buildUtterances(o: { sessionId: string; words: Word[]; segments:
         confidence = 1;
         signals = { channel: o.trackOwner };
       } else if (part.label) {
-        const seg = segmentAt(o.segments, (startMs + endMs) / 2)!;
         const named = o.voiceMap[part.label] ?? null;
         signals = { diarLabel: part.label };
         if (named) {
           participantKey = named;
-          const edge = nearChange(o.segments, startMs, endMs, part.label);
-          confidence = edge ? HOLD : Math.min(0.95, seg.confidence);
+          const edge = otherVoiceNear(o.segments, startMs, endMs, part.label);
+          confidence = edge ? HOLD : Math.min(0.95, ...part.segs.map((x) => x.confidence));
           confirmedBy = edge ? 'auto' : 'operator';
         }
       }
