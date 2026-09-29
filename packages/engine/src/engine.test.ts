@@ -61,4 +61,55 @@ describe('SessionEngine with an injected caller', () => {
     expect(extracted[1]).toContain('Third claim');
     expect(log.events.at(-1)!.type).toBe('session.ended');
   });
+
+  it('resumes after a reload: new insight passes get fresh ids, so the log keeps them', async () => {
+    const passes: string[] = [];
+    setCaller(async (c) => { passes.push(c.pass); return { ok: false, reason: 'provider_error', detail: 'offline test', log: { pass: c.pass } as never }; });
+    const log = new MemLog();
+    const closed = (n: number, who: string, u: string): DomainEvent => ({ eventId: `${sid}:t000${n}:closed`, sessionId: sid, type: 'turn.closed', actor: 'system', mediaMs: 0, wallTs: w, payload: { turnId: `${sid}:t000${n}`, participantKey: who, utteranceIds: [u] } });
+    const prop = { id: 'p1', canonical: 'Taxes should fall.', type: 'prescriptive', stratum: 'praxis', scope: { quantifier: 'generic' }, conditions: [], quantities: [], aboutConcepts: [], status: 'live_provisional' };
+    const card = { id: `${sid}:l4:000:shared`, kind: 'shared', body: { ends: ['gone'], facts: [], framings: [], converging: [] }, refs: [] };
+    await log.append([
+      { eventId: `${sid}:start`, sessionId: sid, type: 'session.started', actor: 'operator', mediaMs: 0, wallTs: w, payload: { title: 'T', format: 'open', participants: [{ key: 'A', displayName: 'Ann', role: 'debater' }, { key: 'B', displayName: 'Bo', role: 'debater' }] } },
+      utt('u1', 'A', 0, 'First claim about taxes.'),
+      utt('u2', 'B', 3000, 'Second claim about spending.'),
+      utt('u3', 'A', 6000, 'Third claim about growth.'),
+      closed(0, 'A', 'u1'),
+      { eventId: 'p1:proposed', sessionId: sid, type: 'proposition.proposed', actor: 'system', mediaMs: 2000, wallTs: w, payload: { proposition: prop } } as DomainEvent,
+      { eventId: 'p1:auto-approved', sessionId: sid, type: 'item.approved', actor: 'system', mediaMs: 2000, wallTs: w, payload: { itemId: 'p1', note: 'test' } },
+      { eventId: 'p2:proposed', sessionId: sid, type: 'proposition.proposed', actor: 'system', mediaMs: 2000, wallTs: w, payload: { proposition: { ...prop, id: 'p2', canonical: 'Spending should rise.' } } } as DomainEvent,
+      { eventId: 'p2:auto-approved', sessionId: sid, type: 'item.approved', actor: 'system', mediaMs: 2000, wallTs: w, payload: { itemId: 'p2', note: 'test' } },
+      // The previous run's insight pass #0.
+      { eventId: `${card.id}:proposed`, sessionId: sid, type: 'insight.proposed', actor: 'system', mediaMs: 2000, wallTs: w, payload: { insight: card } } as DomainEvent,
+      { eventId: `${card.id}:approved`, sessionId: sid, type: 'item.approved', actor: 'system', mediaMs: 2000, wallTs: w, payload: { itemId: card.id, note: 'test' } },
+      closed(1, 'B', 'u2'),
+    ]);
+    const before = new Set(log.events.map((e) => e.eventId));
+    const engine = new SessionEngine({ sessionId: sid, log, pollMs: 5, silenceMs: 1 });
+    engine.finishSource();
+    await engine.run();
+    const fresh = log.events.filter((e) => e.type === 'insight.proposed' && !before.has(e.eventId));
+    expect(fresh.map((e) => e.eventId)).toEqual([`${sid}:l4:001:shared:proposed`]);
+    // p1 and p2 were already linked by the earlier pass: L3 is not asked again.
+    expect(passes).not.toContain('L3_link');
+  });
+
+  it('resumes after a reload: an unchanged shared card is not re-emitted', async () => {
+    setCaller(async (c) => ({ ok: false, reason: 'provider_error', detail: 'offline test', log: { pass: c.pass } as never }));
+    const log = new MemLog();
+    const prop = { id: 'p1', canonical: 'Taxes should fall.', type: 'prescriptive', stratum: 'praxis', scope: { quantifier: 'generic' }, conditions: [], quantities: [], aboutConcepts: [], status: 'live_provisional' };
+    const card = { id: `${sid}:l4:000:shared`, kind: 'shared', body: { ends: [], facts: [], framings: [], converging: [] }, refs: [] };
+    await log.append([
+      { eventId: `${sid}:start`, sessionId: sid, type: 'session.started', actor: 'operator', mediaMs: 0, wallTs: w, payload: { title: 'T', format: 'open', participants: [{ key: 'A', displayName: 'Ann', role: 'debater' }, { key: 'B', displayName: 'Bo', role: 'debater' }] } },
+      utt('u1', 'A', 0, 'First claim about taxes.'),
+      { eventId: 'p1:proposed', sessionId: sid, type: 'proposition.proposed', actor: 'system', mediaMs: 2000, wallTs: w, payload: { proposition: prop } } as DomainEvent,
+      { eventId: 'p1:auto-approved', sessionId: sid, type: 'item.approved', actor: 'system', mediaMs: 2000, wallTs: w, payload: { itemId: 'p1', note: 'test' } },
+      { eventId: `${card.id}:proposed`, sessionId: sid, type: 'insight.proposed', actor: 'system', mediaMs: 2000, wallTs: w, payload: { insight: card } } as DomainEvent,
+    ]);
+    const before = new Set(log.events.map((e) => e.eventId));
+    const engine = new SessionEngine({ sessionId: sid, log, pollMs: 5, silenceMs: 1 });
+    engine.finishSource();
+    await engine.run();
+    expect(log.events.filter((e) => e.type === 'insight.proposed' && !before.has(e.eventId))).toEqual([]);
+  });
 });

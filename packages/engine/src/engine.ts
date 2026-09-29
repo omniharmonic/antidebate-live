@@ -103,11 +103,47 @@ export class SessionEngine {
       if (this.own.has(e.eventId)) continue;
       this.state = apply(this.state, e);
       if (e.type === 'turn.closed') this.closedBefore.push(e.payload.turnId);
+      this.resumeInsight(e);
       if (e.type === 'utterance.final') {
         this.lastUtteranceWall = Date.now();
         for (const t of this.buffer.push(e.payload.utterance)) this.queue.push(t);
       }
     }
+  }
+
+  /**
+   * Insight state from a previous run's events (resume after a reload). L3/L4 event ids
+   * carry the pass number, so a new pass must number after the last one or its events
+   * collide with ids already in the log and are dropped. Propositions present at that
+   * pass were already linked, and its cards feed the stability rules.
+   */
+  private resumeInsight(e: DomainEvent) {
+    const prefix = `${this.opts.sessionId}:l`;
+    const m = e.eventId.startsWith(prefix) ? /^[34]:(\d+)/.exec(e.eventId.slice(prefix.length)) : null;
+    if (!m) return;
+    this.insightSeq = Math.max(this.insightSeq, Number(m[1]) + 1);
+    for (const p of this.state.propositions.values()) this.linkedIds.add(p.value.id);
+    if (e.type === 'insight.proposed') this.rememberCard(e.payload.insight.kind, e.payload.insight.body);
+  }
+
+  /** Keep recent cards for L4's stability rules and prompt context. */
+  private rememberCard(kind: string, body: unknown) {
+    const b = body as { statement?: string; text?: string; propositionId?: string };
+    if (kind === 'crux') {
+      if (this.recentCards.cruxPropositionId) this.recentCards.cruxHistory = [...this.recentCards.cruxHistory.slice(-2), this.recentCards.cruxPropositionId];
+      this.recentCards.cruxPropositionId = b.propositionId;
+      this.previous.crux = b.statement;
+    }
+    if (kind === 'higher_ground') {
+      this.recentCards.higherGround = [...this.recentCards.higherGround.slice(-5), b.text ?? ''];
+      this.previous.higherGround = [...(this.previous.higherGround ?? []).slice(-1), b.text ?? ''];
+    }
+    if (kind === 'prompt') {
+      this.recentCards.prompts = [...this.recentCards.prompts.slice(-8), b.text ?? ''];
+      this.previous.prompts = [...(this.previous.prompts ?? []).slice(-2), b.text ?? ''];
+    }
+    // The shared card's body is the key runL4 compares against (JSON of the same object).
+    if (kind === 'shared') this.previousShared = JSON.stringify(body);
   }
 
   private roleOf(key: string) {
@@ -267,19 +303,7 @@ export class SessionEngine {
       if (l4.error) this.say(`L4: ${l4.error}`);
       await this.append(l4.events);
       this.previousShared = l4.sharedKey;
-      for (const e of l4.events) {
-        if (e.type !== 'insight.proposed') continue;
-        const b = e.payload.insight.body as { statement?: string; text?: string; propositionId?: string };
-        if (e.payload.insight.kind === 'crux') {
-          if (this.recentCards.cruxPropositionId) this.recentCards.cruxHistory = [...this.recentCards.cruxHistory.slice(-2), this.recentCards.cruxPropositionId];
-          this.recentCards.cruxPropositionId = b.propositionId;
-        }
-        if (e.payload.insight.kind === 'higher_ground') this.recentCards.higherGround = [...this.recentCards.higherGround.slice(-5), b.text ?? ''];
-        if (e.payload.insight.kind === 'prompt') this.recentCards.prompts = [...this.recentCards.prompts.slice(-8), b.text ?? ''];
-        if (e.payload.insight.kind === 'crux') this.previous.crux = b.statement;
-        if (e.payload.insight.kind === 'higher_ground') this.previous.higherGround = [...(this.previous.higherGround ?? []).slice(-1), b.text ?? ''];
-        if (e.payload.insight.kind === 'prompt') this.previous.prompts = [...(this.previous.prompts ?? []).slice(-2), b.text ?? ''];
-      }
+      for (const e of l4.events) if (e.type === 'insight.proposed' && e.payload.insight.kind !== 'shared') this.rememberCard(e.payload.insight.kind, e.payload.insight.body);
       const kinds = l4.events.filter((e) => e.type === 'insight.proposed').map((e) => (e.type === 'insight.proposed' ? e.payload.insight.kind : ''));
       this.say(`insight #${seq} @${(mediaMs / 60000).toFixed(1)}m · ${view.props.size} props, ${view.disagreements.length} disagreements, ${view.clashes.length} clashes, ${view.commonGround.length} shared · ${kinds.join(', ') || 'no cards'} · ${((Date.now() - t0) / 1000).toFixed(0)}s`);
     })()
