@@ -65,6 +65,8 @@ Hardware, from our browser-audio research (2026-09-29):
 
 - **A 2-input USB audio interface** such as a Focusrite Scarlett 2i2. Chrome reads its inputs 1 and 2 as the left and right channels, so debater 1 goes in input 1 and debater 2 in input 2. Use dynamic or directional mics close to each speaker.
 - **Chrome reads at most two channels from one device.** Inputs 3 and up of a larger interface cannot be reached. For three or four people, use two 2-input interfaces, or several separate USB mics. The page opens each device separately: choose one device, then use **Add this device** for the next.
+- **Separation between the mics decides how many lines wait for you.** Each voice should be at least 12 dB louder on its own mic than on the others: close mics (a hand's width from the mouth), directional, pointed at their speaker. Measured on three recorded debates (evals/results.md, "Attribution gate"): when each mic heard the other speakers at -15 dB, 2.3% of speech waited for the host; at -9 dB, 40.8%; at -6 dB, nearly all of it.
+- **Give the moderator a mic too.** Without one, the moderator is heard on both debater mics at about the same level, and 56.2% of speech waited for the host in the same measurement.
 - **Recorders that mix.** Some recorders (Zoom PodTrak, RØDECaster on a Mac) send one mixed signal over USB. The PodTrak P4 sends only the stereo mix to the computer, not each mic. If both meters move together whoever speaks, use **One mic in the room** instead. On Windows, the RØDECaster Pro II and Duo can show each fader as a separate input device.
 - Separate devices keep separate clocks. Over a long session two devices can drift slightly apart, so one interface with two channels is the safer choice for two debaters.
 
@@ -72,9 +74,9 @@ Steps:
 
 1. Plug the interface into the laptop. Put each debater's mic in its own input. Turn off any auto-gain or "Air" setting on the interface.
 2. Choose **Use this device**. Chrome asks to use the microphone: allow it.
-3. Ask each person to say their name and watch the meters. For each input, choose who is speaking into it. Each debater needs exactly one input. The moderator can have one too.
+3. Ask each person to say their name and watch the meters. For each input, choose who is speaking into it. Each debater needs exactly one input. Give the moderator one too (see above).
 4. Choose **Continue**.
-5. Voices: ask each person in turn to talk for about 20 seconds (their name and what they hope to get from today), choosing **Record**, then **Stop**. It is recommended, because it lets the app double-check the mics. **Skip** is available in this setup. For a person with no input of their own (often the moderator), the page asks "Record NAME from which mic?": choose the mic they will be heard on. When someone has no input, the app checks every line's voice, and a line whose voice does not match the mic's owner waits for you, so an unmiked moderator is never put on a debater's line. If that person is not recorded, more lines wait for you.
+5. Voices: ask each person in turn to talk for about 20 seconds (their name and what they hope to get from today), choosing **Record**, then **Stop**. It is recommended, because it lets the app double-check the mics. **Skip** is available in this setup. For a person with no input of their own (often the moderator), the page asks "Record NAME from which mic?": choose the mic they will be heard on. When someone has no input, the app checks every line's voice, and a line whose voice does not match the mic's owner waits for you, so an unmiked moderator is never put on a debater's line. If that person is not recorded, more lines wait for you. If you skip a person who has their own mic (and record the others), every line from that person waits for you to confirm.
 6. Rehearsal: talk for a moment and check the names against the transcript. Choose **Check again** if you need another 30 seconds, then **Looks right: start the session**.
 
 ### A video call
@@ -122,8 +124,8 @@ Five checks that cannot be automated. Do them on the laptop and the hardware you
    - How: plug in the interface with a mic in input 1 and another in input 2. Open **New live session**, choose **Each speaker has their own mic** and **Use this device** in Chrome. Have one person speak, then the other, then both.
    - Pass: the meter for input 1 moves only for the first speaker and the meter for input 2 only for the second, and both move when both speak. If both move together whoever speaks, the interface is sending a mix: use **One mic in the room**.
 2. **Two separate USB mics for 90 minutes (clock drift).**
-   - How: add both devices with **Add this device**. Clap once, close to both mics, at the start. Leave the session listening for 90 minutes, then clap once again at the end. Record a 90-minute test with a clap at the start and end, then send Benjamin the session link; he checks the drift.
-   - Pass: under 100 ms of drift between the start and the end. If it has moved more, use one interface with two channels.
+   - How: Benjamin runs this check with you during the rehearsal, on the two mics you will use. The app does not measure drift itself, so there is nothing to read off the session afterwards.
+   - Pass: under 100 ms of drift over 90 minutes. If it has moved more, use one interface with two channels.
 3. **System audio in Chrome on the host's macOS version.**
    - How: on the host's own Mac, open **A video call**, choose **Share system audio** and share while a call or a video plays. Note the macOS and Chrome versions.
    - Pass: the **Call audio** meter moves with the sound and stops when it stops. System audio needs macOS 14.2 or later with Chrome 141 or later (from docs/research/2026-09-29-browser-audio-capture.md); on an older version, use **Share tab audio**.
@@ -193,7 +195,7 @@ Messages are shown exactly as written on the page.
 | This session has no stored audio setup on this laptop. | Live session | The laptop's stored setup was cleared. Start a new live session. |
 | Audio stopped | Live session | The device was unplugged or sharing ended. Fix that, then choose **Resume audio**. |
 | Click to resume listening | Live session | Shown after a reload. Choose it and allow the microphone or the tab again. |
-| Input N (NAME) has been silent for a minute while others speak. NAME will be identified by voice until it recovers. | Live session | Check that mic's cable, mute switch and gain. Lines from that person are identified by voice meanwhile, so more may wait for you. Choose **Dismiss** to hide the message. |
+| Input N (NAME) has been silent for a minute while others speak. Until it recovers, lines from Input N wait for you to confirm who spoke. | Live session | Check that mic's cable, mute switch and gain. Until the input recovers, the app can only tell who spoke on it by voice, and it does not accept a voice alone on this setup, so every line from that input waits for you. Choose **Dismiss** to hide the message. |
 | Input N (NAME) is working again. | Live session | Nothing to do. |
 | Input N sounds like NAME. Swap inputs N and M? | Live session | Two mics are probably plugged into each other's inputs. Choose **Swap** to exchange them for the rest of the session, or **Dismiss**. |
 | Voice matching is not working. Unsure lines are held for you to confirm. | Live session | Lines wait under **Waiting for you** until you choose who spoke. Nothing is lost. |

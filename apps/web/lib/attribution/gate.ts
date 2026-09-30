@@ -10,7 +10,7 @@ export type Gate = { threshold: number; hostConfirmsAll: boolean; insufficient: 
  * `measuredFrom: 'room-mix'`: the entry was measured on a room mix standing in for that setup's audio
  * (call, until call-like audio is measured), so it is not representative and counts as insufficient.
  */
-export type GateTable = Partial<Record<GateSetup, Omit<Gate, 'insufficient'> & { insufficient?: boolean; measuredFrom?: 'room-mix' }>>;
+export type GateTable = Partial<Record<GateSetup, Omit<Gate, 'insufficient'> & { insufficient?: boolean; measuredFrom?: string }>>;
 
 const MEASURED: GateTable = measured;
 

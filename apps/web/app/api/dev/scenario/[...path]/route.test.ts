@@ -24,6 +24,12 @@ describe('/api/dev/scenario', () => {
     vi.stubEnv('NODE_ENV', 'production');
     expect((await get('fx', 'reference.json')).status).toBe(404);
   });
+  it('normalises the configured root: a trailing slash or a relative path still serves', async () => {
+    vi.stubEnv('ADL_SCENARIOS_DIR', `${dir}${path.sep}`);
+    expect((await get('fx', 'reference.json')).status).toBe(200);
+    vi.stubEnv('ADL_SCENARIOS_DIR', path.relative(process.cwd(), dir));
+    expect((await get('fx', 'reference.json')).status).toBe(200);
+  });
   it('rejects paths that climb out, and missing files', async () => {
     vi.stubEnv('ADL_SCENARIOS_DIR', path.join(dir, 'fx'));
     expect((await get('..', 'secret.txt')).status).toBe(400);

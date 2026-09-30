@@ -6,7 +6,7 @@ import { Readable } from 'node:stream';
 
 const TYPES: Record<string, string> = { '.wav': 'audio/wav', '.json': 'application/json' };
 
-const root = () => process.env.ADL_SCENARIOS_DIR ?? path.resolve(process.cwd(), '../../.data/scenarios');
+const root = () => path.resolve(process.env.ADL_SCENARIOS_DIR ?? path.join(process.cwd(), '../../.data/scenarios'));
 
 export async function GET(_req: Request, ctx: { params: Promise<{ path: string[] }> }): Promise<Response> {
   if (process.env.NODE_ENV === 'production') return new Response('Not found', { status: 404 });
