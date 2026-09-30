@@ -49,7 +49,7 @@ The smallest span that performs one argumentative act.
 **Rhetorical questions** (added 2026-09-28, Benjamin Life). The ADU keeps the question as spoken; the proposition is the *implied statement*. The speaker's stance on it has `source: implied_by_act` and strength at most `leaning`, and it is always displayed next to the original question so a reader can check the reading. If the implied statement isn't unmistakable, the ADU is `question` (a real question) or `nonliteral`, never a guess. Rhetorical questions don't enter the questions ledger.
 - `addressedTo`: participantId | audience | none
 
-Only `assert`, `concede`, `commit_conditional`, `hypothesize` (scoped), `answer` and `rhetorical_question` (implied, capped at `leaning`) change commitment stores (§6). `attribute` and `steelman_report` never assign the proposition to the speaker. That's the single most common extraction error in debate transcripts, so it's ruled out by construction.
+Only `assert`, `concede`, `commit_conditional`, `answer`, `retract` and `rhetorical_question` (implied, capped at `leaning`) change commitment stores (§6). `hypothesize` stays outside the stores (§8.6). `attribute` and `steelman_report` never assign the proposition to the speaker. That's the single most common extraction error in debate transcripts, so it's ruled out by construction.
 
 ### 2.3 Proposition
 A speaker-independent, truth-apt (or norm-apt) content, stated canonically so that different speakers' stances can attach to the same object.
@@ -164,6 +164,8 @@ Operationally, a crux candidate must have:
 2. A disagreement on C.
 3. A **dependency score**: the number of other disagreements whose support paths pass through C, weighted by stratum depth.
 
+A ranked disagreement or attack without demonstrated two-sided dependency is a **candidate**, never a confirmed double crux. Ranking may traverse at most one inferred support link per path. Update conditions are reported only when stated; otherwise the card says "not stated" and the facilitator can ask.
+
 Every crux card states:
 - the proposition
 - each side's stance on it, with spans
@@ -195,6 +197,8 @@ A proposition or action H that both participants could accept, **consistent with
 | `sequencing` | Both proposals in an order both accept | "Transparency now; licensing if thresholds are crossed" |
 | `pareto_move` | A modification that improves the position by each side's own lights | Each side's top concern is addressed without violating the other's top commitment |
 
+Code-valid references are necessary but insufficient: a separate semantic critic checks consistency, unsupported concessions, scope and signability before a generated candidate is approved for the cockpit. Unknown costs say "not established; ask". Review failure holds the candidate. Model review is not participant confirmation or the human quality gate.
+
 A candidate that relies on inferred commitments is **held from audiences** until a participant states the relevant commitment or the operator overrides with a visible "inferred" label.
 
 ### 4.5 Questions ledger
@@ -212,7 +216,7 @@ Top to bottom: **higher ground** (derived) → **praxis** (what to do) → **emp
 
 ## 6. Commitment stores (the dialogue game)
 
-Each participant has a commitment store, the set of propositions they are on record as accepting. It changes only through `assert`, `concede`, `commit_conditional`, `answer` (when the answer asserts) and `retract`. The store is the ground truth for:
+Each participant has a commitment store, the set of propositions they are on record as accepting. It changes only through `assert`, `concede`, `commit_conditional`, `answer` (when the answer asserts), `retract` and the constrained `rhetorical_question` rule in §8.6. The store is the ground truth for:
 - disagreement
 - common ground
 - higher-ground consistency checks

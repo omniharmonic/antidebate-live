@@ -12,7 +12,7 @@ export function RoomSetup({ onDone }: { onDone: (r: SetupResult) => void }) {
   const handed = useRef(false);
   const latest = useRef<MediaStream | null>(null);
   const streams = useMemo(() => (opened ? [opened.stream] : []), [opened]);
-  const { levels, error: tapError } = useLevels(streams);
+  const { levels, error: tapError } = useLevels(streams, undefined, true);
 
   useEffect(() => { latest.current = opened?.stream ?? null; }, [opened]);
   useEffect(() => () => { if (!handed.current && latest.current) stopStreams([latest.current]); }, []);

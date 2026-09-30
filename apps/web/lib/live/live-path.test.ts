@@ -1,3 +1,4 @@
+import { singleVoice } from './test-voices';
 // The whole live path in Node: segmenter frames → LiveRunner (stub ASR and voice match) → memory
 // log → SessionEngine with a fake model caller that records what L1 is asked to read.
 import { afterEach, expect, it } from 'vitest';
@@ -45,7 +46,7 @@ it('miked lines reach L1 under the right speaker, held lines only once confirmed
     anchors: [{ key: 'A', pcm: tone(0.3) }, { key: 'B', pcm: tone(0.3) }],
     asr: { transcribe: async (_p, off) => [{ text: `said at ${off}`, startMs: off, endMs: off + 500 }] },
     // Only unclear margins are matched; this voice is too unsure to accept.
-    voices: { matchVoices: async () => ({ A: 0.1, B: 0.3 }) },
+    voices: singleVoice({ matchVoices: async () => ({ A: 0.1, B: 0.3 }) }),
     log,
     onStatus: () => {},
   });

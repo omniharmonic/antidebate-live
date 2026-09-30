@@ -17,14 +17,15 @@ import {
   type SharedCard,
 } from '@adl/ontology';
 import { focusIds, renderMap, similarity, type MapView } from './mapview';
+import { reviewItems, reviewMap } from './review';
 
-export const L4_PROMPT_VERSION = 'l4-insight-v0.3';
+export const L4_PROMPT_VERSION = 'l4-insight-v0.4';
 
 export const L4Output = z.object({
   crux: z
     .object({
       propositionId: z.string().describe('One id from CRUX CANDIDATES'),
-      updateConditions: z.array(z.object({ participantKey: z.string(), wouldUpdateIf: z.string() })),
+      updateConditions: z.array(z.object({ participantKey: z.string(), wouldUpdateIf: z.string(), stanceId: z.string().nullable().default(null), quote: z.string().nullable().default(null) })),
       settlingEvidence: SettlingEvidence,
       valuesCrux: z.boolean(),
     })
@@ -51,13 +52,13 @@ export const L4Output = z.object({
     )
     .describe('0–3 prompts, best first'),
 });
-export type L4Output = z.infer<typeof L4Output>;
+export type L4Output = z.input<typeof L4Output>;
 
 export const L4_INSTRUCTIONS = `You support the facilitator of an Anti-Debate: a format that first clarifies where two people really differ, then explores synthesis. You see the current argument map (every item is quote-anchored and was checked for faithfulness), the computed disagreements and crux candidates, and where the conversation is now. The facilitator reads your output on a tablet mid-conversation, at a glance. Clarity is the only goal; a card that muddles is worse than no card.
 
-1. THE CRUX NOW. From CRUX CANDIDATES only, pick the one proposition that, if the two resolved it, would most move the rest of their disagreement as it stands now. Weigh how recently it was engaged: a crux settled or left behind earlier in the conversation is not the crux now. Prefer deep (values, epistemic) over surface, and stated over clash-based when close. For each debater, say what would make them update toward the other side, in their own terms and from what they have said (especially in red-teaming); if they haven't said, write "not stated". Classify the settling evidence: empirical, forecast_resolution, value_clarification, definition. valuesCrux=true when it is value_clarification. Never choose a claim about a debater's own character, motives or biography; the crux is about the question being debated. Return null if no candidate is a real crux yet.
+1. THE CRUX NOW. From CRUX CANDIDATES only, pick the one proposition that, if the two resolved it, would most move the rest of their disagreement as it stands now. Weigh how recently it was engaged: a crux settled or left behind earlier in the conversation is not the crux now. Prefer deep (values, epistemic) over surface, and stated over clash-based when close. For each debater, say what would make them update toward the other side, in their own terms and from what they have said (especially in red-teaming); if they haven't said, write "not stated". For every stated update condition give the stanceId and exact verbatim quote containing that condition from that participant; otherwise use null for stanceId and quote. Classify the settling evidence: empirical, forecast_resolution, value_clarification, definition. valuesCrux=true when it is value_clarification. Never choose a claim about a debater's own character, motives or biography; the crux is about the question being debated. Return null if no candidate is a real crux yet.
 
-2. HIGHER GROUND (0–2). A sentence both debaters could sign, consistent with what each has committed to, integrating at least one element from each side. Name the construction (domain_partition, conditionalization, value_lift, incompletely_theorized_agreement, sequencing, pareto_move). derivation: for each debater, the ids of propositions THEY accept that the candidate relies on (at least one each; only ids listed as accepted by that person). costs: what each would have to qualify or give up, or "nothing". No candidate is better than a forced one.
+2. HIGHER GROUND (0–2). A sentence both debaters could sign, consistent with what each has committed to, integrating at least one element from each side. Name the construction (domain_partition, conditionalization, value_lift, incompletely_theorized_agreement, sequencing, pareto_move). derivation: for each debater, the ids of propositions THEY accept that the candidate relies on (at least one each; only ids listed as accepted by that person). costs: what each would have to qualify or give up, or "nothing". No candidate is better than a forced one. Never invent a concession or policy mechanism. Costs that are not established must say "not established; ask". A candidate is an invitation to test, never an agreement already reached.
 
 3. TRY ASKING (0–3). Questions the facilitator could ask next, best first. Short, speakable, neutral, addressed to one debater or both. Draw them from: the crux (what evidence would move you?), unanswered critical questions of an argument, a term the two seem to use differently, a synthesis worth testing ("Could you both sign: …?"), or an inconsistency. Fit the current round: positions and clash early; steelman, update conditions and synthesis later. Never a verdict, never loaded.
 
@@ -133,7 +134,10 @@ export function insightCards(out: L4Output, v: MapView): { crux: CruxCard | null
   const toKey = (x: string): string | null => {
     if (keys.has(x)) return x;
     const n = x.toLowerCase().trim();
-    return byName.get(n) ?? [...byName].find(([full]) => full.split(' ')[0] === n.split(' ')[0])?.[1] ?? null;
+    const exact = byName.get(n);
+    if (exact) return exact;
+    const firstNames = [...byName].filter(([full]) => full.split(' ')[0] === n);
+    return firstNames.length === 1 ? firstNames[0]![1] : null;
   };
   let crux: CruxCard | null = null;
   const cand = out.crux ? v.cruxCandidates.find((c) => c.propositionId === out.crux!.propositionId) : undefined;
@@ -153,7 +157,9 @@ export function insightCards(out: L4Output, v: MapView): { crux: CruxCard | null
         if (sides.some((x) => x.participantKey === s.participantKey) || (s.attitude !== 'accepts' && s.attitude !== 'accepts_conditionally')) continue;
         sides.push({
           participantKey: s.participantKey,
-          attitude: 'rejects',
+          // This is the stance on the participant's own via claim. An undercut challenges
+          // an inference; it does not establish rejection of its conclusion (§3).
+          attitude: s.attitude,
           strength: s.strength,
           quote: v.quotes.get(s.id) ?? '',
           stanceId: s.id,
@@ -167,7 +173,10 @@ export function insightCards(out: L4Output, v: MapView): { crux: CruxCard | null
       propositionId: prop.id,
       statement: prop.canonical,
       sides,
-      updateConditions: Object.fromEntries(out.crux.updateConditions.flatMap((u) => { const k = toKey(u.participantKey); return k ? [[k, u.wouldUpdateIf]] : []; })),
+      updateConditions: Object.fromEntries(out.crux.updateConditions.flatMap((u) => { const k = toKey(u.participantKey);
+        const stance = u.stanceId ? v.stances.find(s => s.id === u.stanceId) : undefined;
+        const grounded = stance?.participantKey === k && u.quote && u.quote.trim().length >= 12 && (v.quotes.get(stance.id) ?? '').includes(u.quote);
+        return k ? [[k, grounded ? u.wouldUpdateIf : 'not stated']] : []; })),
       settlingEvidence: out.crux.settlingEvidence,
       valuesCrux: out.crux.valuesCrux,
       downstream,
@@ -176,34 +185,41 @@ export function insightCards(out: L4Output, v: MapView): { crux: CruxCard | null
     };
   }
 
+  if (crux && new Set(crux.sides.map(s => s.participantKey)).size < 2) crux = null;
+
   const higherGround: HigherGroundCard[] = [];
   for (const h of out.higherGround.slice(0, 2)) {
     const derivation: Record<string, string[]> = {};
+    let valid = keys.size >= 2;
     for (const d of h.derivation) {
       const k = toKey(d.participantKey);
-      if (!k) continue;
-      const ids = d.propositionIds.filter((id) => accepted(v, k, id));
+      if (!k || !d.propositionIds.length || d.propositionIds.some((id) => !v.props.has(id) || !accepted(v, k, id))) { valid = false; break; }
+      const ids = d.propositionIds;
       if (ids.length) derivation[k] = [...(derivation[k] ?? []), ...ids];
     }
     // Must integrate an element from each debater's own commitments (§4.4).
-    if (Object.keys(derivation).length < Math.min(2, keys.size)) continue;
+    if (!valid || [...keys].some((k) => !derivation[k]?.length)) continue;
+    const costs: Record<string, string> = {};
+    for (const cost of h.costs) {
+      const key = toKey(cost.participantKey);
+      if (!key || !cost.gives.trim()) { valid = false; break; }
+      costs[key] = cost.gives;
+    }
+    if (!valid || [...keys].some((k) => !costs[k])) continue;
     higherGround.push({
       text: h.text,
       construction: h.construction,
       derivation,
-      costs: Object.fromEntries(h.costs.flatMap((c) => { const k = toKey(c.participantKey); return k ? [[k, c.gives]] : []; })),
+      costs,
       reliesOnInferred: false,
     });
   }
 
-  const addressee = (a: string) => toKey(a) ?? 'both';
-  const prompts: PromptCard[] = out.prompts.slice(0, 3).map((p) => ({
-    text: p.text,
-    addresseeKey: addressee(p.addresseeKey),
-    kind: p.kind,
-    rationale: p.rationale,
-    targets: p.targets.filter((id) => v.props.has(id)),
-  }));
+  const prompts: PromptCard[] = out.prompts.slice(0, 3).flatMap((p) => {
+    const addressee = p.addresseeKey === 'both' ? 'both' : toKey(p.addresseeKey);
+    if (!addressee || p.targets.some((id) => !v.props.has(id))) return [];
+    return [{ text: p.text, addresseeKey: addressee, kind: p.kind, rationale: p.rationale, targets: p.targets }];
+  });
   return { crux, higherGround, prompts };
 }
 
@@ -231,7 +247,7 @@ export function sharedCard(v: MapView): SharedCard {
  */
 export function stableCards(
   cards: { crux: CruxCard | null; higherGround: HigherGroundCard[]; prompts: PromptCard[] },
-  recent: { cruxPropositionId?: string; cruxHistory?: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] },
+  recent: { cruxPropositionId?: string; cruxFingerprint?: string; cruxHistory?: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] },
 ): { crux: CruxCard | null; higherGround: HigherGroundCard[]; prompts: PromptCard[] } {
   const fresh = (text: string, seen: string[]) => !seen.some((s) => similarity(s, text) >= 0.7);
   const prompts = cards.prompts.filter((p) => fresh(p.text, recent.prompts));
@@ -240,7 +256,7 @@ export function stableCards(
     // …unless the model proposes the same earlier crux twice running: then it is a considered return, not ping-pong.
     crux:
       cards.crux &&
-      (cards.crux.propositionId === recent.cruxPropositionId ||
+      ((cards.crux.propositionId === recent.cruxPropositionId && (!recent.cruxFingerprint || recent.cruxFingerprint === JSON.stringify(cards.crux))) ||
         ((recent.cruxHistory ?? []).includes(cards.crux.propositionId) && recent.lastBlockedCrux !== cards.crux.propositionId))
         ? null
         : cards.crux,
@@ -281,8 +297,9 @@ export async function runL4(
     recent: { speaker: string; text: string }[];
     previous: PreviousCards;
     previousShared: string;
-    recentCards?: { cruxPropositionId?: string; cruxHistory?: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] };
+    recentCards?: { cruxPropositionId?: string; cruxFingerprint?: string; cruxHistory?: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] };
     wallTs: () => string;
+    onReviewCall?: (log: LlmCallLog) => void;
   },
 ): Promise<{ events: DomainEvent[]; log: LlmCallLog | null; error?: string; sharedKey: string }> {
   const shared = sharedCard(v);
@@ -303,7 +320,17 @@ export async function runL4(
     return { events, log: result.log, error: `${result.reason}: ${result.detail}`, sharedKey };
   }
   const raw = insightCards(result.data, v);
-  const cards = ctx.recentCards ? stableCards(raw, ctx.recentCards) : raw;
+  const evidence = reviewMap(v);
+  const candidates = [
+    ...(raw.crux ? [{ id: 'crux', kind: 'crux', content: raw.crux, evidence }] : []),
+    ...raw.higherGround.map((content, i) => ({ id: `hg${i}`, kind: 'higher_ground', content, evidence })),
+    ...raw.prompts.map((content, i) => ({ id: `q${i}`, kind: 'prompt', content, evidence })),
+  ];
+  const review = await reviewItems(candidates, ctx.sessionId);
+  if (review.log) ctx.onReviewCall?.(review.log);
+  const passed = new Set(review.verdicts.filter(x => x.verdict === 'pass').map(x => x.id));
+  const reviewed = { crux: passed.has('crux') ? raw.crux : null, higherGround: raw.higherGround.filter((_, i) => passed.has(`hg${i}`)), prompts: raw.prompts.filter((_, i) => passed.has(`q${i}`)) };
+  const cards = ctx.recentCards ? stableCards(reviewed, ctx.recentCards) : reviewed;
   if (ctx.recentCards) ctx.recentCards.lastBlockedCrux = raw.crux && !cards.crux && raw.crux.propositionId !== ctx.recentCards.cruxPropositionId ? raw.crux.propositionId : undefined;
-  return { events: insightEvents({ ...cards, ...(sharedChanged ? { shared } : {}) }, base), log: result.log, sharedKey };
+  return { events: insightEvents({ ...cards, ...(sharedChanged ? { shared } : {}) }, base), log: result.log, sharedKey, ...(review.error ? { error: `Independent review: ${review.error}` } : {}) };
 }

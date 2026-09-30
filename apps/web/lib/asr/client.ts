@@ -15,6 +15,7 @@ export type AsrProgress = DownloadReport;
 
 export class AsrClient {
   private seq = 0;
+  private stopped: Error | null = null;
   private waiting = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; progress?: (p: AsrProgress) => void }>();
   backend: 'wasm' = 'wasm';
 
@@ -28,17 +29,21 @@ export class AsrClient {
       else w.reject(e.data.errorKind ? new AsrLoadError(e.data.error ?? 'model failed to load', e.data.errorKind) : new Error(e.data.error ?? 'transcription failed'));
     };
     worker.onerror = (e) => {
-      const err = new Error(e.message || 'The transcription worker stopped.');
-      for (const w of this.waiting.values()) w.reject(err);
-      this.waiting.clear();
+      this.failAll(new Error(e.message || 'The transcription worker stopped. Reload the page to restart it.'));
     };
   }
 
   private send<T>(msg: object, transfer: Transferable[] = [], progress?: (p: AsrProgress) => void): Promise<T> {
+    if (this.stopped) return Promise.reject(this.stopped);
     const id = ++this.seq;
     return new Promise<T>((resolve, reject) => {
       this.waiting.set(id, { resolve: resolve as (v: unknown) => void, reject, ...(progress ? { progress } : {}) });
-      this.worker.postMessage({ id, ...msg }, transfer);
+      try {
+        this.worker.postMessage({ id, ...msg }, transfer);
+      } catch (error) {
+        this.waiting.delete(id);
+        reject(error);
+      }
     });
   }
 
@@ -77,8 +82,15 @@ export class AsrClient {
     return { realtimeFactor: 30_000 / Math.max(1, performance.now() - t0) };
   }
 
+  private failAll(error: Error) {
+    this.stopped = error;
+    for (const w of this.waiting.values()) w.reject(error);
+    this.waiting.clear();
+  }
+
   terminate() {
     this.worker.terminate();
+    this.failAll(new Error('Transcription stopped. Reload the page to restart it.'));
   }
 }
 

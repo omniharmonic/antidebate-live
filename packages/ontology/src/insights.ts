@@ -10,7 +10,7 @@ import { Attitude, HigherGroundConstruction, SettlingEvidence, Strength } from '
 const Id = z.string().min(1);
 const Key = z.string().min(1);
 
-/** One side's position on a card's proposition, with the words that show it. */
+/** One side's stated position, with its evidence. With `via`, attitude belongs to that own claim. */
 export const SideStance = z.object({
   participantKey: Key,
   attitude: Attitude,

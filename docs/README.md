@@ -15,6 +15,7 @@ Topology Live is a general-purpose instrument for facilitated disagreement. It l
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | Capture and diarization, the multi-pass extraction pipeline, event sourcing, real-time delivery, playback, rendering, data model, infrastructure, cost |
 | [UX.md](./UX.md) | Every surface in detail: facilitator cockpit, operator console, stage and livestream outputs, audience phones, 3D topology, lenses, playback. Design language and anti-slop rules. |
 | [POLISH_REVIEW.md](./POLISH_REVIEW.md) | September 29 responsive UX polish: implemented behavior, browser verification and remaining limits. |
+| [QA_AUDIT_2026-09-30.md](./QA_AUDIT_2026-09-30.md) | Live audio and analysis audit: fixed defects, real model measurements, input coverage and remaining release blockers. |
 | [QUALITY.md](./QUALITY.md) | How we know the map is right: gold sets, annotation protocol, metrics, release gates, red-teaming |
 | [IMPLEMENTATION_PLAN.md](./IMPLEMENTATION_PLAN.md) | Milestones from today to Oct 11 and beyond, workstreams, acceptance criteria, event-day runbook |
 | [REUSE_AUDIT.md](./REUSE_AUDIT.md) | What comes from Ontography and Dialectical Topology, what is built fresh, and the new repo's layout |

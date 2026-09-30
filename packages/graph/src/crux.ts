@@ -39,6 +39,7 @@ function ancestors(start: string, up: Map<string, Array<{ from: string; conf: nu
     if (d >= maxDepth) continue;
     for (const { from, conf: c } of up.get(id) ?? []) {
       const nc = conf * c;
+      if (nc < 0.5 || from === start) continue; // at most one inferred link; cycles add no evidence
       if (nc > (best.get(from) ?? 0)) {
         best.set(from, nc);
         stack.push({ id: from, conf: nc, d: d + 1 });

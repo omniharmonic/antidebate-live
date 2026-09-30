@@ -8,6 +8,8 @@ import { Segmenter } from './segmenter';
 export type ListenOptions = {
   streams: MediaStream[];
   channels: string[];
+  /** Call/room feeds combine stereo into mono; separate mics preserve their input channels. */
+  mono?: boolean;
   runner: Pick<LiveRunner, 'onUtterance' | 'tick'>;
   /** Epoch ms of session time zero. */
   startedAt: number;
@@ -23,10 +25,10 @@ export async function listen(o: ListenOptions): Promise<() => void> {
     wallStartMs,
     onUtterance: (x) => {
       o.onClip?.(utteranceId(x.channel, x.u.startMs), x.u.pcm);
-      void o.runner.onUtterance(x.channel, x.u, x.rms, x.overlap, x.endedAtWallMs);
+      void o.runner.onUtterance(x.channel, x.u, x.rms, x.overlap, x.endedAtWallMs, o.onClip);
     },
   });
-  const stopTap = await tapAll(o.streams, (c, f, at) => seg.push(c, f, at));
+  const stopTap = await tapAll(o.streams, (c, f, at) => seg.push(c, f, at), o.mono);
   const t = setInterval(() => {
     const now = Date.now() - o.startedAt;
     o.runner.tick(now, seg.active(now));
@@ -34,5 +36,6 @@ export async function listen(o: ListenOptions): Promise<() => void> {
   return () => {
     clearInterval(t);
     stopTap();
+    seg.flush();
   };
 }

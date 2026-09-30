@@ -26,6 +26,7 @@ export function Rehearsal({ people, setup, anchors, onStart }: { people: Person[
   const [lines, setLines] = useState<Line[]>([]);
   const [left, setLeft] = useState(SECONDS);
   const [round, setRound] = useState(0);
+  const [finished, setFinished] = useState(false);
   const handed = useRef(false);
   const stopRef = useRef<(() => void) | null>(null);
   const runnerRef = useRef<LiveRunner | null>(null);
@@ -33,19 +34,24 @@ export function Rehearsal({ people, setup, anchors, onStart }: { people: Person[
 
   useEffect(() => {
     let live = true;
-    let loaded: Clients = {};
+    const loaded: Clients = {};
     void (async () => {
       try {
-        const [asr, voices] = await Promise.all([
-          AsrClient.load((p) => { if (live) setModel(`Downloading the transcription model: file ${p.fileNumber}, ${Math.round(p.bytes / 1_000_000)} MB so far.`); }),
-          DiarizeClient.load().catch(() => undefined),
+        await Promise.all([
+          AsrClient.load((p) => { if (live) setModel(`Downloading the transcription model: file ${p.fileNumber}, ${Math.round(p.bytes / 1_000_000)} MB so far.`); }).then((asr) => { if (live) loaded.asr = asr; else asr.terminate(); }),
+          DiarizeClient.load().then((voices) => { if (live) loaded.voices = voices; else voices.terminate(); }).catch(() => undefined),
         ]);
-        loaded = { asr, ...(voices ? { voices } : {}) };
         if (!live) return;
         setModel(null);
         setClients(loaded);
       } catch (e) {
-        if (live) setError(`The transcription model did not load: ${e instanceof Error ? e.message : String(e)}. Open Prepare this laptop and try again.`);
+        const mounted = live;
+        loaded.asr?.terminate();
+        loaded.voices?.terminate();
+        live = false;
+        if (!mounted) return;
+        setModel(null);
+        setError(`The transcription model did not load: ${e instanceof Error ? e.message : String(e)}. Open Prepare this laptop and try again.`);
       }
     })();
     return () => {
@@ -56,6 +62,8 @@ export function Rehearsal({ people, setup, anchors, onStart }: { people: Person[
 
   useEffect(() => {
     if (!clients?.asr) return;
+    let live = true;
+    let timer: ReturnType<typeof setInterval> | undefined;
     const log = new MemoryEventLog();
     const runner = new LiveRunner({
       sessionId: 'rehearsal',
@@ -63,17 +71,24 @@ export function Rehearsal({ people, setup, anchors, onStart }: { people: Person[
       anchors,
       asr: clients.asr,
       voices: clients.voices ?? noVoices,
+      voicesAvailable: !!clients.voices,
       log,
-      onStatus: () => setLines(transcriptLines(log.events, names, 8)),
+      onStatus: (status) => {
+        if (!live) return;
+        setLines(transcriptLines(log.events, names, 8));
+        if (status.failed.length) setError(`Rehearsal could not process audio: ${status.failed[0]!.reason}`);
+      },
     });
-    let live = true;
     runnerRef.current = runner;
-    listen({ streams: setup.streams, channels: listenChannels(setup), runner, startedAt: Date.now() })
-      .then((s) => { if (live) stopRef.current = s; else s(); }, (e: unknown) => { if (live) setError(e instanceof Error ? e.message : String(e)); });
-    const t = setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000);
+    listen({ streams: setup.streams, channels: listenChannels(setup), mono: setup.kind !== 'tracks', runner, startedAt: Date.now() })
+      .then((s) => {
+        if (!live) { s(); return; }
+        stopRef.current = s;
+        timer = setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000);
+      }, (e: unknown) => { if (live) { setError(e instanceof Error ? e.message : String(e)); setFinished(true); } });
     return () => {
       live = false;
-      clearInterval(t);
+      clearInterval(timer);
       stopRef.current?.();
       stopRef.current = null;
       void runner.stop();
@@ -84,17 +99,20 @@ export function Rehearsal({ people, setup, anchors, onStart }: { people: Person[
     if (left > 0) return;
     stopRef.current?.();
     stopRef.current = null;
-    void runnerRef.current?.stop();
+    const runner = runnerRef.current;
+    void runner?.stop().then(() => { if (runnerRef.current === runner) setFinished(true); });
   }, [left]);
 
   const again = () => {
     setLines([]);
+    setError(null);
+    setFinished(false);
     setLeft(SECONDS);
     setRound((n) => n + 1);
   };
 
   const start = () => {
-    if (!clients) return;
+    if (!clients || !finished || !lines.length || error) return;
     handed.current = true;
     onStart(clients);
   };
@@ -106,15 +124,15 @@ export function Rehearsal({ people, setup, anchors, onStart }: { people: Person[
       {model && <p className="text-[15px] text-ink-2">{model}</p>}
       {error && <p role="alert" className="text-[15px] text-ink">{error}</p>}
       {clients && !clients.voices && <p className="text-[15px] text-ink-2">Speaker separation did not load, so every line will wait for you to confirm who spoke.</p>}
-      {clients && <p className="text-sm text-ink-3" aria-live="polite">{left > 0 ? `Listening: ${left} s left` : 'Rehearsal finished.'}</p>}
+      {clients && <p className="text-sm text-ink-3" aria-live="polite">{left > 0 ? `Listening: ${left} s left` : !finished ? 'Finishing the transcript…' : lines.length ? 'Rehearsal finished. Check the words and speaker names before starting.' : 'No speech was transcribed. Check your input and rehearse again.'}</p>}
       <ul className="space-y-2">
         {lines.map((l) => (
           <li key={l.id} className="text-[15px] text-ink"><span className="text-ink-2">{l.speaker}:</span> {l.text}</li>
         ))}
       </ul>
       <div className="flex flex-wrap gap-3">
-        <button type="button" className={primary} disabled={!clients} onClick={start}>Looks right: start the session</button>
-        {clients && left === 0 && <button type="button" className={button} onClick={again}>Check again</button>}
+        <button type="button" className={primary} disabled={!clients || !finished || !lines.length || !!error} onClick={start}>Looks right: start the session</button>
+        {clients && finished && <button type="button" className={button} onClick={again}>Check again</button>}
       </div>
     </div>
   );

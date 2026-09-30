@@ -19,7 +19,7 @@ export type SetupResult = { kind: Setup; spec: CaptureSpec; streams: MediaStream
  * Taps the streams while mounted and reports each channel's loudest frame (dB) ten times a second.
  * `onFrame` also receives every frame (enrollment records from it).
  */
-export function useLevels(streams: MediaStream[], onFrame?: (channel: string, frame: Float32Array) => void): { levels: Record<string, number>; error: string | null } {
+export function useLevels(streams: MediaStream[], onFrame?: (channel: string, frame: Float32Array) => void, mono = false): { levels: Record<string, number>; error: string | null } {
   const [levels, setLevels] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   const peak = useRef<Record<string, number>>({});
@@ -33,10 +33,10 @@ export function useLevels(streams: MediaStream[], onFrame?: (channel: string, fr
     tapAll(streams, (c, f) => {
       peak.current[c] = Math.max(peak.current[c] ?? -100, rmsDb(f));
       forward.current?.(c, f);
-    }).then((s) => { if (live) stop = s; else s(); }, (e: unknown) => { if (live) setError(micError(e)); });
+    }, mono).then((s) => { if (live) stop = s; else s(); }, (e: unknown) => { if (live) setError(micError(e)); });
     const t = setInterval(() => { setLevels(peak.current); peak.current = {}; }, 100);
     return () => { live = false; clearInterval(t); stop?.(); };
-  }, [streams]);
+  }, [streams, mono]);
 
   return { levels, error };
 }

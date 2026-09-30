@@ -13,6 +13,7 @@
  */
 import type { DomainEvent } from '@adl/core';
 import { callStructured, type LlmCallLog } from '@adl/llm';
+import { validateStance } from '@adl/ontology';
 import { buildL2Input, L2_INSTRUCTIONS, L2_PROMPT_VERSION, L2Output, type CriticItem } from './prompts/l2-critic';
 import type { Turn } from './turns';
 
@@ -131,10 +132,11 @@ export function approvalEvents(
 
   const approvedNow = new Set<string>();
   for (const p of t.props) {
-    if (ok(p.id)) {
+    const anchored = t.stances.some(s => s.propositionId === p.id && s.viaAduId && (t.adus.get(s.viaAduId)?.spans.length ?? 0) > 0);
+    if (anchored && ok(p.id)) {
       approve(p.id, 'auto: validators + critic');
       approvedNow.add(p.id);
-    } else reject(p.id, hard(p.id) ? 'auto: hard validation failure' : `auto: critic ${verdict.get(p.id) ?? 'missing'}`);
+    } else reject(p.id, !anchored ? 'auto: no surviving quote anchor' : hard(p.id) ? 'auto: hard validation failure' : `auto: critic ${verdict.get(p.id) ?? 'missing'}`);
   }
   const isApproved = (pid: string) => approvedNow.has(pid) || approvedProps.has(pid);
   const approvedAdus = new Set<string>();
@@ -154,7 +156,12 @@ export function approvalEvents(
   for (const v of verdicts) {
     if (v.verdict !== 'repair' || !v.repairedStrength) continue;
     const s = t.stances.find((x) => x.id === v.itemId) ?? t.stances.find((x) => x.propositionId === v.itemId);
-    if (s) out.push({ ...ev, eventId: `${s.id}:repair-strength`, type: 'item.edited', payload: { itemId: s.id, patch: { strength: v.repairedStrength }, reason: `critic repair (${v.rule})` } });
+    const adu = s?.viaAduId ? t.adus.get(s.viaAduId) : undefined;
+    // The critic cannot override hard ontology constraints through a repair (notably
+    // rhetorical questions, whose implied commitment is capped at leaning).
+    if (s && adu && !validateStance(adu, { ...s, strength: v.repairedStrength }).some((i) => HARD_VALIDATION_CODES.has(i.code))) {
+      out.push({ ...ev, eventId: `${s.id}:repair-strength`, type: 'item.edited', payload: { itemId: s.id, patch: { strength: v.repairedStrength }, reason: `critic repair (${v.rule})` } });
+    }
   }
   return out;
 }
@@ -187,5 +194,13 @@ export async function runL2(
     sessionId: ctx.sessionId,
   });
   if (!result.ok) return { events: [], verdicts: [], log: result.log, error: `${result.reason}: ${result.detail}` };
+  const expected = new Set(items.map(item => item.itemId));
+  const seen = new Set<string>();
+  const invalid = result.data.verdicts.length !== items.length || result.data.verdicts.some(v => {
+    if (!expected.has(v.itemId) || seen.has(v.itemId)) return true;
+    seen.add(v.itemId);
+    return v.verdict === 'repair' && !v.repairedCanonical?.trim() && !v.repairedStrength;
+  });
+  if (invalid) return { events: [], verdicts: [], log: result.log, error: 'parse_error: critic must return exactly one verdict per requested item and a concrete change for every repair' };
   return { events: criticEvents(turn, result.data, { sessionId: ctx.sessionId, wallTs: ctx.wallTs() }), verdicts: result.data.verdicts, log: result.log };
 }

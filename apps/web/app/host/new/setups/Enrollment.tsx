@@ -27,7 +27,7 @@ export function Enrollment({ people, setup, onDone }: { people: Person[]; setup:
   const onFrame = useCallback((c: string, f: Float32Array) => {
     if (recording && c === channel) frames.current.push(f);
   }, [recording, channel]);
-  const { levels, error: tapError } = useLevels(setup.streams, onFrame);
+  const { levels, error: tapError } = useLevels(setup.streams, onFrame, setup.kind !== 'tracks');
 
   const start = () => {
     frames.current = [];

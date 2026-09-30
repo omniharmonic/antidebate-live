@@ -94,11 +94,11 @@ describe('insightCards key resolution', () => {
     const stance = (id: string, pid: string, key: string) => ({ id, participantKey: key, propositionId: pid, atMs: 0, attitude: 'accepts' as const, strength: 'confident' as const, source: 'stated' as const });
     const v = {
       debaters: [{ key: 'A', displayName: 'Shereef Bishay' }, { key: 'B', displayName: 'Layman Pascal' }],
-      props: new Map(), stances: [], relations: [], disagreements: [], clashes: [], commonGround: [], cruxCandidates: [], quotes: new Map(),
+      props: new Map([['p1', { id: 'p1' }], ['p2', { id: 'p2' }]]), stances: [], relations: [], disagreements: [], clashes: [], commonGround: [], cruxCandidates: [], quotes: new Map(),
       holders: new Map([['p1', new Map([['A', stance('s1', 'p1', 'A')]])], ['p2', new Map([['B', stance('s2', 'p2', 'B')]])]]),
     } as unknown as Parameters<typeof insightCards>[1];
     const out = insightCards(
-      { crux: null, prompts: [{ text: 'Q?', addresseeKey: 'Layman', kind: 'open_question', rationale: '', targets: [] }], higherGround: [{ text: 'Both could sign this.', construction: 'value_lift', derivation: [{ participantKey: 'Shereef Bishay', propositionIds: ['p1'] }, { participantKey: 'Layman Pascal', propositionIds: ['p2'] }], costs: [{ participantKey: 'Shereef Bishay', gives: 'nothing' }] }] },
+      { crux: null, prompts: [{ text: 'Q?', addresseeKey: 'Layman', kind: 'open_question', rationale: '', targets: [] }], higherGround: [{ text: 'Both could sign this.', construction: 'value_lift', derivation: [{ participantKey: 'Shereef Bishay', propositionIds: ['p1'] }, { participantKey: 'Layman Pascal', propositionIds: ['p2'] }], costs: [{ participantKey: 'Shereef Bishay', gives: 'nothing' }, { participantKey: 'Layman Pascal', gives: 'nothing' }] }] },
       v,
     );
     expect(out.higherGround).toHaveLength(1);

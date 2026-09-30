@@ -85,7 +85,7 @@ export async function openLiveSession(sessionId: string, handoff: LiveHandoff | 
     cb.onModel(null);
   }
 
-  const runner = new LiveRunner({ sessionId, setup: state.setup, anchors: state.anchors, asr, voices: voices ?? noVoices, log, onStatus: cb.onStatus });
+  const runner = new LiveRunner({ sessionId, setup: state.setup, anchors: state.anchors, asr, voices: voices ?? noVoices, voicesAvailable: !!voices, log, onStatus: cb.onStatus });
   const startEngine = () => {
     const engine: SessionEngine = new SessionEngine({
       sessionId,

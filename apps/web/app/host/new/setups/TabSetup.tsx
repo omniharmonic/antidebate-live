@@ -11,7 +11,7 @@ export function TabSetup({ onDone }: { onDone: (r: SetupResult) => void }) {
   const handed = useRef(false);
   const latest = useRef<MediaStream | null>(null);
   const streams = useMemo(() => (stream ? [stream] : []), [stream]);
-  const { levels, error: tapError } = useLevels(streams);
+  const { levels, error: tapError } = useLevels(streams, undefined, true);
 
   useEffect(() => { latest.current = stream; }, [stream]);
   useEffect(() => () => { if (!handed.current && latest.current) stopStreams([latest.current]); }, []);

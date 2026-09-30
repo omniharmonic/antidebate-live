@@ -62,6 +62,7 @@ export function apply(s: SessionState, e: DomainEvent): SessionState {
       }
       break;
     }
+    case 'analysis.completed':
     case 'turn.closed':
       break;
     case 'adu.proposed':

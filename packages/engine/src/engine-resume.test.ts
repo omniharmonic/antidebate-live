@@ -56,8 +56,28 @@ it('a reload keeps turning and extracting new lines after live turns closed on s
   expect(all.some((t) => t.utteranceIds.includes('uA2'))).toBe(true);
   expect(extracted.some((s) => s.includes('new words from B'))).toBe(true);
   expect(extracted.some((s) => s.includes('new words from A'))).toBe(true);
-  // Replayed turns keep their logged ids and boundaries: only the last live turn (no L1 output logged,
-  // so possibly unfinished) runs again, plus the two new turns.
-  expect(extracted.length - extractedLive).toBe(3);
+  // Every failed earlier turn is retried, while boundaries remain stable.
+  expect(extracted.length - extractedLive).toBe(live.length + 2);
   expect(all.slice(0, live.length)).toEqual(live);
+});
+
+it('resumes an interrupted critic from saved L1 without extracting different claims under the same ids', async()=>{
+ const log=new MemLog(); const tid=`${sid}:t0000`, pid=`${tid}:p1`, aid=`${tid}:a1`, stid=`${tid}:s1`;
+ const base={sessionId:sid,actor:'system' as const,wallTs:w,mediaMs:1500};
+ await log.append([
+  {...base,eventId:'start',type:'session.started',payload:{title:'T',format:'open',participants:[{key:'A',displayName:'Ann',role:'debater'}]}},
+  utt('u1','A',0,'Taxes should fall.'),
+  {...base,eventId:`${tid}:closed`,type:'turn.closed',payload:{turnId:tid,participantKey:'A',utteranceIds:['u1']}},
+  {...base,eventId:`${aid}:proposed`,type:'adu.proposed',payload:{adu:{id:aid,speakerKey:'A',spans:[{utteranceId:'u1',start:0,end:18,quote:'Taxes should fall.'}],speechAct:'assert',addressedTo:'none'}}} as unknown as DomainEvent,
+  {...base,eventId:`${pid}:proposed`,type:'proposition.proposed',payload:{proposition:{id:pid,canonical:'Taxes should fall.',type:'prescriptive',stratum:'praxis',scope:{quantifier:'generic'},conditions:[],quantities:[],aboutConcepts:[],status:'live_provisional'}}},
+  {...base,eventId:`${stid}:proposed`,type:'stance.proposed',payload:{stance:{id:stid,participantKey:'A',propositionId:pid,atMs:1500,attitude:'accepts',strength:'confident',source:'stated',viaAduId:aid}}},
+ ]);
+ const calls:string[]=[];
+ setCaller(async c=>{calls.push(c.pass);if(c.pass==='L2_critic')return {ok:true,log:{latencyMs:0} as never,data:{verdicts:[{itemId:pid,verdict:'pass',rule:'ok',reason:'faithful',repairedCanonical:null,repairedStrength:null}]}};return {ok:false,reason:'provider_error',detail:'offline',log:{} as never};});
+ const engine=new SessionEngine({sessionId:sid,log,pollMs:1});engine.finishSource();await engine.run();
+ expect(calls).not.toContain('L1_extract');expect(calls).toContain('L2_critic');
+ expect(log.events.some(e=>e.type==='item.approved'&&e.payload.itemId===pid)).toBe(true);
+ expect(log.events.some(e=>e.type==='analysis.completed'&&e.payload.stage==='L2')).toBe(true);
+ const second=new SessionEngine({sessionId:sid,log,pollMs:1});calls.length=0;second.finishSource();await second.run();
+ expect(calls).not.toContain('L1_extract');expect(calls).not.toContain('L2_critic');
 });

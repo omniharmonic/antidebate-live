@@ -104,6 +104,7 @@ describe('SessionEngine with an injected caller', () => {
       utt('u3', 'A', 6000, 'Third claim about growth.'),
       // A previous run closed t0000 and t0001; t0001 was the last one started, so it may be unfinished.
       closed(0, 'A', 'u1'),
+      { eventId: `${sid}:t0000:complete:L2`, sessionId: sid, type: 'analysis.completed', actor: 'system', mediaMs: 2000, wallTs: w, payload: { turnId: `${sid}:t0000`, stage: 'L2' } },
       closed(1, 'B', 'u2'),
     ]);
     const engine = new SessionEngine({ sessionId: sid, log, pollMs: 5, silenceMs: 1 });
@@ -128,6 +129,7 @@ describe('SessionEngine with an injected caller', () => {
       utt('u2', 'B', 3000, 'Second claim about spending.'),
       utt('u3', 'A', 6000, 'Third claim about growth.'),
       closed(0, 'A', 'u1'),
+      { eventId: `${sid}:t0000:complete:L2`, sessionId: sid, type: 'analysis.completed', actor: 'system', mediaMs: 2000, wallTs: w, payload: { turnId: `${sid}:t0000`, stage: 'L2' } },
       closed(1, 'B', 'u2'),
       // The previous run got as far as L1 for t0001; re-running it would produce different content under the same ids.
       { eventId: `${adu.id}:proposed`, sessionId: sid, type: 'adu.proposed', actor: 'system', mediaMs: 5000, wallTs: w, payload: { adu } } as DomainEvent,
@@ -251,4 +253,34 @@ describe('holdPending', () => {
     await engine.run();
     expect(seen.some((s) => s.includes('Guessed speaker line.'))).toBe(true);
   });
+});
+
+it('L4 uses the map and transcript captured before a slow L3 call, not later evidence', async () => {
+  const log = new MemLog();
+  const propEvents = (id: string, mediaMs: number): DomainEvent[] => [
+    { eventId: `${id}:proposed`, sessionId: sid, type: 'proposition.proposed', actor: 'system', mediaMs, wallTs: w, payload: { proposition: { id, canonical: id, type: 'empirical', stratum: 'empirical', scope: { quantifier: 'generic' }, conditions: [], quantities: [], aboutConcepts: [], status: 'live_provisional' } } },
+    { eventId: `${id}:approved`, sessionId: sid, type: 'item.approved', actor: 'system', mediaMs, wallTs: w, payload: { itemId: id } },
+  ];
+  await log.append([
+    { eventId: 'start', sessionId: sid, type: 'session.started', actor: 'operator', mediaMs: 0, wallTs: w, payload: { title: 'T', format: 'open', participants: [{ key: 'A', displayName: 'Ann', role: 'debater' }] } },
+    ...propEvents('early-one', 0), ...propEvents('early-two', 0), ...propEvents('early-three', 0), utt('u1', 'A', 0, 'Earlier words.'),
+  ]);
+  let observed!: () => void;
+  const readFuture = new Promise<void>((resolve) => { observed = resolve; });
+  const read = log.read.bind(log);
+  log.read = async (cursor) => { const batch = await read(cursor); if (batch.events.some((e) => e.eventId === 'future-evidence:approved')) observed(); return batch; };
+  let insightInput = '';
+  const engine = new SessionEngine({ sessionId: sid, log, pollMs: 5, silenceMs: 0, insightEveryTurns: 1 });
+  setCaller(async (c) => {
+    if (c.pass === 'L3_link') {
+      await log.append(propEvents('future-evidence', 60000));
+      await readFuture;
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    if (c.pass === 'L4_insight') { insightInput = c.input; engine.stop(); }
+    return { ok: false, reason: 'provider_error', detail: 'test', log: { pass: c.pass } as never };
+  });
+  await engine.run();
+  expect(insightInput).toContain('early-one');
+  expect(insightInput).not.toContain('future-evidence');
 });

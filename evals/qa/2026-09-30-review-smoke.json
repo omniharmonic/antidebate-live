@@ -1,0 +1,56 @@
+{
+  "log": {
+    "pass": "L2_critic",
+    "promptVersion": "map-faithfulness-v1",
+    "model": "claude-sonnet-5-5",
+    "effort": "medium",
+    "provider": "api",
+    "cached": false,
+    "inputTokens": 656,
+    "cacheReadTokens": 0,
+    "cacheCreationTokens": 1228,
+    "outputTokens": 423,
+    "latencyMs": 6054,
+    "stopReason": "end_turn",
+    "billedUsd": 0.008612,
+    "sessionId": "qa-authored-review"
+  },
+  "results": [
+    {
+      "id": "faithful",
+      "expected": "pass",
+      "verdict": "pass",
+      "reason": "Synthesis draws on B's view that audits help compare models and A's support for audits, leaves mandatory status disputed, stays a candidate, and costs of nothing are supported."
+    },
+    {
+      "id": "forced",
+      "expected": "reject",
+      "verdict": "reject",
+      "reason": "Invents an international licensing agency and a 2027 deadline, and requires B to give up their stated opposition to licensing; no evidence A supports it."
+    },
+    {
+      "id": "guessed-update",
+      "expected": "reject",
+      "verdict": "reject",
+      "reason": "The 20% risk-reduction update condition is invented; B never states any update condition, and B's stance on mandatory audits is not given."
+    },
+    {
+      "id": "neutral-question",
+      "expected": "pass",
+      "verdict": "pass",
+      "reason": "Neutral, short, speakable, addressed to both, and relevant to the audit discussion without false premises."
+    },
+    {
+      "id": "false-premise",
+      "expected": "reject",
+      "verdict": "reject",
+      "reason": "Presupposes both agreed to international licensing; B opposes mandatory licensing and no one endorsed international licensing."
+    },
+    {
+      "id": "rejection-polarity",
+      "expected": "pass",
+      "verdict": "pass",
+      "reason": "Speaker says they do not believe all regulation is harmful, so rejecting the canonical 'All regulation is harmful' is correct polarity and confident strength is reasonable."
+    }
+  ]
+}

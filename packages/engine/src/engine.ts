@@ -59,7 +59,9 @@ export class SessionEngine {
   /** Turns a previous run closed, in order (resume after a reload). */
   private closedBefore: string[] = [];
   /** Ids of L1 events a previous run wrote (`<turnId>:<ref>:…`). */
-  private l1Before: string[] = [];
+  private l1Before: DomainEvent[] = [];
+  private completedBefore = new Set<string>();
+  private seenEvents = new Set<string>();
   /** Logged turn boundaries (resume): utterance id → the turn it opens / closes. */
   private loggedStart = new Map<string, string>();
   private loggedEnd = new Map<string, string>();
@@ -77,7 +79,7 @@ export class SessionEngine {
   private linkedIds = new Set<string>();
   private previous: PreviousCards = {};
   private previousShared = '';
-  private recentCards: { cruxPropositionId?: string; cruxHistory: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] } = { cruxHistory: [], higherGround: [], prompts: [] };
+  private recentCards: { cruxPropositionId?: string; cruxFingerprint?: string; cruxHistory: string[]; lastBlockedCrux?: string; higherGround: string[]; prompts: string[] } = { cruxHistory: [], higherGround: [], prompts: [] };
   private readonly opts: Required<Omit<EngineOptions, 'onCall' | 'onProgress' | 'say'>> & Pick<EngineOptions, 'onCall' | 'onProgress' | 'say'>;
 
   constructor(opts: EngineOptions) {
@@ -105,11 +107,12 @@ export class SessionEngine {
 
   private async append(events: DomainEvent[]) {
     if (events.length === 0) return;
+    await this.opts.log.append(events);
     for (const e of events) {
+      this.seenEvents.add(e.eventId);
       this.own.add(e.eventId);
       this.state = apply(this.state, e);
     }
-    await this.opts.log.append(events);
   }
 
   /**
@@ -147,9 +150,11 @@ export class SessionEngine {
     this.scanLoggedTurns(events);
     for (const e of events) {
       if (this.own.has(e.eventId)) continue;
+      this.seenEvents.add(e.eventId);
       this.state = apply(this.state, e);
       if (e.type === 'turn.closed') this.closedBefore.push(e.payload.turnId);
-      if (L1_TYPES.has(e.type)) this.l1Before.push(e.eventId);
+      if (L1_TYPES.has(e.type)) this.l1Before.push(e);
+      if (e.type === 'analysis.completed') this.completedBefore.add(`${e.payload.turnId}:${e.payload.stage}`);
       this.resumeInsight(e);
       if (e.type === 'utterance.final') {
         this.lastUtteranceWall = Date.now();
@@ -190,6 +195,7 @@ export class SessionEngine {
     if (kind === 'crux') {
       if (this.recentCards.cruxPropositionId) this.recentCards.cruxHistory = [...this.recentCards.cruxHistory.slice(-2), this.recentCards.cruxPropositionId];
       this.recentCards.cruxPropositionId = b.propositionId;
+      this.recentCards.cruxFingerprint = JSON.stringify(body);
       this.previous.crux = b.statement;
     }
     if (kind === 'higher_ground') {
@@ -249,16 +255,17 @@ export class SessionEngine {
     void this.opts.log.logCall(l).catch(() => {});
   }
 
-  /**
-   * Finished by a previous run: a later turn was closed after it, and turns are processed
-   * one at a time. The last turn a previous run closed may be unfinished, so it runs again,
-   * unless its L1 output is already in the log: L1/L2 ids are deterministic, so a second run
-   * would be dropped by the log while this engine approved its (different, unchecked) content.
-   */
+  /** Only durable completion (or all legacy item decisions), never a later turn, proves completion. */
   private finishedBefore(turnId: string) {
-    const i = this.closedBefore.indexOf(turnId);
-    if (i === -1) return false;
-    return i < this.closedBefore.length - 1 || this.l1Before.some((id) => id.startsWith(`${turnId}:`));
+    if (this.completedBefore.has(`${turnId}:L2`) || this.completedBefore.has(`${turnId}:round`)) return true;
+    const items = this.l1Before.filter(e => e.eventId.startsWith(`${turnId}:`)).flatMap<{ state: string } | undefined>(e =>
+      e.type === 'proposition.proposed' ? [this.state.propositions.get(e.payload.proposition.id)] :
+      e.type === 'stance.proposed' ? [this.state.stances.get(e.payload.stance.id)] : []);
+    return items.length > 0 && items.every(x => x && x.state !== 'proposed');
+  }
+
+  private async checkpoint(turn: Turn, stage: 'L1' | 'L2' | 'round') {
+    await this.append([{ eventId: `${turn.turnId}:complete:${stage}`, sessionId: this.opts.sessionId, type: 'analysis.completed', actor: 'system', mediaMs: turn.endMs, wallTs: now(), payload: { turnId: turn.turnId, stage } }]);
   }
 
   private async processTurn(turn: Turn) {
@@ -285,6 +292,7 @@ export class SessionEngine {
       const r = await detectRound(turn, { sessionId: this.opts.sessionId, formatId: this.formatId, currentRoundId: before, currentRoundStartedMs: this.state.round?.startedMediaMs ?? null, previousModeratorTurns, wallTs: now });
       this.logCall(r.log);
       await this.append(r.events);
+      if (!r.error) await this.checkpoint(turn, 'round');
       if (r.events.some((e) => e.type === 'round.started')) {
         this.say(`round → ${this.state.round?.name}`);
         this.insightWanted = true; // cards at every round boundary (PRD §9)
@@ -292,10 +300,13 @@ export class SessionEngine {
       return;
     }
     if (role !== 'debater') return; // unknown speakers never enter the map
+    this.turnsSinceInsight += 1;
+    if (this.turnsSinceInsight >= this.opts.insightEveryTurns || turn.endMs - this.lastInsightMediaMs >= this.opts.insightEveryMs) this.insightWanted = true;
 
     const participants = this.state.participants.map(({ key, displayName }) => ({ key, displayName }));
     const recent = this.turns.slice(-4, -1);
-    const l1 = await runL1(turn, {
+    const storedL1 = this.l1Before.filter(e => e.eventId.startsWith(`${turn.turnId}:`));
+    const l1 = storedL1.length || this.completedBefore.has(`${turn.turnId}:L1`) ? { events: storedL1, log: null, error: undefined } : await runL1(turn, {
       sessionId: this.opts.sessionId,
       participants,
       round: this.state.round?.name ?? null,
@@ -305,23 +316,25 @@ export class SessionEngine {
       wallTs: now,
     });
     this.logCall(l1.log);
-    if (l1.error) this.say(`L1 ${turn.turnId}: ${l1.error}`);
-    await this.append(l1.events);
+    if (l1.error) { this.say(`L1 ${turn.turnId}: ${l1.error}`); return; }
+    if (!storedL1.length) await this.append(l1.events);
+    await this.checkpoint(turn, 'L1');
 
     const index = new Map(this.indexForL1().map((p) => [p.id, p.canonical]));
     const l2 = await runL2(turn, l1.events, { sessionId: this.opts.sessionId, participants, recentTurns: recent, index, wallTs: now });
     this.logCall(l2.log);
-    if (l2.error) this.say(`L2 ${turn.turnId}: ${l2.error}`);
-    await this.append(l2.events);
+    if (l2.error) { this.say(`L2 ${turn.turnId}: ${l2.error}`); return; }
+    // If a previous attempt persisted only some critic events, retain those and append a new reviewed decision.
+    const freshId = (e: DomainEvent): DomainEvent => { let id = e.eventId, n = 1; while (this.seenEvents.has(id)) id = `${e.eventId}:retry${n++}`; return { ...e, eventId: id }; };
+    await this.append(l2.events.map(freshId));
     const approvals = approvalEvents(turn, l1.events, l2.verdicts, this.approvedPropIds(), { sessionId: this.opts.sessionId, wallTs: now() });
-    await this.append(approvals);
+    await this.append(approvals.map(freshId));
+    await this.checkpoint(turn, 'L2');
 
     const approved = approvals.filter((e) => e.type === 'item.approved').length;
     const rejected = approvals.filter((e) => e.type === 'item.rejected').length;
-    const lat = (l1.log.latencyMs + (l2.log?.latencyMs ?? 0)) / 1000;
+    const lat = ((l1.log?.latencyMs ?? 0) + (l2.log?.latencyMs ?? 0)) / 1000;
     this.say(`${turn.turnId} ${turn.participantKey} ${(turn.startMs / 60000).toFixed(1)}m · L1+L2 ${lat.toFixed(1)}s · +${approved} approved, ${rejected} rejected`);
-    this.turnsSinceInsight += 1;
-    if (this.turnsSinceInsight >= this.opts.insightEveryTurns || turn.endMs - this.lastInsightMediaMs >= this.opts.insightEveryMs) this.insightWanted = true;
   }
 
   /** L3 then L4 on a snapshot of the approved map. One at a time, in the background. */
@@ -334,29 +347,33 @@ export class SessionEngine {
     this.turnsSinceInsight = 0;
     const seq = this.insightSeq++;
     const mediaMs = this.processedMediaMs;
+    const snapshot = structuredClone(this.state);
+    const snapshotTurns = this.turns.slice(-6);
     this.lastInsightMediaMs = mediaMs;
     this.insightRunning = (async () => {
       const t0 = Date.now();
-      let view = buildMapView(this.state);
+      let view = buildMapView(snapshot);
       const newIds = new Set([...view.props.keys()].filter((id) => !this.linkedIds.has(id)));
-      const l3 = await runL3(view, newIds, { sessionId: this.opts.sessionId, seq, mediaMs, wallTs: now });
+      const l3 = await runL3(view, newIds, { sessionId: this.opts.sessionId, seq, mediaMs, wallTs: now, onReviewCall: l => this.logCall(l) });
       this.logCall(l3.log);
       if (l3.error) this.say(`L3: ${l3.error}`);
       await this.append(l3.events);
-      for (const id of newIds) this.linkedIds.add(id);
+      if (!l3.error) for (const id of newIds) this.linkedIds.add(id);
 
-      view = buildMapView(this.state);
-      const names = new Map(this.state.participants.map((p) => [p.key, p.displayName]));
-      const recent = this.turns.slice(-6).map((t) => ({ speaker: names.get(t.participantKey) ?? t.participantKey, text: t.text }));
+      for (const event of l3.events) apply(snapshot, event);
+      view = buildMapView(snapshot);
+      const names = new Map(snapshot.participants.map((p) => [p.key, p.displayName]));
+      const recent = snapshotTurns.map((t) => ({ speaker: names.get(t.participantKey) ?? t.participantKey, text: t.text }));
       const l4 = await runL4(view, {
         sessionId: this.opts.sessionId,
         seq,
         mediaMs,
-        formatId: this.formatId,
-        roundId: this.state.round?.roundId ?? null,
+        formatId: snapshot.formatId ?? 'open',
+        roundId: snapshot.round?.roundId ?? null,
         recent,
         previous: this.previous,
         previousShared: this.previousShared,
+        onReviewCall: l => this.logCall(l),
         recentCards: this.recentCards,
         wallTs: now,
       });

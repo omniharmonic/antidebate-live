@@ -214,3 +214,7 @@ These are estimates to be replaced with measured numbers from R0 replays. Each r
 | Attribution uncertain | Held; operator hotkey; nothing downstream releases. |
 | Stage machine crash | The stage URL reloads to the current state from the event log (cold start < 3 s). |
 | Wrong item released | Operator "retract" → `release.retracted`. The item fades out within 600 ms on all channels; playback shows it in "as seen live" mode with a retraction marker. |
+
+
+### Analysis checkpoints (2026-09-30 QA)
+`analysis.completed {turnId, stage: L1 | L2 | round}` records durable pass completion, including empty extraction. On reload, an unfinished critic resumes from the original persisted L1 proposals; it never regenerates different proposals under existing IDs. Provider errors leave work uncompleted and retryable on reload. A later turn does not imply an earlier turn succeeded. Checkpoints are operational events, not ontology entities.

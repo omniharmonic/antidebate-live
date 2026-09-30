@@ -48,6 +48,18 @@ export class Segmenter {
     if (lv.length > KEEP_FRAMES) lv.shift();
     const u = vad.push(frame, at);
     if (!u) return;
+    this.emit(channel, u);
+  }
+
+  /** Flush every open utterance before the runner drains on pause/end/disconnect. */
+  flush(): void {
+    for (const [channel, vad] of this.vads) {
+      const u = vad.flush();
+      if (u) this.emit(channel, u);
+    }
+  }
+
+  private emit(channel: string, u: Utterance): void {
     const overlap = this.overlaps(channel, u);
     const spans = this.spans.get(channel)!;
     spans.push({ startMs: u.startMs, endMs: u.endMs });

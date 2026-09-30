@@ -55,9 +55,10 @@ export async function openTabAudio(): Promise<MediaStream> {
 export async function tapChannels(
   stream: MediaStream,
   onFrame: (channel: number, frame: Float32Array, atMs: number) => void,
+  mono = false,
 ): Promise<() => void> {
   const track = stream.getAudioTracks()[0];
-  const n = track?.getSettings().channelCount ?? 1;
+  const n = mono ? 1 : track?.getSettings().channelCount ?? 1;
   const ctx = new AudioContext();
   try {
     await ctx.audioWorklet.addModule('/worklets/tap.js');
@@ -67,7 +68,7 @@ export async function tapChannels(
     throw e;
   }
   const source = ctx.createMediaStreamSource(stream);
-  const node = new AudioWorkletNode(ctx, 'tap', { channelCount: n, channelCountMode: 'explicit', numberOfInputs: 1 });
+  const node = new AudioWorkletNode(ctx, 'tap', { channelCount: n, channelCountMode: 'explicit', channelInterpretation: 'speakers', numberOfInputs: 1 });
   const frames: number[] = [];
   node.port.onmessage = (e: MessageEvent<{ channel: number; frame: Float32Array }>) => {
     const { channel, frame } = e.data;
@@ -76,6 +77,9 @@ export async function tapChannels(
     onFrame(channel, frame, idx * 20);
   };
   source.connect(node);
+  // The tap writes no output samples, so this is silent. Connecting its output keeps
+  // the render graph active in browsers that prune a worklet with no downstream sink.
+  node.connect(ctx.destination);
   return () => {
     node.port.onmessage = null;
     source.disconnect();
@@ -117,10 +121,10 @@ export function stopStreams(streams: MediaStream[]): void {
 }
 
 /** Taps every stream; channel ids are `d<stream index>c<channel index>`. */
-export async function tapAll(streams: MediaStream[], onFrame: (channel: string, frame: Float32Array, atMs: number) => void): Promise<() => void> {
+export async function tapAll(streams: MediaStream[], onFrame: (channel: string, frame: Float32Array, atMs: number) => void, mono = false): Promise<() => void> {
   const stops: (() => void)[] = [];
   try {
-    for (const [i, s] of streams.entries()) stops.push(await tapChannels(s, (c, f, at) => onFrame(`d${i}c${c}`, f, at)));
+    for (const [i, s] of streams.entries()) stops.push(await tapChannels(s, (c, f, at) => onFrame(`d${i}c${c}`, f, at), mono));
   } catch (e) {
     stops.forEach((stop) => stop());
     throw e;

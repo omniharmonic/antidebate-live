@@ -41,6 +41,7 @@ export class EnergyVad {
   private speechMs = 0;
   private silenceMs = 0;
   private open = false;
+  private endMs = 0;
 
   constructor(opts: VadOptions = {}) {
     this.frameMs = opts.frameMs ?? 20;
@@ -81,11 +82,17 @@ export class EnergyVad {
     }
 
     const endMs = atMs + this.frameMs;
+    this.endMs = endMs;
     if (this.silenceMs >= this.hangoverMs) return this.close(endMs);
     if (endMs - this.startMs >= this.maxUtteranceMs) {
       return this.close(endMs);
     }
     return null;
+  }
+
+  /** Finish only captured speech on pause/end/disconnect; never pad with invented silence. */
+  flush(): Utterance | null {
+    return this.open ? this.close(this.endMs) : null;
   }
 
   private close(endMs: number): Utterance | null {

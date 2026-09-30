@@ -107,3 +107,25 @@ describe('publishing a host session', () => {
     expect(project('h', [started, pub(1, true), pub(2, false)]).published).toBe(false);
   });
 });
+
+it('seeking includes delayed analysis and rejects snapshots containing future audio', () => {
+  const stream: DomainEvent[] = [events[0]!,
+    { eventId: 'future', sessionId: 'dt', type: 'session.ended', actor: 'system', mediaMs: 10000, wallTs: 'x', payload: {} },
+    { eventId: 'earlier', sessionId: 'dt', type: 'round.started', actor: 'operator', mediaMs: 2000, wallTs: 'x', payload: { roundId: 'r', name: 'Earlier round' } },
+  ];
+  const snapshots = [{ atIndex: 3, state: serialize(project('dt', stream)) }];
+  for (const s of [stateAt('dt', stream, 3000), stateAt('dt', stream, 3000, snapshots)]) {
+    expect(s.round?.name).toBe('Earlier round');
+    expect(s.ended).toBe(false);
+  }
+});
+
+it('gates current prompt/shared kinds by audience module and level', () => {
+ const s=emptyState('test');s.channels.phones.level=3;
+ const base={state:'released' as const,issues:[],proposedAtWall:'2026-01-01'};
+ s.insights.set('shared',{...base,value:{id:'shared',kind:'shared',body:{},refs:[]}});
+ s.insights.set('prompt',{...base,value:{id:'prompt',kind:'prompt',body:{},refs:[]}});
+ expect(audienceView(s,'phones').insights?.map(i=>i.id)).toEqual(['shared']);
+ s.channels.phones.level=4;expect(audienceView(s,'phones').insights?.map(i=>i.id)).toEqual(['shared','prompt']);
+ s.channels.phones.toggles.questions=false;expect(audienceView(s,'phones').insights?.map(i=>i.id)).toEqual(['shared']);
+});

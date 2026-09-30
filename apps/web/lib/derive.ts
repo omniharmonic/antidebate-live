@@ -6,6 +6,7 @@ import {
   apply,
   emptyState,
   getFormat,
+  insightSupported,
   type DomainEvent,
   type EventOf,
   type FormatDef,
@@ -128,7 +129,7 @@ export interface CurrentCard<K extends CardKind> {
 /** Newest cockpit-visible insight of a kind ("now"); earlier ones are history. */
 export function currentCard<K extends CardKind>(s: SessionState, kind: K): CurrentCard<K> | null {
   let found: Tracked<Insight> | null = null;
-  for (const t of s.insights.values()) if (t.value.kind === kind && cockpitVisible(t)) found = t;
+  for (const t of s.insights.values()) if (t.value.kind === kind && cockpitVisible(t) && insightSupported(s, t.value)) found = t;
   return found ? { insight: found.value, body: found.value.body as unknown as CardOf[K], tracked: found } : null;
 }
 
@@ -141,7 +142,7 @@ export function insightPass(id: string): string | null {
 /** Cockpit-visible prompts from the newest insight pass that produced any (best first); else the newest `limit`. */
 export function visiblePrompts(s: SessionState, limit = 3): CurrentCard<'prompt'>[] {
   const all: CurrentCard<'prompt'>[] = [];
-  for (const t of s.insights.values()) if (t.value.kind === 'prompt' && cockpitVisible(t)) all.push({ insight: t.value, body: t.value.body as unknown as PromptCard, tracked: t });
+  for (const t of s.insights.values()) if (t.value.kind === 'prompt' && cockpitVisible(t) && insightSupported(s, t.value)) all.push({ insight: t.value, body: t.value.body as unknown as PromptCard, tracked: t });
   const newestPass = all.length ? insightPass(all.at(-1)!.insight.id) : null;
   if (newestPass !== null) return all.filter((c) => insightPass(c.insight.id) === newestPass).slice(0, limit);
   return all.reverse().slice(0, limit);

@@ -10,8 +10,9 @@ import type { DomainEvent } from '@adl/core';
 import { callStructured, type LlmCallLog } from '@adl/llm';
 import type { Attitude } from '@adl/ontology';
 import { crossSpeakerCandidates, focusIds, renderMap, type MapView } from './mapview';
+import { reviewItems, reviewMap } from './review';
 
-export const L3_PROMPT_VERSION = 'l3-link-v0.3';
+export const L3_PROMPT_VERSION = 'l3-link-v0.4';
 
 export const L3Output = z.object({
   merges: z.array(
@@ -105,7 +106,7 @@ export function linkEvents(
 export async function runL3(
   v: MapView,
   newIds: Set<string>,
-  ctx: { sessionId: string; seq: number; mediaMs: number; wallTs: () => string },
+  ctx: { sessionId: string; seq: number; mediaMs: number; wallTs: () => string; onReviewCall?: (log: LlmCallLog) => void },
 ): Promise<{ events: DomainEvent[]; log: LlmCallLog | null; error?: string }> {
   if (newIds.size === 0 || v.props.size < 2) return { events: [], log: null };
   const result = await callStructured({
@@ -117,5 +118,14 @@ export async function runL3(
     sessionId: ctx.sessionId,
   });
   if (!result.ok) return { events: [], log: result.log, error: `${result.reason}: ${result.detail}` };
-  return { events: linkEvents(result.data, v, newIds, { ...ctx, wallTs: ctx.wallTs() }), log: result.log };
+  const evidence = reviewMap(v);
+  const review = await reviewItems([
+    ...result.data.merges.map((content, i) => ({ id: `m${i}`, kind: 'merge', content, evidence })),
+    ...result.data.relations.map((content, i) => ({ id: `r${i}`, kind: 'relation', content, evidence })),
+  ], ctx.sessionId);
+  if (review.log) ctx.onReviewCall?.(review.log);
+  if (review.error) return { events: [], log: result.log, error: review.error };
+  const passed = new Set(review.verdicts.filter(x => x.verdict === 'pass').map(x => x.id));
+  const checked = { merges: result.data.merges.filter((_, i) => passed.has(`m${i}`)), relations: result.data.relations.filter((_, i) => passed.has(`r${i}`)) };
+  return { events: linkEvents(checked, v, newIds, { ...ctx, wallTs: ctx.wallTs() }), log: result.log };
 }

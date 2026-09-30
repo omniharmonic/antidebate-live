@@ -29,7 +29,8 @@ export function gateFor(setup: GateSetup, table: GateTable = MEASURED): Gate {
 
 /** What the setup screen says when the gate found no safe threshold for that setup. */
 export const hostConfirmsNote = (setup: GateSetup, table: GateTable = MEASURED): string | null =>
-  gateFor(setup, table).hostConfirmsAll ? 'In this setup, the host confirms who is speaking before a line enters the map.' : null;
+  gateFor(setup, table).hostConfirmsAll || ((setup === 'call' || setup === 'room') && !passed(setup, table))
+    ? 'In this setup, the host confirms who is speaking before a line enters the map.' : null;
 
 /** A measured setup whose wrong auto-accepts stayed at or under 2% on a large enough sample. */
 const passed = (setup: GateSetup, table: GateTable) => {

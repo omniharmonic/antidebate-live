@@ -1,3 +1,4 @@
+import { singleVoice } from './test-voices';
 import { describe, expect, it } from 'vitest';
 import type { DomainEvent } from '@adl/core';
 import { LiveRunner } from './runner';
@@ -14,7 +15,7 @@ describe('LiveRunner', () => {
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [{ key: 'A', displayName: 'Ann' }] }, anchors: [],
       asr: { transcribe: async (_p, off) => [{ text: 'Hello', startMs: off, endMs: off + 400 }] },
-      voices: { matchVoices: async () => ({ A: 0.3 }) }, log, onStatus: () => {},
+      voices: singleVoice({ matchVoices: async () => ({ A: 0.3 }) }), log, onStatus: () => {},
     });
     await r.onUtterance('mono', { startMs: 1000, endMs: 2000, pcm }, {}, false);
     expect(log.events.map((e) => e.type)).toEqual(['attribution.pending', 'utterance.final']);
@@ -28,7 +29,7 @@ describe('LiveRunner', () => {
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'tracks', channels: { L: 'A', R: 'B' }, participants: [] }, anchors: [],
       asr: { transcribe: async (_p, off) => [{ text: 'x', startMs: off, endMs: off + 300 }] },
-      voices: { matchVoices: async () => { matched++; return {}; } }, log, onStatus: () => {},
+      voices: singleVoice({ matchVoices: async () => { matched++; return {}; } }), log, onStatus: () => {},
     });
     await r.onUtterance('L', { startMs: 0, endMs: 1000, pcm }, { L: -18, R: -40 }, false);
     await r.onUtterance('R', { startMs: 0, endMs: 1000, pcm }, { L: -18, R: -32 }, false);
@@ -40,7 +41,7 @@ describe('LiveRunner', () => {
     const statuses: import('./runner').LiveStatus[] = [];
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
-      asr, voices: { matchVoices: async () => ({ A: 0.6 }) }, log, onStatus: (s) => statuses.push(s), now: () => 5_000,
+      asr, voices: singleVoice({ matchVoices: async () => ({ A: 0.6 }) }), log, onStatus: (s) => statuses.push(s), now: () => 5_000,
     });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
     const [pending, fin] = log.events as [Extract<DomainEvent, { type: 'attribution.pending' }>, Final];
@@ -59,7 +60,7 @@ describe('LiveRunner', () => {
     const statuses: import('./runner').LiveStatus[] = [];
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
-      asr, voices: { matchVoices: async () => ({}) }, log, onStatus: (s) => statuses.push(s),
+      asr, voices: singleVoice({ matchVoices: async () => ({}) }), log, onStatus: (s) => statuses.push(s),
     });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
     await r.onUtterance('mono', { startMs: 5000, endMs: 5900, pcm }, {}, false);
@@ -69,7 +70,7 @@ describe('LiveRunner', () => {
     const log = new Mem();
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
-      asr: { transcribe: async () => [] }, voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: () => {},
+      asr: { transcribe: async () => [] }, voices: singleVoice({ matchVoices: async () => ({ A: 0.99 }) }), log, onStatus: () => {},
     });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
     expect(log.events).toEqual([]);
@@ -81,7 +82,7 @@ describe('LiveRunner', () => {
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
       asr: { transcribe: async (_p, off) => { if (broken) throw new Error('boom'); return [{ text: 'ok', startMs: off, endMs: off + 200 }]; } },
-      voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s), gates: {},
+      voices: singleVoice({ matchVoices: async () => ({ A: 0.99 }) }), log, onStatus: (s) => statuses.push(s), gates: {},
     });
     await r.onUtterance('mono', { startMs: 1000, endMs: 1900, pcm }, {}, false);
     expect(statuses.at(-1)!.failed).toEqual([{ channel: 'mono', startMs: 1000, endMs: 1900, reason: 'boom' }]);
@@ -99,7 +100,7 @@ describe('LiveRunner', () => {
     const append = log.append.bind(log);
     log.append = async (e) => { if (bad) throw new Error('offline'); return append(e); };
     const statuses: import('./runner').LiveStatus[] = [];
-    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s), gates: {} });
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: singleVoice({ matchVoices: async () => ({ A: 0.99 }) }), log, onStatus: (s) => statuses.push(s), gates: {} });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
     expect(statuses.at(-1)!.failed[0]!.reason).toBe('offline');
     bad = false;
@@ -112,7 +113,7 @@ describe('LiveRunner', () => {
     const statuses: import('./runner').LiveStatus[] = [];
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr,
-      voices: { matchVoices: async () => { if (fail) throw new Error('model gone'); return { A: 0.99 }; } }, log, onStatus: (s) => statuses.push(s),
+      voices: singleVoice({ matchVoices: async () => { if (fail) throw new Error('model gone'); return { A: 0.99 }; } }), log, onStatus: (s) => statuses.push(s),
     });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
     await r.onUtterance('mono', { startMs: 2000, endMs: 2900, pcm }, {}, false);
@@ -132,7 +133,7 @@ describe('LiveRunner', () => {
     const seen: string[][] = [];
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [{ key: 'A', pcm }], asr,
-      voices: { matchVoices: async (anchors) => { seen.push(anchors.map((a) => a.key)); const out: Record<string, number> = { A: 0.1 }; if (anchors.some((a) => a.key === 'Voice 1')) out['Voice 1'] = 0.8; return out; } },
+      voices: singleVoice({ matchVoices: async (anchors) => { seen.push(anchors.map((a) => a.key)); const out: Record<string, number> = { A: 0.1 }; if (anchors.some((a) => a.key === 'Voice 1')) out['Voice 1'] = 0.8; return out; } }),
       log, onStatus: (s) => statuses.push(s),
     });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
@@ -146,20 +147,20 @@ describe('LiveRunner', () => {
   it('caps temporary voices at two', async () => {
     const log = new Mem();
     const statuses: import('./runner').LiveStatus[] = [];
-    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({}) }, log, onStatus: (s) => statuses.push(s) });
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: singleVoice({ matchVoices: async () => ({}) }), log, onStatus: (s) => statuses.push(s) });
     for (let i = 0; i < 6; i++) await r.onUtterance('mono', { startMs: i * 5000, endMs: i * 5000 + 900, pcm }, {}, false);
     expect(statuses.at(-1)!.newVoices.map((v) => v.label)).toEqual(['Voice 1', 'Voice 2']);
     expect(statuses.at(-1)!.unconfirmed).toHaveLength(6);
   });
   it('measures latency from the caller wall time when given', async () => {
     const statuses: import('./runner').LiveStatus[] = [];
-    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.99 }) }, log: new Mem(), onStatus: (s) => statuses.push(s), now: () => 10_000 });
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: singleVoice({ matchVoices: async () => ({ A: 0.99 }) }), log: new Mem(), onStatus: (s) => statuses.push(s), now: () => 10_000 });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false, 7_500);
     expect(statuses.at(-1)!.lastLatencyMs).toBe(2_500);
   });
   it('does not drop a correction back to an earlier choice, and ignores audio after stop', async () => {
     const log = new Mem();
-    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.6 }) }, log, onStatus: () => {} });
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: singleVoice({ matchVoices: async () => ({ A: 0.6 }) }), log, onStatus: () => {} });
     await r.onUtterance('mono', { startMs: 0, endMs: 900, pcm }, {}, false);
     await r.confirm('umono-0', 'A');
     await r.confirm('umono-0', 'B');
@@ -173,7 +174,7 @@ describe('LiveRunner', () => {
   });
   it('keeps confirm ids unique across reloads (a new runner reuses no id)', async () => {
     const log = new Mem();
-    const make = (t: number) => new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({}) }, log, onStatus: () => {}, now: () => t });
+    const make = (t: number) => new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: singleVoice({ matchVoices: async () => ({}) }), log, onStatus: () => {}, now: () => t });
     await make(1_000).confirm('umono-0', 'A');
     await make(2_000).confirm('umono-0', 'A');
     const ids = log.events.map((e) => e.eventId);
@@ -186,7 +187,7 @@ describe('LiveRunner', () => {
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [],
       asr: { transcribe: async (_p, off) => { if (broken) throw new Error('boom'); return [{ text: 'ok', startMs: off, endMs: off + 200 }]; } },
-      voices: { matchVoices: async () => ({ A: 0.99 }) }, log, onStatus: (s) => statuses.push(s), gates: {},
+      voices: singleVoice({ matchVoices: async () => ({ A: 0.99 }) }), log, onStatus: (s) => statuses.push(s), gates: {},
     });
     await r.onUtterance('mono', { startMs: 1000, endMs: 1900, pcm }, {}, false);
     await r.onUtterance('mono', { startMs: 3000, endMs: 3900, pcm }, {}, false);
@@ -200,8 +201,24 @@ describe('LiveRunner', () => {
   it('keeps the last three latencies, one per utterance', async () => {
     const statuses: import('./runner').LiveStatus[] = [];
     const t = 10_000;
-    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: { matchVoices: async () => ({ A: 0.99 }) }, log: new Mem(), onStatus: (s) => statuses.push(s), now: () => t });
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: [] }, anchors: [], asr, voices: singleVoice({ matchVoices: async () => ({ A: 0.99 }) }), log: new Mem(), onStatus: (s) => statuses.push(s), now: () => t });
     for (const [i, lag] of [1000, 5000, 6000, 7000].entries()) await r.onUtterance('mono', { startMs: i * 2000, endMs: i * 2000 + 900, pcm }, {}, false, t - lag);
     expect(statuses.at(-1)!.recentLatencyMs).toEqual([5000, 6000, 7000]);
   });
+});
+
+it('holds clear-channel speech when a required voice check fails, including an unavailable model', async () => {
+  for (const unavailable of [false, true]) {
+    const log = new Mem();
+    const r = new LiveRunner({
+      sessionId: 's', setup: { kind: 'tracks', channels: { L: 'A', R: 'B' }, participants: [{ key: 'A', displayName: 'Ann' }, { key: 'B', displayName: 'Bo' }] },
+      anchors: unavailable ? [{ key: 'A', pcm }, { key: 'B', pcm }] : [],
+      voicesAvailable: !unavailable,
+      asr, voices: singleVoice({ matchVoices: async () => { throw new Error('worker stopped'); } }), log, onStatus: () => {},
+    });
+    await r.onUtterance('L', { startMs: 0, endMs: 1000, pcm }, { L: -18, R: -40 }, false);
+    await r.stop();
+    expect(log.events[0]).toMatchObject({ type: 'attribution.pending' });
+    expect(finals(log)[0]!.payload.utterance.participantKey).toBe('UNK');
+  }
 });

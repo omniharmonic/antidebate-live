@@ -4,6 +4,7 @@
  */
 import type { ChannelId, Insight, Module } from './events';
 import type { SessionState } from './state';
+import { insightSupported } from './insight-support';
 
 export interface AudienceView {
   channel: ChannelId;
@@ -30,6 +31,8 @@ const INSIGHT_MODULE: Partial<Record<Insight['kind'], Module>> = {
   higher_ground: 'higher_ground',
   drift: 'drift',
   question: 'questions',
+  prompt: 'questions',
+  shared: 'common_ground',
 };
 
 export function audienceView(s: SessionState, channel: ChannelId): AudienceView {
@@ -55,7 +58,7 @@ export function audienceView(s: SessionState, channel: ChannelId): AudienceView 
 
   const allowed = new Set(LEVEL_MODULES[level] ?? []);
   view.insights = [...s.insights.values()]
-    .filter((i) => i.state === 'released')
+    .filter((i) => i.state === 'released' && insightSupported(s, i.value))
     .filter((i) => {
       const m = INSIGHT_MODULE[i.value.kind];
       return m !== undefined && allowed.has(m) && ch.toggles[m];

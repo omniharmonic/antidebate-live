@@ -32,19 +32,23 @@ export function stateAt(
   tMs: number,
   snapshots: readonly { atIndex: number; state: Json }[] = [],
 ): SessionState {
-  // events are ordered by append; content time is monotone within a session except operator acts
+  // Append order and media time differ: delayed analysis and speaker confirmations can
+  // follow newer audio. A snapshot is usable only when its entire prefix is in range.
+  const prefixMax: number[] = [];
+  let maxMs = -Infinity;
+  for (const e of events) { maxMs = Math.max(maxMs, e.mediaMs); prefixMax.push(maxMs); }
   let startIdx = 0;
   let s = emptyState(sessionId);
   for (const snap of snapshots) {
     const e = events[snap.atIndex - 1];
-    if (e && e.mediaMs <= tMs && snap.atIndex > startIdx) {
+    if (e && prefixMax[snap.atIndex - 1]! <= tMs && snap.atIndex > startIdx) {
       startIdx = snap.atIndex;
       s = deserialize(snap.state);
     }
   }
   for (let i = startIdx; i < events.length; i++) {
     const e = events[i]!;
-    if (e.mediaMs > tMs) break;
+    if (e.mediaMs > tMs) continue;
     s = apply(s, e);
   }
   return s;

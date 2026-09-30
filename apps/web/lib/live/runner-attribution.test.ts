@@ -1,3 +1,4 @@
+import { singleVoice } from './test-voices';
 import { describe, expect, it } from 'vitest';
 import type { DomainEvent } from '@adl/core';
 import type { Anchor } from '../attribution/anchors';
@@ -19,7 +20,7 @@ function tracks(o: { participants: string[]; anchors: string[]; match: (a: Ancho
   const log = o.log ?? new Mem();
   const r = new LiveRunner({
     sessionId: 's', setup: { kind: 'tracks', channels: { L: 'A', R: 'B' }, participants: people(...o.participants) }, anchors: o.anchors.map(anchor),
-    asr: o.asr ?? words, voices: { matchVoices: async (a) => { calls.push(a.map((x) => x.key)); return o.match(a); } }, log, onStatus: (s) => o.statuses?.push(s),
+    asr: o.asr ?? words, voices: singleVoice({ matchVoices: async (a) => { calls.push(a.map((x) => x.key)); return o.match(a); } }), log, onStatus: (s) => o.statuses?.push(s),
   });
   return { r, log, calls };
 }
@@ -29,7 +30,7 @@ describe('LiveRunner decisions for the lab', () => {
     const seen: [string, { pending: boolean; uncapped?: number }][] = [];
     const r = new LiveRunner({
       sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A', 'B') }, anchors: [anchor('A'), anchor('B')], gates: {},
-      asr: words, voices: { matchVoices: async () => ({ A: 0.99, B: 0 }) }, log: new Mem(), onStatus: () => {}, onDecision: (id, d) => seen.push([id, d]),
+      asr: words, voices: singleVoice({ matchVoices: async () => ({ A: 0.99, B: 0 }) }), log: new Mem(), onStatus: () => {}, onDecision: (id, d) => seen.push([id, d]),
     });
     await r.onUtterance('d0c0', { startMs: 0, endMs: 1000, pcm }, {}, false);
     expect(seen).toHaveLength(1);
@@ -125,7 +126,7 @@ describe('LiveRunner attribution (final fixes)', () => {
     let n = 0;
     // Like the real matcher: two anchors in one cluster both score 0.
     const match = async (a: Anchor[]): Promise<Record<string, number>> => (a.some((x) => x.key === 'A') && a.some((x) => x.key.startsWith('Voice')) ? { A: 0, 'Voice 1': 0 } : a.some((x) => x.key === 'A') ? { A: n++ === 0 ? 0.1 : 0.9 } : { 'Voice 1': 0.2 });
-    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [anchor('A')], asr: words, voices: { matchVoices: match }, log, onStatus: (s) => statuses.push(s), gates: {} });
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [anchor('A')], asr: words, voices: singleVoice({ matchVoices: match }), log, onStatus: (s) => statuses.push(s), gates: {} });
     await r.onUtterance('d0c0', { startMs: 0, endMs: 1000, pcm }, {}, false);
     await r.onUtterance('d0c0', { startMs: 3000, endMs: 4000, pcm }, {}, false);
     expect(pendings(log)[1]!.payload.candidates).toEqual({ A: 0.84 });
@@ -135,7 +136,7 @@ describe('LiveRunner attribution (final fixes)', () => {
   it('5: dismissing a line takes it off the list with no event; it stays held', async () => {
     const statuses: LiveStatus[] = [];
     const log = new Mem();
-    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [], asr: words, voices: { matchVoices: async () => ({}) }, log, onStatus: (s) => statuses.push(s) });
+    const r = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [], asr: words, voices: singleVoice({ matchVoices: async () => ({}) }), log, onStatus: (s) => statuses.push(s) });
     await r.onUtterance('d0c0', { startMs: 0, endMs: 1000, pcm }, {}, false);
     const before = log.events.length;
     r.dismiss(['ud0c0-0']);
@@ -146,10 +147,10 @@ describe('LiveRunner attribution (final fixes)', () => {
 
   it('a confirmation after a reload takes its media time from the logged line', async () => {
     const log = new Mem();
-    const first = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [], asr: words, voices: { matchVoices: async () => ({}) }, log, onStatus: () => {} });
+    const first = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [], asr: words, voices: singleVoice({ matchVoices: async () => ({}) }), log, onStatus: () => {} });
     await first.onUtterance('d0c0', { startMs: 5000, endMs: 7000, pcm }, {}, false);
-    const reloaded = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [], asr: words, voices: { matchVoices: async () => ({}) }, log, onStatus: () => {} });
+    const reloaded = new LiveRunner({ sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A') }, anchors: [], asr: words, voices: singleVoice({ matchVoices: async () => ({}) }), log, onStatus: () => {} });
     await reloaded.confirm('ud0c0-5000', 'A');
-    expect(log.events.at(-1)).toMatchObject({ type: 'attribution.confirmed', mediaMs: 7000 });
+    expect(log.events.at(-1)).toMatchObject({ type: 'attribution.confirmed', mediaMs: 5400 });
   });
 });

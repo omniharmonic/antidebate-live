@@ -60,3 +60,11 @@ describe('shortestPath', () => {
     expect(shortestPath(adj, 'a', 'c')).toEqual({ path: ['a', 'b', 'c'], distance: 2 });
   });
 });
+
+it('does not rank dependencies through two inferred links or cycles', () => {
+  const ranked = rankCruxes({ disagreements: [
+    { id:'d1', propositionId:'root', participants:['A','B'] },
+    { id:'d2', propositionId:'policy', participants:['A','B'] },
+  ], strata:new Map(), relations:[rel('supports','root','middle',true),rel('supports','middle','policy',true),rel('supports','policy','root')] });
+  expect(ranked.find(c=>c.propositionId==='root')?.forDisagreements).toEqual(['d1']);
+});

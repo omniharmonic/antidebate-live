@@ -177,16 +177,16 @@ export function CruxBody({ s, meta, size }: { s: SessionState; meta: SessionMeta
   };
   return (
     <div key={card.insight.id} className="arrive">
-      <p className={full ? 'text-[30px] xl:text-[34px] font-medium leading-[1.22] tracking-[-0.015em] text-ink' : 'text-[17px] font-medium leading-snug text-ink'}>{statement}</p>
-      <ul className={`mt-5 space-y-2.5 ${full ? 'text-[21px]' : 'text-sm'}`}>
+      <p className={full ? 'text-[23px] sm:text-[30px] xl:text-[34px] font-medium leading-[1.22] tracking-[-0.015em] text-ink' : 'text-[17px] font-medium leading-snug text-ink'}>{statement}</p>
+      <ul className={`mt-5 space-y-2.5 ${full ? 'text-[17px] sm:text-[21px]' : 'text-sm'}`}>
         {b.sides.map((side) => (
           <li key={side.participantKey + side.stanceId} className="flex items-baseline gap-3">
             <span aria-hidden className={`inline-block shrink-0 ${full ? 'h-5 w-1.5' : 'h-3 w-1'} translate-y-[3px]`} style={{ background: voiceColor(meta, side.participantKey) }} />
-            <span className="text-ink">{personOf(meta, side.participantKey).displayName}</span>
-            <span className="text-ink-2">
+            <span className="w-[32%] max-w-40 shrink-0 text-ink">{personOf(meta, side.participantKey).displayName}</span>
+            <span className="min-w-0 flex-1 text-ink-2">
               {side.via ? (
                 <>
-                  {side.via.relation === 'undercuts' ? 'undercuts it' : 'rejects it'}, via: <span className="text-ink">&lsquo;{canonical(s, side.via.propositionId) ?? side.via.statement}&rsquo;</span>
+                  {side.via.relation === 'undercuts' ? 'challenges the inference' : side.via.relation === 'undermines' ? 'challenges a premise' : 'offers a rebuttal'}, via: <span className="text-ink">&lsquo;{canonical(s, side.via.propositionId) ?? side.via.statement}&rsquo;</span>
                 </>
               ) : (
                 <>
@@ -213,7 +213,7 @@ export function CruxBody({ s, meta, size }: { s: SessionState; meta: SessionMeta
                   <div key={'q' + side.participantKey} className="border-l-2 pl-4" style={{ borderColor: voiceColor(meta, side.participantKey) }}>
                     <p className="text-[15px] text-ink-3">{personOf(meta, side.participantKey).displayName}</p>
                     {q ? <p className="text-ink">&ldquo;{q}&rdquo;</p> : <p className="text-ink-3">Source span unavailable.</p>}
-                    {cond && cond !== 'not stated' ? <p className="mt-1 text-ink-2">Would update if: {cond}</p> : null}
+                    {cond && cond !== 'not stated' ? <p className="mt-1 text-ink-2">Update condition to verify: {cond}</p> : null}
                   </div>
                 );
               })}
@@ -233,13 +233,13 @@ export function HigherGroundBody({ s, meta, size }: { s: SessionState; meta: Ses
   const full = size === 'full';
   return (
     <div key={card.insight.id} className="arrive">
-      <p className={full ? 'text-[28px] xl:text-[30px] font-medium leading-[1.25] tracking-[-0.015em] text-ink' : 'text-[16px] font-medium leading-snug text-ink'}>{b.text}</p>
-      <ul className={`mt-4 space-y-2 ${full ? 'text-[20px] leading-snug' : 'text-sm'}`}>
+      <p className={full ? 'text-[22px] sm:text-[28px] xl:text-[30px] font-medium leading-[1.25] tracking-[-0.015em] text-ink' : 'text-[16px] font-medium leading-snug text-ink'}>{b.text}</p>
+      <ul className={`mt-4 space-y-2 ${full ? 'text-[17px] sm:text-[20px] leading-snug' : 'text-sm'}`}>
         {Object.entries(b.costs).map(([k, cost]) => (
           <li key={k} className="flex items-baseline gap-3">
             <span aria-hidden className={`inline-block shrink-0 ${full ? 'h-4 w-1.5' : 'h-3 w-1'} translate-y-[2px]`} style={{ background: voiceColor(meta, k) }} />
             <span>
-              <span className="text-ink-3">{personOf(meta, k).displayName} gives up:</span> <span className="text-ink-2">{cost}</span>
+              <span className="text-ink-3">Possible cost for {personOf(meta, k).displayName}:</span> <span className="text-ink-2">{cost}</span>
             </span>
           </li>
         ))}
@@ -440,4 +440,3 @@ function LedgerStrip({ s, meta }: { s: SessionState; meta: SessionMeta }) {
     </footer>
   );
 }
-

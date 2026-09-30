@@ -65,3 +65,9 @@ export async function readEvents(sessionId: string, afterId = 0, limit = 500) {
     } as DomainEvent,
   }));
 }
+
+/** Session headers in append order, for maintenance of existing recordings. */
+export async function readSessionStarts() {
+  return getDb().select({ sessionId: schema.events.sessionId, payload: schema.events.payload })
+    .from(schema.events).where(eq(schema.events.type, 'session.started')).orderBy(asc(schema.events.id));
+}

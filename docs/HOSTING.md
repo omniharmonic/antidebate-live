@@ -211,3 +211,7 @@ Messages are shown exactly as written on the page.
 | N events are still waiting to upload. Check the connection and try again. | Live session | Reconnect to the internet, then choose **Try ending again**. |
 
 If the tab was closed mid-run, or the laptop slept, open the session from **On this laptop**, choose the same file if asked, and it resumes. The transcript chunks are stored on the laptop, so a resume does not redo them. On another laptop, or after clearing the browser's data, choosing the file continues with the analysis of the transcript already on the server.
+
+## September 30 QA update
+
+See [the live-ingest and analysis audit](./QA_AUDIT_2026-09-30.md). Room and call feeds now retain diarized speaker boundaries within VAD segments; separate-track capture remains channel-based. Current call/room quality gates still require host confirmation of every line. Actual mixed-feed probes exposed short-clip transcription loss and limited processing headroom, so these fixes do not certify live-release readiness.

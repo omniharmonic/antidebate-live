@@ -4,6 +4,23 @@ import { EnergyVad, rmsDb } from './vad';
 const frame = (amp: number) => Float32Array.from({ length: 320 }, (_, i) => amp * Math.sin(i / 3));
 
 describe('EnergyVad', () => {
+  it('flushes speech when capture stops before the silence hangover, without inventing audio or repeating it', () => {
+    const v = new EnergyVad();
+    for (let i = 0; i < 150; i++) v.push(frame(0.001), i * 20);
+    for (let i = 150; i < 250; i++) v.push(frame(0.2), i * 20);
+    const tail = v.flush();
+    expect(tail?.startMs).toBe(2800);
+    expect(tail?.endMs).toBe(5000);
+    expect(tail?.pcm.length).toBe(2200 * 16);
+    expect(v.flush()).toBeNull();
+  });
+
+  it('does not turn a short click into speech when capture stops', () => {
+    const v = new EnergyVad();
+    for (let i = 0; i < 150; i++) v.push(frame(0.001), i * 20);
+    for (let i = 150; i < 155; i++) v.push(frame(0.2), i * 20);
+    expect(v.flush()).toBeNull();
+  });
   it('cuts one utterance from speech between silences', () => {
     const v = new EnergyVad();
     const out = [];

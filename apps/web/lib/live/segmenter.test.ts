@@ -19,6 +19,19 @@ function feed(s: Segmenter, n: number, plan: Record<string, (i: number) => Float
 }
 
 describe('Segmenter', () => {
+  it('flushes every channel at its final captured sample when listening stops', () => {
+    const out: Segmented[] = [];
+    const s = new Segmenter({ channels: ['a', 'b'], offsetMs: 60_000, wallStartMs: 1_000_000, onUtterance: (x) => out.push(x) });
+    feed(s, 200, { a: (i) => i >= 100 ? tone(0.3) : quiet(), b: (i) => i >= 100 ? tone(0.03) : quiet() });
+    expect(out).toEqual([]);
+    s.flush();
+    expect(out).toHaveLength(2);
+    expect(out[0]?.u.endMs).toBe(64_000);
+    expect(out[0]?.endedAtWallMs).toBe(1_004_000);
+    expect(out[0]!.rms.a! - out[0]!.rms.b!).toBeGreaterThan(15);
+    s.flush();
+    expect(out).toHaveLength(2);
+  });
   it('cuts an utterance on its channel, offset into session time, with every channel level and its wall end', () => {
     const out: Segmented[] = [];
     const s = new Segmenter({ channels: ['d0c0', 'd0c1'], offsetMs: 60_000, wallStartMs: 1_000_000, onUtterance: (x) => out.push(x) });

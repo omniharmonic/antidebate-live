@@ -3,6 +3,8 @@ import { CopyFilter, type Cut } from './copies';
 import { confirmedEvent, lineEvents, loggedEndMs } from './runner-events';
 import { type Job, type LiveRunnerOptions, utteranceId } from './runner-types';
 import { VoiceGroups } from './voice-groups';
+import { splitSpeakerTurns } from './speaker-turns';
+import type { Word } from '../asr/chunks';
 
 export { utteranceId, type LiveRunnerOptions, type LiveSetup, type LiveStatus } from './runner-types';
 
@@ -47,7 +49,7 @@ export class LiveRunner {
     const unmiked = participants.some((p) => !miked.has(p.key));
     const unenrolled = participants.some((p) => !o.anchors.some((a) => a.key === p.key));
     this.attributor = new Attributor(kind, channels, { unmiked, ...(o.gates ? { gates: o.gates } : {}) });
-    this.mayskip = kind === 'tracks' && !unmiked && !unenrolled;
+    this.mayskip = kind === 'tracks' && !unmiked && !unenrolled && o.voicesAvailable !== false;
     this.groups = new VoiceGroups((a, u) => o.voices.matchVoices(a, u));
     this.now = o.now ?? Date.now;
   }
@@ -57,9 +59,9 @@ export class LiveRunner {
    * a failure lands in status.failed with the audio kept for `retry`. `endedAtWallMs` is when the
    * speech ended on the wall clock (the caller knows the tap start); without it latency counts from arrival.
    */
-  onUtterance(channel: string, u: { startMs: number; endMs: number; pcm: Float32Array }, rms: Record<string, number>, overlap: boolean, endedAtWallMs?: number): Promise<void> {
+  onUtterance(channel: string, u: { startMs: number; endMs: number; pcm: Float32Array }, rms: Record<string, number>, overlap: boolean, endedAtWallMs?: number, onClip?: Job['onClip']): Promise<void> {
     if (this.stopped) return Promise.resolve();
-    const job: Job = { channel, u, rms, overlap, arrivedAt: this.now(), ...(endedAtWallMs !== undefined ? { endedAt: endedAtWallMs } : {}) };
+    const job: Job = { channel, u, rms, overlap, arrivedAt: this.now(), ...(endedAtWallMs !== undefined ? { endedAt: endedAtWallMs } : {}), ...(onClip ? { onClip } : {}) };
     if (this.o.setup.kind !== 'tracks') return this.enqueue(job);
     // Levels decide bleed before transcription: a quieter copy of someone else's speech is never a line.
     if (this.attributor.isBleed(channel, rms)) return Promise.resolve();
@@ -150,15 +152,34 @@ export class LiveRunner {
   }
 
   private async process(job: Job): Promise<void> {
+    const { u } = job;
+    const words = await this.o.asr.transcribe(u.pcm, u.startMs);
+    if (!words.length) return;
+    if (this.o.setup.kind === 'tracks') return this.processLine(job, words);
+    // A mixed source can contain several speakers inside one VAD cut. Never collapse it
+    // to a majority speaker, even when every resulting line currently needs host review.
+    let turns;
+    try {
+      if (!this.o.voices.matchTurns) throw new Error('Speaker boundaries unavailable');
+      turns = await this.o.voices.matchTurns(this.o.anchors, u.pcm);
+    } catch {
+      return this.processLine(job, words, { voice: {}, failed: true });
+    }
+    for (const part of splitSpeakerTurns(words, turns, u.startMs)) {
+      const startMs = Math.max(u.startMs, part.words[0]!.startMs);
+      const endMs = Math.min(u.endMs, part.words.at(-1)!.endMs);
+      const pcm = u.pcm.slice(Math.round((startMs - u.startMs) * 16), Math.round((endMs - u.startMs) * 16));
+      await this.processLine({ ...job, u: { startMs, endMs, pcm } }, part.words, part);
+    }
+  }
+
+  private async processLine(job: Job, words: Word[], matched?: { voice: Record<string, number>; failed?: boolean; uncertain?: boolean }): Promise<void> {
     const { channel, u, rms, overlap } = job;
     const { setup, sessionId } = this.o;
-    const words = await this.o.asr.transcribe(u.pcm, u.startMs);
-    if (words.length === 0) return;
-
-    let voice: Record<string, number> = {};
-    let matchFailed = false;
-    const skip = this.mayskip && !this.attributor.hasDeadChannel() && (this.attributor.margin(channel, rms) ?? 0) >= CLEAR_MARGIN_DB;
-    if (!skip) {
+    let voice: Record<string, number> = matched?.voice ?? {};
+    let matchFailed = matched?.failed ?? false;
+    const skip = this.mayskip && !this.matchFailing && !this.attributor.hasDeadChannel() && (this.attributor.margin(channel, rms) ?? 0) >= CLEAR_MARGIN_DB;
+    if (!skip && !matched) {
       try {
         // Enrolled voices only: temporary voices are matched separately, for grouping.
         voice = await this.o.voices.matchVoices(this.o.anchors, u.pcm);
@@ -170,6 +191,10 @@ export class LiveRunner {
         this.matchFailing = true;
       }
     }
+    if (matched) {
+      if (matchFailed && !this.matchFailing) this.notices.push({ kind: 'voice_match_unavailable' });
+      this.matchFailing = matchFailed;
+    }
     const { decision, notices } = this.attributor.decide({
       channel: setup.kind === 'room' ? null : channel,
       channelRmsDb: rms,
@@ -179,12 +204,20 @@ export class LiveRunner {
       endMs: u.endMs,
     });
     if (decision.drop) return;
+    // A required voice check failed: level alone must not turn that failure into approval.
+    if (matchFailed || matched?.uncertain) {
+      if (decision.participantKey !== 'UNK') decision.candidate = decision.participantKey;
+      decision.participantKey = 'UNK';
+      decision.pending = true;
+      decision.confidence = Math.min(decision.confidence, 0.84);
+    }
 
     const id = utteranceId(channel, u.startMs);
     const overlapsWith = this.copiesOf.get(id);
     this.copiesOf.delete(id);
     const { events, text, candidates } = lineEvents({ sessionId, id, u, words, decision, wallTs: this.wallTs(), ...(overlapsWith ? { overlapsWith } : {}) });
     await this.o.log.append(events);
+    job.onClip?.(id, u.pcm);
     this.o.onDecision?.(id, decision);
 
     this.lastMediaMs = u.endMs;

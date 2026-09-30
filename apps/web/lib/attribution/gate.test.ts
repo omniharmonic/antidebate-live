@@ -57,3 +57,10 @@ describe('hostConfirmsNote', () => {
     expect(hostConfirmsNote('recording', {})).toBeNull();
   });
 });
+
+it('explains the actual voice-only hold for unmeasured and insufficient call/room inputs', () => {
+  for (const setup of ['call', 'room'] as const) {
+    expect(hostConfirmsNote(setup, {})).toContain('host confirms');
+    expect(hostConfirmsNote(setup)).toContain('host confirms');
+  }
+});

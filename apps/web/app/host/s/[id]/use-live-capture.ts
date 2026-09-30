@@ -36,6 +36,7 @@ export function useLiveCapture(session: LiveSession | null, onError: (message: s
       stopListen.current = await listen({
         streams: s,
         channels: listenChannels(st.setup),
+        mono: st.setup.kind !== 'tracks',
         runner: session.runner,
         startedAt: st.startedAt ?? Date.now(),
         onClip: (id, pcm) => {

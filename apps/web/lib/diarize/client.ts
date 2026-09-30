@@ -1,4 +1,6 @@
 import { buildMatchInput, scoreFromSegments, type Anchor } from '../attribution/anchors';
+import { UTT_KEY } from '../attribution/anchors';
+import type { VoiceTurn } from '../live/speaker-turns';
 
 export type SpeakerSegment = { startMs: number; endMs: number; label: string; confidence: number };
 
@@ -46,6 +48,19 @@ export class DiarizeClient {
     const { samples, spans } = buildMatchInput(anchors, utterance);
     const segments = await this.request(samples, { type: 'match', numClusters: anchors.length + 1 });
     return scoreFromSegments(segments, spans);
+  }
+  /** Preserve speaker changes inside a mixed feed instead of reducing it to one majority voice. */
+  async matchTurns(anchors: Anchor[], utterance: Float32Array): Promise<VoiceTurn[]> {
+    const { samples, spans } = buildMatchInput(anchors, utterance);
+    const segments = await this.request(samples, { type: 'match', numClusters: anchors.length + 1 });
+    const clip = spans.find((s) => s.key === UTT_KEY)!;
+    return segments.flatMap((segment) => {
+      const startMs = Math.max(segment.startMs, clip.startMs);
+      const endMs = Math.min(segment.endMs, clip.endMs);
+      if (endMs <= startMs) return [];
+      const voice = scoreFromSegments(segments, spans.map((s) => s.key === UTT_KEY ? { ...s, startMs, endMs } : s));
+      return [{ startMs: startMs - clip.startMs, endMs: endMs - clip.startMs, label: segment.label, voice }];
+    });
   }
   private request(mono16k: Float32Array, extra: { type?: 'match'; numClusters?: number }): Promise<SpeakerSegment[]> {
     if (this.dead) return Promise.reject(new Error(STOPPED));

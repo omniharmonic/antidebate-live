@@ -72,3 +72,19 @@ describe('DiarizeClient', () => {
     expect(await p).toEqual({ A: 0, B: 1 });
   });
 });
+
+it('keeps separate enrolled voices and clip-relative boundaries in one mixed clip', async () => {
+  const { client, worker } = await loaded();
+  const p = client.matchTurns([{ key: 'A', pcm: new Float32Array(32000) }, { key: 'B', pcm: new Float32Array(32000) }], new Float32Array(64000));
+  const sent = worker.posted[0]!.msg as unknown as { id: number };
+  worker.onmessage!({ data: { id: sent.id, ok: true, segments: [
+    { startMs: 0, endMs: 2000, label: 'S0', confidence: 1 },
+    { startMs: 2500, endMs: 4500, label: 'S1', confidence: 1 },
+    { startMs: 5000, endMs: 7000, label: 'S0', confidence: 1 },
+    { startMs: 7000, endMs: 9000, label: 'S1', confidence: 1 },
+  ] } });
+  expect(await p).toEqual([
+    { startMs: 0, endMs: 2000, label: 'S0', voice: { A: 1, B: 0 } },
+    { startMs: 2000, endMs: 4000, label: 'S1', voice: { A: 0, B: 1 } },
+  ]);
+});

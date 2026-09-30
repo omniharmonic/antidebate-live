@@ -6,6 +6,7 @@
 // groupVoices, the simulated host naming, and buildUtterances. evals/attribution/run.ts calls
 // window.__adlLab.run and writes what it returns.
 import { useEffect } from 'react';
+import type { DomainEvent } from '@adl/core';
 import { enrollmentError, trimAnchor, type Anchor } from '@/lib/attribution/anchors';
 import type { Decision } from '@/lib/attribution/attributor';
 import { AsrClient } from '@/lib/asr/client';
@@ -15,6 +16,8 @@ import { listenChannels } from '@/lib/live/live-view';
 import { MemoryEventLog } from '@/lib/live/memory-log';
 import { LiveRunner, type LiveSetup } from '@/lib/live/runner';
 import { Segmenter } from '@/lib/live/segmenter';
+import { tapChannels } from '@/lib/live/capture';
+import { rmsDb } from '@/lib/live/vad';
 import { buildUtterances } from '@/lib/recording/utterances';
 import { groupVoices } from '@/lib/recording/voices';
 import { anchorClip, clipOf, lastSpans, linesFromEvents, nameVoices, parseWav, speechWords, type LabLine, type Reference, type RefTurn } from './scenario';
@@ -61,6 +64,8 @@ declare global {
       asr(o: { fixture: string; windows: AsrWindow[] }): Promise<AsrLabResult>;
       asrSplit(o: { fixture: string; window: AsrWindow; span: AsrWindow }): Promise<{ chunked: Word[]; halves: Word[] }>;
       asrChunked(o: { fixture: string; chunkMs: number }): Promise<AsrChunkedResult>;
+      auditLive(o: { fixture: string; startMs: number; endMs: number }): Promise<{ events: DomainEvent[]; seconds: number; failed: number; cuts: number }>;
+      captureProbe(): Promise<{ mono: Record<string, number>; tracks: Record<string, number> }>;
     };
   }
 }
@@ -154,6 +159,7 @@ async function runLive(fixture: string, setup: TracksSetup | 'mono-live', ref: R
       await new Promise((r) => setTimeout(r, 0));
     }
   }
+  seg.flush();
   runner.tick(windowMs + 10_000, seg.active(windowMs + 10_000));
   await Promise.all(done);
   await runner.stop();
@@ -253,9 +259,53 @@ async function runAsrChunked({ fixture, chunkMs }: { fixture: string; chunkMs: n
   return { backend: client.backend, chunkMs, chunks: plan.length, words: mergeChunkWords(results), audioSeconds: totalMs / 1000, wallSeconds: Math.round(wallMs / 100) / 10, realtimeFactor: Math.round((totalMs / Math.max(1, wallMs)) * 10) / 10 };
 }
 
+/** Real ASR + diarization + VAD + runner; deliberately no LLM or simulated host approval. */
+async function auditLive({ fixture, startMs, endMs }: { fixture: string; startMs: number; endMs: number }) {
+  if (startMs < 0 || endMs <= startMs || endMs > MONO_ENROLL_FROM_MS) throw new Error('Audit window must precede enrollment');
+  const ref = await (await file(fixture, 'reference.json')).json() as Reference;
+  const mono = await wav(fixture, 'mono.wav');
+  const anchors = enroll(ref, () => mono, MONO_ENROLL_FROM_MS);
+  const asr = await (asrClient ??= AsrClient.load());
+  const voiceModel = await voices();
+  const log = new MemoryEventLog();
+  let failed = 0;
+  let cuts = 0;
+  const runner = new LiveRunner({ sessionId: 'audio-audit', setup: { kind: 'room', channels: {}, participants: ref.participants }, anchors, asr, voices: voiceModel, log, onStatus: (s) => { failed = s.failed.length; } });
+  const seg = new Segmenter({ channels: ['d0c0'], offsetMs: startMs, wallStartMs: 0, onUtterance: (x) => { cuts++; void runner.onUtterance(x.channel, x.u, x.rms, x.overlap); } });
+  const t = performance.now();
+  const clip = mono.subarray(startMs * 16, endMs * 16);
+  for (let at = 0; at + FRAME <= clip.length; at += FRAME) seg.push('d0c0', clip.subarray(at, at + FRAME), at / 16);
+  seg.flush();
+  await runner.stop();
+  return { events: log.events, seconds: (performance.now() - t) / 1000, failed, cuts };
+}
+
+/** A right-only stereo source must reach mono capture, while isolated tracks stay separate. */
+async function captureProbe() {
+  const ctx = new AudioContext();
+  await ctx.resume();
+  const oscillator = ctx.createOscillator();
+  const merge = ctx.createChannelMerger(2);
+  const output = ctx.createMediaStreamDestination();
+  oscillator.connect(merge, 0, 1);
+  merge.connect(output);
+  oscillator.start();
+  const results: Record<string, number>[] = [];
+  try {
+    for (const mono of [true, false]) {
+      const levels: Record<string, number> = {};
+      const stop = await tapChannels(output.stream, (channel, frame) => { levels[channel] = Math.max(levels[channel] ?? -100, rmsDb(frame)); }, mono);
+      await new Promise((r) => setTimeout(r, 500));
+      stop();
+      results.push(levels);
+    }
+    return { mono: results[0]!, tracks: results[1]! };
+  } finally { oscillator.stop(); output.stream.getTracks().forEach((t) => t.stop()); await ctx.close(); }
+}
+
 export function Lab() {
   useEffect(() => {
-    window.__adlLab = { run, asr: runAsr, asrSplit: runAsrSplit, asrChunked: runAsrChunked };
+    window.__adlLab = { run, asr: runAsr, asrSplit: runAsrSplit, asrChunked: runAsrChunked, auditLive, captureProbe };
     return () => { delete window.__adlLab; };
   }, []);
   return (

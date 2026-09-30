@@ -81,6 +81,7 @@ export type DomainEvent =
   | EventEnvelope<'attribution.pending', { utteranceId: string; candidates: Record<string, number> }>
   | EventEnvelope<'attribution.confirmed', { utteranceId: string; participantKey: string }>
   | EventEnvelope<'turn.closed', { turnId: string; participantKey: string; utteranceIds: string[] }>
+  | EventEnvelope<'analysis.completed', { turnId: string; stage: 'L1' | 'L2' | 'round' }>
   | EventEnvelope<'adu.proposed', { adu: Adu }>
   | EventEnvelope<'proposition.proposed', { proposition: Proposition; sameAs?: string }>
   | EventEnvelope<'stance.proposed', { stance: Stance }>

@@ -1,0 +1,248 @@
+{
+  "date": "2026-09-30",
+  "baseCommit": "57746eb",
+  "mapAudit": {
+    "note": "Structural checks only. Historical synthesis cards may legitimately cite commitments superseded later; they must not be presented as current.",
+    "results": [
+      {
+        "file": ".data/ball-kokotajlo-r5.events.jsonl",
+        "events": 4814,
+        "approvedPropositions": 373,
+        "approvedAdus": 362,
+        "checkedSpans": 387,
+        "badSpans": [],
+        "badStances": [],
+        "disagreements": 0,
+        "clashes": 20,
+        "higherGround": 21,
+        "higherGroundNoLongerSupportedAtEnd": [],
+        "outOfOrderMediaEvents": 4562
+      },
+      {
+        "file": ".data/belief-in-god-r3.events.jsonl",
+        "events": 4644,
+        "approvedPropositions": 380,
+        "approvedAdus": 364,
+        "checkedSpans": 374,
+        "badSpans": [],
+        "badStances": [],
+        "disagreements": 2,
+        "clashes": 14,
+        "higherGround": 18,
+        "higherGroundNoLongerSupportedAtEnd": [],
+        "outOfOrderMediaEvents": 4380
+      },
+      {
+        "file": ".data/open-source-ai-r3.events.jsonl",
+        "events": 6605,
+        "approvedPropositions": 506,
+        "approvedAdus": 504,
+        "checkedSpans": 519,
+        "badSpans": [],
+        "badStances": [],
+        "disagreements": 0,
+        "clashes": 23,
+        "higherGround": 25,
+        "higherGroundNoLongerSupportedAtEnd": [],
+        "outOfOrderMediaEvents": 6142
+      },
+      {
+        "file": ".data/gender-affirming-care-r3.events.jsonl",
+        "events": 2848,
+        "approvedPropositions": 202,
+        "approvedAdus": 211,
+        "checkedSpans": 220,
+        "badSpans": [],
+        "badStances": [],
+        "disagreements": 0,
+        "clashes": 12,
+        "higherGround": 9,
+        "higherGroundNoLongerSupportedAtEnd": [],
+        "outOfOrderMediaEvents": 2629
+      },
+      {
+        "file": ".data/destiny-shermer-r3.events.jsonl",
+        "events": 5241,
+        "approvedPropositions": 421,
+        "approvedAdus": 437,
+        "checkedSpans": 461,
+        "badSpans": [],
+        "badStances": [
+          {
+            "stance": "destiny-shermer-r3:t0119:s1",
+            "code": "rhetorical_overcommitted"
+          }
+        ],
+        "disagreements": 1,
+        "clashes": 9,
+        "higherGround": 19,
+        "higherGroundNoLongerSupportedAtEnd": [],
+        "outOfOrderMediaEvents": 4979
+      }
+    ]
+  },
+  "audio": {
+    "ball_120_180": {
+      "audioSeconds": 60,
+      "wallSeconds": 41.9729849998951,
+      "realtimeFactor": 1.4294908975415963,
+      "cuts": 6,
+      "lines": 9,
+      "failures": 0,
+      "wer": 0.11627906976744186,
+      "counts": {
+        "refWords": 172,
+        "sub": 1,
+        "del": 18,
+        "ins": 1
+      },
+      "speakerGuesses": {
+        "correct": 5,
+        "incorrect": 0,
+        "unknown": 4
+      }
+    },
+    "god_570_630": {
+      "audioSeconds": 60,
+      "wallSeconds": 48.99705999994278,
+      "realtimeFactor": 1.2245632697159803,
+      "cuts": 6,
+      "lines": 19,
+      "failures": 0,
+      "wer": 0.07142857142857142,
+      "counts": {
+        "refWords": 182,
+        "sub": 6,
+        "del": 7,
+        "ins": 0
+      },
+      "speakerGuesses": {
+        "correct": 12,
+        "incorrect": 1,
+        "unknown": 6
+      }
+    }
+  },
+  "analysisSmoke": {
+    "cases": [
+      {
+        "id": "attribute",
+        "errors": [],
+        "calls": [
+          {
+            "pass": "L1_extract",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 8286,
+            "billedUsd": 0.0143195
+          },
+          {
+            "pass": "L2_critic",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 5243,
+            "billedUsd": 0.006175
+          }
+        ]
+      },
+      {
+        "id": "steelman",
+        "errors": [],
+        "calls": [
+          {
+            "pass": "L1_extract",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 3343,
+            "billedUsd": 0.0032514
+          },
+          {
+            "pass": "L2_critic",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 2323,
+            "billedUsd": 0.002666
+          }
+        ]
+      },
+      {
+        "id": "hypothetical",
+        "errors": [],
+        "calls": [
+          {
+            "pass": "L1_extract",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 2886,
+            "billedUsd": 0.0032014
+          }
+        ]
+      },
+      {
+        "id": "rhetorical",
+        "errors": [],
+        "calls": [
+          {
+            "pass": "L1_extract",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 2692,
+            "billedUsd": 0.0044794
+          },
+          {
+            "pass": "L2_critic",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 2714,
+            "billedUsd": 0.002376
+          }
+        ]
+      },
+      {
+        "id": "hedge-range",
+        "errors": [],
+        "calls": [
+          {
+            "pass": "L1_extract",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 2861,
+            "billedUsd": 0.0040934000000000005
+          },
+          {
+            "pass": "L2_critic",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 1697,
+            "billedUsd": 0.002072
+          }
+        ]
+      },
+      {
+        "id": "scope-negation",
+        "errors": [],
+        "calls": [
+          {
+            "pass": "L1_extract",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 4243,
+            "billedUsd": 0.007795399999999999
+          },
+          {
+            "pass": "L2_critic",
+            "model": "claude-sonnet-5-5",
+            "effort": "medium",
+            "latencyMs": 3091,
+            "billedUsd": 0.00433
+          }
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "ASR and attribution references are machine-derived, not adjudicated human gold.",
+    "All mixed-source audio lines remain held for operator confirmation.",
+    "Audio cases exercise VAD, real ASR and real diarization; analysis probes exercise the real L1/L2 models separately. This is not a full end-to-end live mapping release evaluation."
+  ]
+}

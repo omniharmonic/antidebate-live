@@ -121,9 +121,9 @@ export function renderMap(v: MapView, opts: { onlyIds?: Set<string> } = {}): str
   for (const p of v.props.values()) {
     if (opts.onlyIds && !opts.onlyIds.has(p.id)) continue;
     const hs = [...(v.holders.get(p.id) ?? new Map<string, Stance>()).values()]
-      .map((s) => `${name.get(s.participantKey) ?? s.participantKey} ${s.attitude} (${s.strength}${s.source === 'implied_by_act' ? ', implied' : ''})`)
+      .map((s) => `${name.get(s.participantKey) ?? s.participantKey} ${s.attitude} (${s.strength}${s.source === 'implied_by_act' ? ', implied' : ''}; stance ${s.id}) quote: ${JSON.stringify(v.quotes.get(s.id) ?? '')}`)
       .join('; ');
-    lines.push(`${p.id} [${p.type}/${p.stratum}] ${p.canonical}${hs ? ` — ${hs}` : ''}`);
+    lines.push(`${p.id} [${p.type}/${p.stratum}] ${p.canonical}${p.conditions.length ? ` [conditions: ${p.conditions.join('; ')}]` : ''}${hs ? ` — ${hs}` : ''}`);
   }
   return lines.join('\n');
 }

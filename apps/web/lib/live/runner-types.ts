@@ -4,6 +4,7 @@ import type { AsrClient } from '../asr/client';
 import type { Anchor } from '../attribution/anchors';
 import type { ChannelMap, Decision, Notice, Setup } from '../attribution/attributor';
 import type { GateTable } from '../attribution/gate';
+import type { VoiceTurn } from './speaker-turns';
 
 export type LiveSetup = { kind: Setup; channels: ChannelMap; participants: { key: string; displayName: string }[] };
 export type LiveStatus = {
@@ -23,14 +24,16 @@ export type LiveStatus = {
 /** The utterance id the runner writes for a cut: stable, so the view can find its audio. */
 export const utteranceId = (channel: string, startMs: number) => `u${channel}-${startMs}`;
 
-export type Job = { channel: string; u: { startMs: number; endMs: number; pcm: Float32Array }; rms: Record<string, number>; overlap: boolean; arrivedAt: number; endedAt?: number };
+export type Job = { channel: string; u: { startMs: number; endMs: number; pcm: Float32Array }; rms: Record<string, number>; overlap: boolean; arrivedAt: number; endedAt?: number; onClip?: (id: string, pcm: Float32Array) => void };
 
 export type LiveRunnerOptions = {
   sessionId: string;
   setup: LiveSetup;
   anchors: Anchor[];
   asr: Pick<AsrClient, 'transcribe'>;
-  voices: { matchVoices(a: Anchor[], u: Float32Array): Promise<Record<string, number>> };
+  voices: { matchVoices(a: Anchor[], u: Float32Array): Promise<Record<string, number>>; matchTurns?(a: Anchor[], u: Float32Array): Promise<VoiceTurn[]> };
+  /** False when model loading failed; channel-only fast paths must stay disabled. */
+  voicesAvailable?: boolean;
   log: EventLog;
   onStatus(s: LiveStatus): void;
   /** Epoch ms. Injected so the clock is only read here. */
