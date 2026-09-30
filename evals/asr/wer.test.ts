@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { wer } from './wer';
+import { wer, werCounts } from './wer';
 
 describe('wer', () => {
   it('ignores case and punctuation', () => expect(wer('Taxes should fall.', 'taxes should fall')).toBe(0));
@@ -12,5 +12,17 @@ describe('wer', () => {
   it('is 0 for two empty texts and 1 for a missing hypothesis', () => {
     expect(wer('', '')).toBe(0);
     expect(wer('a b', '')).toBe(1);
+  });
+});
+
+describe('werCounts', () => {
+  it('splits the errors into substitutions, deletions and insertions', () => {
+    expect(werCounts('a b c d', 'a x c')).toEqual({ refWords: 4, sub: 1, del: 1, ins: 0 });
+    expect(werCounts('a b', 'a b c')).toEqual({ refWords: 2, sub: 0, del: 0, ins: 1 });
+    expect(werCounts('', '')).toEqual({ refWords: 0, sub: 0, del: 0, ins: 0 });
+  });
+  it('sums to the same edit distance as wer', () => {
+    const c = werCounts('the cat sat on the mat', 'a cat sat the mat today');
+    expect((c.sub + c.del + c.ins) / c.refWords).toBeCloseTo(wer('the cat sat on the mat', 'a cat sat the mat today'), 10);
   });
 });

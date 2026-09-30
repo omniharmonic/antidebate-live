@@ -13,6 +13,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HOST_COOKIE, signHostCookie } from '../../apps/web/lib/host-auth';
+import { referenceWords } from './reference';
 import { wer } from './wer';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -40,17 +41,6 @@ function secret(): string {
   const value = line?.slice('HOST_SIGNING_SECRET='.length).trim().replace(/^["']|["']$/g, '');
   if (!value) throw new Error('HOST_SIGNING_SECRET is not set (environment or root .env).');
   return value;
-}
-
-/** Reference words with their midpoint inside [startMs, endMs), times relative to the cut. */
-export function referenceWords(utterances: { words: Word[] }[], programStartMs: number, startMs: number, endMs: number): string[] {
-  return utterances
-    .flatMap((u) => u.words)
-    .filter((w) => {
-      const mid = (w.startMs + w.endMs) / 2 - programStartMs;
-      return mid >= startMs && mid < endMs;
-    })
-    .map((w) => w.text);
 }
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;

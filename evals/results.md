@@ -466,3 +466,18 @@ Windows where the browser build returned at least 10% fewer words than the refer
 **The 6:00 window, three ways** (184 reference words): a single 60 s call as above returned 151 words (WER 18.5%); the production path (planChunks over the two minutes around it, mergeChunkWords, kept to the window) returned 165 (WER 13.6%); two 30 s halves returned 175 (WER 6.5%).
 
 Production chunking also loses words here, so this is a known limitation of the browser ASR (int8 WASM Parakeet) on this window, not an artifact of the lab's single call. The span was the two minutes around the window, not the whole cut, so real chunk boundaries fall elsewhere. Shorter calls recovered more of the words in this one window; production code is unchanged and one window is not enough to conclude more. The cause (the pause about 1.6 s in, or the model on long calls) is not diagnosed.
+
+## Recording chunk size, 2026-09-30
+
+The production recording transcription path (planChunks with a 4 s overlap, the shipping `AsrClient`, backend wasm, headless Chromium, M-series; mergeChunkWords) over 3 whole cuts (ball-kokotajlo-ai-governance, belief-in-god, open-source-ai, 60 scored minutes), once with 60 s chunks and once with 30 s chunks. Scored per 60 s window of the cut against the FluidAudio Parakeet TDT v3 words (`transcript.utterances.json`, not a human transcript), as in the browser ASR check above. Real-time factor = audio length over the wall time of all chunk calls, after an untimed 5 s warm-up.
+
+| Chunks | Pooled WER | Deletions | Real-time factor |
+|---|---|---|---|
+| 60 s | 5.2% | 380 of 10393 reference words | 7.9× |
+| 30 s | 4.8% | 305 of 10393 reference words | 7× |
+
+Worst 60 s window with 60 s chunks: belief-in-god 5:00, WER 28.3% (39 of 145 reference words deleted); with 30 s chunks 8.3% (7 deleted).
+
+Rule (ruling P3-R12): switch to 30 s only if pooled WER improves by at least 2 points, no scored window gets worse by more than 1 point, and the real-time factor stays at least 2×. Here: pooled 5.2% → 4.8% (0.5 points), the worst window change is +9.9 points; windows worse by more than 1 point: ball-kokotajlo-ai-governance 1:00, 3.2% → 4.8%; ball-kokotajlo-ai-governance 5:00, 3.3% → 13.2%; ball-kokotajlo-ai-governance 6:00, 4.3% → 7.1%; ball-kokotajlo-ai-governance 8:00, 2.1% → 7.7%; ball-kokotajlo-ai-governance 19:00, 1.4% → 3.7%; belief-in-god 18:00, 6.0% → 7.1%; open-source-ai 0:00, 2.2% → 4.3%; open-source-ai 7:00, 10.9% → 18.6%; open-source-ai 16:00, 6.1% → 7.8%; open-source-ai 19:00, 21.1% → 25.1%, 30 s runs at 7×.
+
+**Decision: recordings stay at 60 s chunks.** The rule is not met.

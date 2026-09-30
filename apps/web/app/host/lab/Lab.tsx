@@ -51,12 +51,16 @@ export type AsrLabResult = {
   windows: { startMs: number; endMs: number; words: Word[]; seconds: number }[];
 };
 
+/** The whole cut through the production recording path at one chunk size (ruling P3-R12). */
+export type AsrChunkedResult = { backend: string; chunkMs: number; chunks: number; words: Word[]; audioSeconds: number; wallSeconds: number; realtimeFactor: number };
+
 declare global {
   interface Window {
     __adlLab?: {
       run(o: { fixture: string; setup: LabSetup }): Promise<LabResult>;
       asr(o: { fixture: string; windows: AsrWindow[] }): Promise<AsrLabResult>;
       asrSplit(o: { fixture: string; window: AsrWindow; span: AsrWindow }): Promise<{ chunked: Word[]; halves: Word[] }>;
+      asrChunked(o: { fixture: string; chunkMs: number }): Promise<AsrChunkedResult>;
     };
   }
 }
@@ -227,9 +231,31 @@ async function runAsrSplit({ fixture, window: win, span }: { fixture: string; wi
   return { chunked: mergeChunkWords(results).filter(inWin), halves };
 }
 
+/**
+ * The production recording transcription over the whole cut: planChunks(total, chunkMs) with its 4 s
+ * overlap, one AsrClient call per chunk, mergeChunkWords. After an untimed 5 s warm-up; the real-time
+ * factor is the cut's length over the wall time of all chunks.
+ */
+async function runAsrChunked({ fixture, chunkMs }: { fixture: string; chunkMs: number }): Promise<AsrChunkedResult> {
+  const mono = await wav(fixture, 'mono.wav');
+  const client = await (asrClient ??= AsrClient.load());
+  await client.transcribe(mono.slice(0, 5 * RATE), 0);
+  const totalMs = Math.floor((mono.length * 1000) / RATE);
+  const plan = planChunks(totalMs, chunkMs);
+  const results: { startMs: number; endMs: number; words: Word[] }[] = [];
+  let wallMs = 0;
+  for (const c of plan) {
+    const t = performance.now();
+    const words = await client.transcribe(mono.subarray(Math.floor((c.startMs * RATE) / 1000), Math.floor((c.endMs * RATE) / 1000)), c.startMs);
+    wallMs += performance.now() - t;
+    results.push({ startMs: c.startMs, endMs: c.endMs, words });
+  }
+  return { backend: client.backend, chunkMs, chunks: plan.length, words: mergeChunkWords(results), audioSeconds: totalMs / 1000, wallSeconds: Math.round(wallMs / 100) / 10, realtimeFactor: Math.round((totalMs / Math.max(1, wallMs)) * 10) / 10 };
+}
+
 export function Lab() {
   useEffect(() => {
-    window.__adlLab = { run, asr: runAsr, asrSplit: runAsrSplit };
+    window.__adlLab = { run, asr: runAsr, asrSplit: runAsrSplit, asrChunked: runAsrChunked };
     return () => { delete window.__adlLab; };
   }, []);
   return (
