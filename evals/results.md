@@ -284,43 +284,104 @@ Uncontended, ball 3-minute window, Node WASM: shift 0.5 = 32.5 s (RTF 0.18), shi
 
 Tradeoff in numbers (20-minute windows, mean of three): threshold 0.5 today = 18.3 clusters, 7.0 of them at least 10 s; recommended = 8.3 clusters, 4.0 of them at least 10 s (4 / 4 / 4 for recordings with 3 / 3 / 4 named voices). Coverage stays 96% (96% before the rule, 96% after it) (0 to 1 point lost by folding the small clusters at 0.8; at 0.5 the same rule costs 2 points and at 3 minutes 5). Impure share 0% vs 1%. Cost: at most one voice in a short window can merge (seen at 0.9, not at 0.8), which is why the threshold stops at 0.8. A speaker who talks under 10 s in total (an audience question) lands in "Someone else", as intended.
 
-## Attribution gate, 2026-09-29
+## Attribution gate, 2026-09-30
 
-Thresholds for auto-accepting who spoke, per setup. A threshold is the lowest of 0.85, 0.88, 0.90, 0.92, 0.95, 0.97, 0.99 at which wrong auto-accepts are at most 2% of reference speech time, pooled over the fixtures. If none is, the host confirms every line (0.99, host confirms all). A threshold that meets the 2% ceiling counts as passed only on a large enough sample: at least 200 auto-accepted lines and 20 minutes of auto-accepted speech, pooled (ruling P3-R7); otherwise the setup is marked insufficient, and call and room keep the voice-only cap (the host confirms voice-only lines).
+Thresholds for auto-accepting who spoke, per setup. A threshold is the lowest of 0.85, 0.88, 0.90, 0.92, 0.95, 0.97, 0.99 at which wrong auto-accepts are at most 2% of reference speech time, pooled over the fixtures and in every fixture that auto-accepts anything (ruling P3-R10). If none is, the host confirms every line (0.99, host confirms all). A threshold that meets the ceiling counts as passed only on enough representative evidence: at least 200 auto-accepted lines, 20 minutes of them, and at least 2 fixtures with 25 or more each (rulings P3-R7, P3-R10); otherwise the setup is marked insufficient, and call and room keep the voice-only cap (the host confirms voice-only lines). Wrong auto-accepts are also given as a share of auto-accepted speech (the precision view).
 
 **Caveats.**
 - The reference is FluidAudio diarization plus Benjamin's confirmed speaker map, not a human gold set. Reference `UNK` is audience; a held or UNK prediction over it counts as correct, an auto-accepted debater over it counts as wrong.
-- Mono-live (call and room) enrollment clips come from reference speech in minutes 15–20 of the 20-minute cut, disjoint from the scored window (minutes 0–5), as a sound check records different audio from the session. Bleed enrollment clips still come from the scored audio, so its voice match is optimistic.
+- Mono-live (call and room) enrollment clips come from reference speech in minutes 15–20 of the 20-minute cut, disjoint from the scored window (minutes 0–5), as a sound check records different audio from the session.
+- Mic-per-person scenarios enroll each person from their last 30 s of reference speech on their own mic (a moderator without a mic: on the first debater's mic, the nearest one), and those 30 s are left out of scoring, so no enrollment clip is scored audio. A person with under 10 s of speech in their clip is not enrolled, as a sound check would reject the clip.
+- Enrolled: mono-live: ball-kokotajlo-ai-governance A, B, MOD; belief-in-god A, B, MOD; open-source-ai A, B. bleed-6: ball-kokotajlo-ai-governance A, B, MOD; belief-in-god A, B, MOD; open-source-ai A, B, MOD, MOD2. bleed-9: ball-kokotajlo-ai-governance A, B, MOD; belief-in-god A, B, MOD; open-source-ai A, B, MOD, MOD2. unmiked: ball-kokotajlo-ai-governance A, B, MOD; belief-in-god A, B, MOD; open-source-ai A, B, MOD, MOD2. bleed: ball-kokotajlo-ai-governance A, B, MOD; belief-in-god A, B, MOD; open-source-ai A, B, MOD, MOD2. Lines of anyone not enrolled cannot be matched by voice.
 - The call/room sample is small: 3 windows of 5 minutes (ball-kokotajlo-ai-governance 5 min, belief-in-god 5 min, open-source-ai 5 min).
-- Enrolled in mono-live (a sound check keeps a clip only with at least 10 s of speech): ball-kokotajlo-ai-governance A, B, MOD; belief-in-god A, B, MOD; open-source-ai A, B. Lines of anyone not enrolled can only be held.
-- Tracks fixtures are silent between turns; the bleed setup (each mic hears the others) is the realistic tracks case and is what the tracks threshold is calibrated on.
-- The lab's mono-live runs the room code path, which is also the call code path (channels `{}`, voice only), so call and room share these results.
-- Mono-live lines are scored as the gate would see them with the voice-only cap (0.84) lifted: predicted = candidate, else the attributed key; confidence = uncapped fused score. Only the cap is lifted: a line counts toward auto-accept only when the cap was its sole reason for being held. Lines held for any other reason (no candidate, a fused score below the cap) stay held at every threshold, as do lines that are pending in other setups.
-- Window lengths: mono-live ball-kokotajlo-ai-governance 5 min, belief-in-god 5 min, open-source-ai 5 min (first minutes of the program only); bleed ball-kokotajlo-ai-governance 20 min, belief-in-god 20 min, open-source-ai 20 min; mono-recording ball-kokotajlo-ai-governance 20 min, belief-in-god 20 min, open-source-ai 20 min.
-- Shares are of reference speech time inside the window, at 10 ms resolution. Held is all held speech; "held with a wrong guess" is the part of it whose candidate was wrong or missing.
+- Call is not measured on call audio: the lab's mono-live runs the room code path on a room mix (channels `{}`, voice only), so call and room share these results, and call is marked `measuredFrom: room-mix` and insufficient in gate.json (ruling P3-R10).
+- Mono-live lines are scored as the gate would see them with the voice-only cap (0.84) lifted: predicted = candidate, else the attributed key; confidence = uncapped fused score. Only the cap is lifted, and only on lines the lab flags capped (from the attributor's own decision). Lines held for any other reason stay held at every threshold, as do lines that are pending in other setups.
+- A held line is scored on its best guess (its top candidate): "held, guess wrong or missing" is the held speech whose guess was wrong or which had no guess.
+- Window lengths: mono-live ball-kokotajlo-ai-governance 5 min, belief-in-god 5 min, open-source-ai 5 min (first minutes of the program only); mic-per-person ball-kokotajlo-ai-governance 20 min, belief-in-god 20 min, open-source-ai 20 min; mono-recording ball-kokotajlo-ai-governance 20 min, belief-in-god 20 min, open-source-ai 20 min.
+- Shares are of reference speech time inside the window, at 10 ms resolution, except the precision view (share of auto-accepted speech).
 
 **Verdicts (2% wrong auto-accept ceiling).**
-- tracks: passes at threshold 0.85 (wrong auto-accepts 0.2%, correct 94.7%; 306 auto-accepted lines, 56.4 minutes of auto-accepted speech).
-- call: keeps host confirmation (the voice-only cap stays) because the measured sample was too small: 37 auto-accepted lines, 6.3 minutes of auto-accepted speech, 42.3% correct with enrollment disjoint from the scored window. Wrong auto-accepts were 0.0% at 0.85, but a pass needs at least 200 auto-accepted lines and 20 minutes. A longer measured run or real enrollment clips (recorded at a sound check, not cut from the program) would lift it.
-- room: keeps host confirmation (the voice-only cap stays) because the measured sample was too small: 37 auto-accepted lines, 6.3 minutes of auto-accepted speech, 42.3% correct with enrollment disjoint from the scored window. Wrong auto-accepts were 0.0% at 0.85, but a pass needs at least 200 auto-accepted lines and 20 minutes. A longer measured run or real enrollment clips (recorded at a sound check, not cut from the program) would lift it.
-- recording: wrong auto-accepts 0.0% at 0.85 (correct 75.2%), but the sample is too small to count as passed: 147 auto-accepted lines, 44.6 minutes of auto-accepted speech, against at least 200 lines and 20 minutes. Marked insufficient in gate.json. Recording still auto-accepts at 0.85 (ruling P3-R8): the minimum-sample rule governs only lifting the voice-only cap, and recording has no cap.
+- tracks: set by the strictest mic-per-person scenario, bleed-6 (mics hear each other at -6 dB): wrong auto-accepts 0.0% of speech (100.0% of auto-accepted speech) at 0.85, correct 0.0%, held 99.2%; 1 auto-accepted line, 0.0 minutes of auto-accepted speech, 0 fixtures with at least 25 of them (insufficient: a pass needs at least 200 auto-accepted lines, 20 minutes of them, and at least 2 fixtures with 25 or more each). gate.json: threshold 0.85, insufficient. Tracks has no voice-only cap to lift except for a dead mic, which is always capped; the minimum-sample rule does not change how tracks lines are decided.
+- call: keeps host confirmation (the voice-only cap stays). It is measured from the room mix, not call audio, so it stays insufficient until call-like audio is measured (ruling P3-R10). On the room mix: wrong auto-accepts 0.0% of speech (0.0% of auto-accepted speech) at 0.85, correct 42.3% with enrollment disjoint from the scored window; 37 auto-accepted lines, 6.3 minutes of auto-accepted speech, 1 fixture with at least 25 of them.
+- room: keeps host confirmation (the voice-only cap stays) because the evidence is too thin: wrong auto-accepts 0.0% of speech (0.0% of auto-accepted speech) at 0.85, correct 42.3% with enrollment disjoint from the scored window; 37 auto-accepted lines, 6.3 minutes of auto-accepted speech, 1 fixture with at least 25 of them. A pass needs at least 200 auto-accepted lines, 20 minutes of them, and at least 2 fixtures with 25 or more each. A longer measured run or real enrollment clips (recorded at a sound check, not cut from the program) could lift it.
+- recording: wrong auto-accepts 0.0% of speech (0.1% of auto-accepted speech) at 0.85, correct 75.2%; 147 auto-accepted lines, 44.6 minutes of auto-accepted speech, 3 fixtures with at least 25 of them. Too small or unrepresentative a sample to count as passed (a pass needs at least 200 auto-accepted lines, 20 minutes of them, and at least 2 fixtures with 25 or more each); marked insufficient in gate.json. Recording still auto-accepts at 0.85 (ruling P3-R8): the minimum-sample rule governs only lifting the voice-only cap, and recording has no cap.
 
-### tracks (bleed results (a mic per person with cross-talk, the realistic tracks case))
+### tracks (a mic per person)
 
-Wrong auto-accepted share by threshold, pooled: 0.85: 0.2%, 0.88: 0.1%, 0.9: 0.1%, 0.92: 0.1%, 0.95: 0.1%, 0.97: 0.1%, 0.99: 0.1%.
+The tracks gate is the strictest of these scenarios (ruling P3-R11). Each line is decided by the shipping code; a dead mic's voice-only lines are always capped, so they are held. A duplicate is the same speech logged as two lines: two lines on different mics overlapping by more than half of the shorter one.
 
-#### tracks
+| Scenario | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Duplicate lines | Threshold |
+|---|---|---|---|---|---|---|
+| bleed-6: mics hear each other at -6 dB | 0.0% | 0.0% | 100.0% | 99.2% | 1 of 321 | 0.85, insufficient |
+| bleed-9: mics hear each other at -9 dB | 58.5% | 0.0% | 0.0% | 40.8% | 1 of 321 | 0.85, insufficient |
+| unmiked: no moderator mic: the moderator at -3 dB on both debater mics, debaters at -9 dB on each other's | 43.1% | 0.0% | 0.0% | 56.2% | 8 of 328 | 0.85, insufficient |
+| bleed (reference): mics hear each other at -15 dB (well separated) | 96.8% | 0.1% | 0.1% | 2.3% | 1 of 321 | 0.85 |
+
+Why so much is held at close bleed: a mic-per-person line auto-accepts on its margin over the loudest other mic, its voice match and their agreement (fusion.ts). With a perfect voice match that agrees, a 6 dB margin fuses to at most 0.75 and a 9 dB margin to 0.875, against the 0.85 threshold, so at -6 dB every line is held by construction and at -9 dB a line passes only when the voice match is strong. At 12 dB or more the margin alone decides, and voice matching is skipped when everyone is miked and enrolled, which is why -15 dB auto-accepts most lines.
+
+**Without a moderator mic, 56.2% of speech is held for the host to confirm, above 30%.** The moderator is heard on both debater mics at nearly the same level, so no margin decides those lines. Recommendation: give the moderator a mic (docs/HOSTING.md, docs/R0_DEMO.md). A moderator mic alone does not bring the held share under 30% here: with everyone miked, bleed-6 holds 99.2% and bleed-9 holds 40.8%. Separation between the mics does: at -15 dB, 2.3% is held. Place each mic close to its speaker, so each voice is at least 12 dB louder on its own mic than on the others.
+
+#### bleed-6
 
 Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-source-ai (20 min). Chosen threshold 0.85.
 
-| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
-|---|---|---|---|---|---|
-| pooled | 94.7% | 0.2% | 4.0% | 4.0% | 1.1% |
-| ball-kokotajlo-ai-governance | 95.0% | 0.2% | 3.7% | 3.7% | 1.1% |
-| belief-in-god | 94.5% | 0.1% | 4.4% | 4.4% | 1.0% |
-| open-source-ai | 94.5% | 0.3% | 4.0% | 4.0% | 1.2% |
+| Scope | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Held, guess wrong or missing | Missed |
+|---|---|---|---|---|---|---|
+| pooled | 0.0% | 0.0% | 100.0% | 99.2% | 1.3% | 0.7% |
+| ball-kokotajlo-ai-governance | 0.0% | 0.1% | 100.0% | 99.1% | 1.0% | 0.8% |
+| belief-in-god | 0.0% | 0.0% | 0.0% | 99.2% | 1.2% | 0.8% |
+| open-source-ai | 0.0% | 0.0% | 0.0% | 99.5% | 1.7% | 0.5% |
 
-### call (mono-live results: one mixed channel, voice only)
+Wrong auto-accepted share by threshold, pooled: 0.85: 0.0%, 0.88: 0.0%, 0.9: 0.0%, 0.92: 0.0%, 0.95: 0.0%, 0.97: 0.0%, 0.99: 0.0%.
+
+The sweep is flat: the wrongly auto-accepted lines all score 0.99 or more, so raising the threshold does not remove them. 0.85 is the lowest candidate threshold, not a tuned value.
+
+#### bleed-9
+
+Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-source-ai (20 min). Chosen threshold 0.85.
+
+| Scope | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Held, guess wrong or missing | Missed |
+|---|---|---|---|---|---|---|
+| pooled | 58.5% | 0.0% | 0.0% | 40.8% | 0.7% | 0.7% |
+| ball-kokotajlo-ai-governance | 44.7% | 0.0% | 0.0% | 54.5% | 0.8% | 0.8% |
+| belief-in-god | 74.2% | 0.0% | 0.0% | 24.9% | 1.0% | 0.8% |
+| open-source-ai | 56.5% | 0.0% | 0.0% | 42.9% | 0.3% | 0.5% |
+
+Wrong auto-accepted share by threshold, pooled: 0.85: 0.0%, 0.88: 0.0%, 0.9: 0.0%, 0.92: 0.0%, 0.95: 0.0%, 0.97: 0.0%, 0.99: 0.0%.
+
+The sweep is flat: no line is wrongly auto-accepted at any threshold. 0.85 is the lowest candidate threshold, not a tuned value.
+
+#### unmiked
+
+Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-source-ai (20 min). Chosen threshold 0.85.
+
+| Scope | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Held, guess wrong or missing | Missed |
+|---|---|---|---|---|---|---|
+| pooled | 43.1% | 0.0% | 0.0% | 56.2% | 6.6% | 0.7% |
+| ball-kokotajlo-ai-governance | 39.9% | 0.0% | 0.0% | 59.4% | 3.2% | 0.8% |
+| belief-in-god | 46.1% | 0.0% | 0.0% | 53.1% | 6.0% | 0.8% |
+| open-source-ai | 43.3% | 0.0% | 0.0% | 56.2% | 10.6% | 0.5% |
+
+Wrong auto-accepted share by threshold, pooled: 0.85: 0.0%, 0.88: 0.0%, 0.9: 0.0%, 0.92: 0.0%, 0.95: 0.0%, 0.97: 0.0%, 0.99: 0.0%.
+
+The sweep is flat: no line is wrongly auto-accepted at any threshold. 0.85 is the lowest candidate threshold, not a tuned value.
+
+#### bleed
+
+Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-source-ai (20 min). Chosen threshold 0.85.
+
+| Scope | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Held, guess wrong or missing | Missed |
+|---|---|---|---|---|---|---|
+| pooled | 96.8% | 0.1% | 0.1% | 2.3% | 0.5% | 0.8% |
+| ball-kokotajlo-ai-governance | 97.7% | 0.2% | 0.2% | 1.3% | 0.5% | 0.8% |
+| belief-in-god | 95.3% | 0.1% | 0.1% | 3.5% | 0.9% | 1.0% |
+| open-source-ai | 97.5% | 0.1% | 0.1% | 1.9% | 0.2% | 0.5% |
+
+Wrong auto-accepted share by threshold, pooled: 0.85: 0.1%, 0.88: 0.1%, 0.9: 0.1%, 0.92: 0.1%, 0.95: 0.1%, 0.97: 0.1%, 0.99: 0.1%.
+
+The sweep is flat: the wrongly auto-accepted lines all score 0.99 or more, so raising the threshold does not remove them. 0.85 is the lowest candidate threshold, not a tuned value.
+
+### call (mono-live results: one mixed channel, voice only; a room mix standing in for call audio)
 
 Wrong auto-accepted share by threshold, pooled: 0.85: 0.0%, 0.88: 0.0%, 0.9: 0.0%, 0.92: 0.0%, 0.95: 0.0%, 0.97: 0.0%, 0.99: 0.0%.
 
@@ -330,12 +391,12 @@ The sweep is flat: no line is wrongly auto-accepted at any threshold. 0.85 is th
 
 Fixtures: ball-kokotajlo-ai-governance (5 min), belief-in-god (5 min), open-source-ai (5 min). Chosen threshold 0.85.
 
-| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
-|---|---|---|---|---|---|
-| pooled | 42.3% | 0.0% | 55.3% | 51.2% | 2.4% |
-| ball-kokotajlo-ai-governance | 34.5% | 0.0% | 62.5% | 53.2% | 3.1% |
-| belief-in-god | 92.0% | 0.0% | 5.1% | 2.2% | 3.0% |
-| open-source-ai | 0.0% | 0.0% | 98.9% | 98.9% | 1.1% |
+| Scope | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Held, guess wrong or missing | Missed |
+|---|---|---|---|---|---|---|
+| pooled | 42.3% | 0.0% | 0.0% | 55.3% | 51.2% | 2.4% |
+| ball-kokotajlo-ai-governance | 34.5% | 0.0% | 0.0% | 62.5% | 53.2% | 3.1% |
+| belief-in-god | 92.0% | 0.0% | 0.0% | 5.1% | 2.2% | 3.0% |
+| open-source-ai | 0.0% | 0.0% | 0.0% | 98.9% | 98.9% | 1.1% |
 
 ### room (mono-live results: the same code path as call (channels {} and voice only))
 
@@ -347,12 +408,12 @@ The sweep is flat: no line is wrongly auto-accepted at any threshold. 0.85 is th
 
 Fixtures: ball-kokotajlo-ai-governance (5 min), belief-in-god (5 min), open-source-ai (5 min). Chosen threshold 0.85.
 
-| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
-|---|---|---|---|---|---|
-| pooled | 42.3% | 0.0% | 55.3% | 51.2% | 2.4% |
-| ball-kokotajlo-ai-governance | 34.5% | 0.0% | 62.5% | 53.2% | 3.1% |
-| belief-in-god | 92.0% | 0.0% | 5.1% | 2.2% | 3.0% |
-| open-source-ai | 0.0% | 0.0% | 98.9% | 98.9% | 1.1% |
+| Scope | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Held, guess wrong or missing | Missed |
+|---|---|---|---|---|---|---|
+| pooled | 42.3% | 0.0% | 0.0% | 55.3% | 51.2% | 2.4% |
+| ball-kokotajlo-ai-governance | 34.5% | 0.0% | 0.0% | 62.5% | 53.2% | 3.1% |
+| belief-in-god | 92.0% | 0.0% | 0.0% | 5.1% | 2.2% | 3.0% |
+| open-source-ai | 0.0% | 0.0% | 0.0% | 98.9% | 98.9% | 1.1% |
 
 ### recording (mono-recording results (diarized clusters named by the host))
 
@@ -362,25 +423,27 @@ Wrong auto-accepted share by threshold, pooled: 0.85: 0.0%, 0.88: 0.0%, 0.9: 0.0
 
 Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-source-ai (20 min). Chosen threshold 0.85.
 
-| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
-|---|---|---|---|---|---|
-| pooled | 75.2% | 0.0% | 20.2% | 20.2% | 4.6% |
-| ball-kokotajlo-ai-governance | 91.8% | 0.0% | 3.9% | 3.9% | 4.3% |
-| belief-in-god | 68.4% | 0.1% | 26.5% | 26.5% | 5.1% |
-| open-source-ai | 65.4% | 0.0% | 30.3% | 30.3% | 4.4% |
+| Scope | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Held, guess wrong or missing | Missed |
+|---|---|---|---|---|---|---|
+| pooled | 75.2% | 0.0% | 0.1% | 20.2% | 1.5% | 4.6% |
+| ball-kokotajlo-ai-governance | 91.8% | 0.0% | 0.0% | 3.9% | 0.9% | 4.3% |
+| belief-in-god | 68.4% | 0.1% | 0.2% | 26.5% | 1.5% | 5.1% |
+| open-source-ai | 65.4% | 0.0% | 0.0% | 30.3% | 2.0% | 4.4% |
 
 ### tracks results, for reference only (isolated mics, silent between turns)
+
+Isolated tracks are digitally silent between turns, so a mic goes quiet for a minute while others speak and the app treats it as dead; its lines are then decided by voice alone, which is always capped and held (ruling P3-R10). The cap lowered the score of 84 lines here. Real mics hear the room, so this is not the realistic case (none of the bleed scenarios raised a dead-mic notice).
 
 #### tracks (clean)
 
 Fixtures: ball-kokotajlo-ai-governance (20 min), belief-in-god (20 min), open-source-ai (20 min). Chosen threshold 0.85.
 
-| Scope | Correct | Wrong, auto-accepted | Held | Held with a wrong guess | Missed |
-|---|---|---|---|---|---|
-| pooled | 97.0% | 0.1% | 1.8% | 1.8% | 1.1% |
-| ball-kokotajlo-ai-governance | 98.8% | 0.1% | 0.0% | 0.0% | 1.1% |
-| belief-in-god | 95.5% | 0.1% | 3.5% | 3.5% | 1.0% |
-| open-source-ai | 96.9% | 0.1% | 1.8% | 1.8% | 1.2% |
+| Scope | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Held, guess wrong or missing | Missed |
+|---|---|---|---|---|---|---|
+| pooled | 49.7% | 0.0% | 0.0% | 49.6% | 2.9% | 0.8% |
+| ball-kokotajlo-ai-governance | 34.9% | 0.0% | 0.0% | 64.3% | 4.3% | 0.8% |
+| belief-in-god | 16.9% | 0.0% | 0.0% | 82.1% | 3.9% | 0.9% |
+| open-source-ai | 98.7% | 0.1% | 0.1% | 0.7% | 0.4% | 0.5% |
 
 ## Browser ASR accuracy, 2026-09-29
 

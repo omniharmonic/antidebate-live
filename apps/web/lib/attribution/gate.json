@@ -1,12 +1,14 @@
 {
   "tracks": {
     "threshold": 0.85,
-    "hostConfirmsAll": false
+    "hostConfirmsAll": false,
+    "insufficient": true
   },
   "call": {
     "threshold": 0.85,
     "hostConfirmsAll": false,
-    "insufficient": true
+    "insufficient": true,
+    "measuredFrom": "room-mix"
   },
   "room": {
     "threshold": 0.85,

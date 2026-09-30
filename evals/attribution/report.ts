@@ -8,6 +8,7 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fuse } from '../../apps/web/lib/attribution/fusion';
 import { calibrate, duplicates, gateEntry, gatePred, MIN_SAMPLE, pooled, worstGate, type Calibration, type GateEntry, type LabPred, type Ref, type Run } from './score';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -80,7 +81,7 @@ const sweepLines = (loaded: Loaded[], c: Calibration) => {
     lines.push(`The sweep is flat: ${why}. ${c.threshold} is the lowest candidate threshold, not a tuned value.`, '');
   }
 };
-const sampleText = (c: Calibration) => `${c.sample.autoLines} auto-accepted lines, ${minutes(c.sample.autoSpeechMs)} minutes of auto-accepted speech, ${c.sample.fixturesAtMin} fixture${c.sample.fixturesAtMin === 1 ? '' : 's'} with at least ${MIN_SAMPLE.fixtureLines} of them`;
+const sampleText = (c: Calibration) => `${c.sample.autoLines} auto-accepted line${c.sample.autoLines === 1 ? '' : 's'}, ${minutes(c.sample.autoSpeechMs)} minutes of auto-accepted speech, ${c.sample.fixturesAtMin} fixture${c.sample.fixturesAtMin === 1 ? '' : 's'} with at least ${MIN_SAMPLE.fixtureLines} of them`;
 const rule = `at least ${MIN_SAMPLE.lines} auto-accepted lines, ${MIN_SAMPLE.speechMs / 60_000} minutes of them, and at least ${MIN_SAMPLE.fixtures} fixtures with ${MIN_SAMPLE.fixtureLines} or more each`;
 
 /** Every mono-live run enrolled from audio after its scored window (P3-R6). */
@@ -110,17 +111,18 @@ verdicts.push(`- tracks: set by the strictest mic-per-person scenario, ${worst.f
 // The mic-per-person scenarios, the realistic ones first.
 const unmiked = scenarios.find((s) => s.from === 'unmiked')!;
 const unmikedHeld = unmiked.c.atThreshold.held;
+const mikedHeld = scenarios.filter((x) => x.realistic && x.from !== 'unmiked').map((x) => x.c.atThreshold.held);
 lines.push('### tracks (a mic per person)', '',
   `The tracks gate is the strictest of these scenarios (ruling P3-R11). Each line is decided by the shipping code; a dead mic's voice-only lines are always capped, so they are held. A duplicate is the same speech logged as two lines: two lines on different mics overlapping by more than half of the shorter one.`, '',
   '| Scenario | Correct | Wrong, auto-accepted (share of speech) | Wrong, share of auto-accepted speech | Held | Duplicate lines | Threshold |', '|---|---|---|---|---|---|---|',
   ...scenarios.map((s) => `| ${s.from}${s.realistic ? '' : ' (reference)'}: ${s.label} | ${pct(s.c.atThreshold.correct)} | ${pct(s.c.atThreshold.wrongAuto)} | ${pct(s.c.atThreshold.wrongAutoOfAuto)} | ${pct(s.c.atThreshold.held)} | ${s.dup} of ${s.total} | ${s.c.threshold}${s.c.hostConfirmsAll ? ', host confirms all' : ''}${s.c.insufficient ? ', insufficient' : ''} |`), '',
+  `Why so much is held at close bleed: a mic-per-person line auto-accepts on its margin over the loudest other mic, its voice match and their agreement (fusion.ts). With a perfect voice match that agrees, a 6 dB margin fuses to at most ${fuse({ channelMarginDb: 6, voiceMatch: 1, diarizerAgrees: true, overlap: false })} and a 9 dB margin to ${fuse({ channelMarginDb: 9, voiceMatch: 1, diarizerAgrees: true, overlap: false })}, against the 0.85 threshold, so at -6 dB every line is held by construction and at -9 dB a line passes only when the voice match is strong. At 12 dB or more the margin alone decides, and voice matching is skipped when everyone is miked and enrolled, which is why -15 dB auto-accepts most lines.`, '',
   unmikedHeld > 0.3
-    ? `**Without a moderator mic, ${pct(unmikedHeld)} of speech is held for the host to confirm, above the 30% a host can keep up with.** The moderator's lines land on both debater mics at nearly the same level, so neither mic's margin decides them and the host confirms them. Give the moderator a mic (docs/HOSTING.md, docs/R0_DEMO.md).`
+    ? `**Without a moderator mic, ${pct(unmikedHeld)} of speech is held for the host to confirm, above 30%.** The moderator is heard on both debater mics at nearly the same level, so no margin decides those lines. Recommendation: give the moderator a mic (docs/HOSTING.md, docs/R0_DEMO.md).${mikedHeld.every((h) => h > 0.3) ? ` A moderator mic alone does not bring the held share under 30% here: with everyone miked, ${scenarios.filter((x) => x.realistic && x.from !== 'unmiked').map((x) => `${x.from} holds ${pct(x.c.atThreshold.held)}`).join(' and ')}. Separation between the mics does: at -15 dB, ${pct(scenarios.find((x) => x.from === 'bleed')!.c.atThreshold.held)} is held. Place each mic close to its speaker, so each voice is at least 12 dB louder on its own mic than on the others.` : ''}`
     : `Without a moderator mic, ${pct(unmikedHeld)} of speech is held for the host to confirm (at or under 30%).`, '');
 for (const s of scenarios) {
-  lines.push(`#### ${s.from}`, '');
-  sweepLines(s.loaded, s.c);
   table(s.from, s.loaded, s.c);
+  sweepLines(s.loaded, s.c);
 }
 
 for (const s of SETUPS) {
@@ -145,7 +147,9 @@ for (const s of SETUPS) {
 const tr = get('tracks');
 if (tr.length) {
   const c = calibrate(tr.map((l) => l.run));
-  lines.push('### tracks results, for reference only (isolated mics, silent between turns)', '');
+  const dead = tr.reduce((n, l) => n + l.lines.filter((u) => u.capped).length, 0);
+  lines.push('### tracks results, for reference only (isolated mics, silent between turns)', '',
+    `Isolated tracks are digitally silent between turns, so a mic goes quiet for a minute while others speak and the app treats it as dead; its lines are then decided by voice alone, which is always capped and held (ruling P3-R10). The cap lowered the score of ${dead} lines here. Real mics hear the room, so this is not the realistic case (none of the bleed scenarios raised a dead-mic notice).`, '');
   table('tracks (clean)', tr, c);
 }
 
