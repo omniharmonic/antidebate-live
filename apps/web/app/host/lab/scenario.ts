@@ -13,10 +13,11 @@ export type RefTurn = [number, number, string];
 export type Reference = { turns: RefTurn[]; participants: { key: string; displayName: string; role: string }[] };
 /**
  * One line as the shipping code logged it. Held lines add their best `candidate`; lines whose
- * confidence a setup cap bound (VOICE_ONLY_CAP) add `uncapped`, what they would score without it,
- * so the gate can measure the decisions the cap is holding back.
+ * confidence the voice-only cap (VOICE_ONLY_CAP) lowered carry `capped: true` and `uncapped`, what
+ * they would score without it, so the gate can measure the decisions the cap is holding back.
+ * `channel`: the capture channel the line was cut from, when it has one.
  */
-export type LabLine = { startMs: number; endMs: number; participantKey: string; confidence: number; pending: boolean; candidate?: string; uncapped?: number };
+export type LabLine = { startMs: number; endMs: number; participantKey: string; confidence: number; pending: boolean; candidate?: string; capped?: true; uncapped?: number; channel?: string };
 
 /** 16 kHz mono WAV, 32-bit float or 16-bit PCM (what the scenario generator writes). */
 export function parseWav(buf: ArrayBuffer): Float32Array {
@@ -54,6 +55,31 @@ export function anchorClip(pcm: Float32Array, turns: RefTurn[], key: string, max
     parts.push(pcm.subarray(from, to));
     left -= to - from;
   }
+  const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+  parts.reduce((at, p) => (out.set(p, at), at + p.length), 0);
+  return out;
+}
+
+/**
+ * The speaker's last reference speech, up to `maxMs`, as [start, end, key] spans in time order (the
+ * earliest one reached is cut to fit). The lab enrolls from these and leaves them out of scoring, so
+ * no enrollment clip is scored audio.
+ */
+export function lastSpans(turns: RefTurn[], key: string, maxMs = 30_000): RefTurn[] {
+  const out: RefTurn[] = [];
+  let left = maxMs;
+  for (const [s, e, k] of [...turns].sort((a, b) => b[0] - a[0])) {
+    if (k !== key || left <= 0) continue;
+    const from = Math.max(s, e - left);
+    out.unshift([from, e, k]);
+    left -= e - from;
+  }
+  return out;
+}
+
+/** The audio of `spans` from `pcm`, joined in order. */
+export function clipOf(pcm: Float32Array, spans: RefTurn[]): Float32Array {
+  const parts = spans.map(([s, e]) => pcm.subarray(Math.round((s * RATE) / 1000), Math.min(pcm.length, Math.round((e * RATE) / 1000))));
   const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
   parts.reduce((at, p) => (out.set(p, at), at + p.length), 0);
   return out;
@@ -103,8 +129,11 @@ export function speechWords(pcm: Float32Array): Word[] {
   return words;
 }
 
-/** Each utterance.final as a lab line; held when an attribution.pending came with it. */
-export function linesFromEvents(events: DomainEvent[], uncap?: (confidence: number, voiceprint: Record<string, number> | undefined) => number | undefined): LabLine[] {
+/**
+ * Each utterance.final as a lab line; held when an attribution.pending came with it. `decisions`
+ * (utterance id → the attributor's decision, from LiveRunner's onDecision) flags the capped lines.
+ */
+export function linesFromEvents(events: DomainEvent[], decisions?: Map<string, { uncapped?: number }>): LabLine[] {
   const held = new Map(events.flatMap((e) => (e.type === 'attribution.pending' ? [[e.payload.utteranceId, e.payload.candidates] as const] : [])));
   return events.flatMap((e) => {
     if (e.type !== 'utterance.final') return [];
@@ -112,8 +141,13 @@ export function linesFromEvents(events: DomainEvent[], uncap?: (confidence: numb
     const line: LabLine = { startMs: u.startMs, endMs: u.endMs, participantKey: u.participantKey, confidence: u.attribution.confidence, pending: held.has(u.id) };
     const top = Object.entries(held.get(u.id) ?? {}).sort((a, b) => b[1] - a[1])[0];
     if (top) line.candidate = top[0];
-    const raw = uncap?.(u.attribution.confidence, u.attribution.signals.voiceprint);
-    if (raw !== undefined) line.uncapped = raw;
+    const uncapped = decisions?.get(u.id)?.uncapped;
+    if (uncapped !== undefined) {
+      line.capped = true;
+      line.uncapped = uncapped;
+    }
+    const channel = u.attribution.signals.channel;
+    if (channel) line.channel = channel;
     return [line];
   });
 }

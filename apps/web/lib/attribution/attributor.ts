@@ -28,6 +28,8 @@ export type Decision = {
   pending: boolean;
   signals: { channel?: string; voiceprint?: Record<string, number> };
   drop?: 'bleed';
+  /** Set only when the voice-only cap lowered the score: the fused score before the cap (the lab measures these). */
+  uncapped?: number;
 };
 export type Notice = { kind: 'dead_channel' | 'channel_recovered' | 'swap_suggested' | 'new_voice' | 'voice_match_unavailable'; channel?: string; participantKey?: string; label?: string };
 
@@ -118,8 +120,8 @@ export class Attributor {
         const fused = fuse({ channelMarginDb: null, voiceMatch: top ? top[1] : null, diarizerAgrees: null, overlap: s.overlap });
         return { decision: { participantKey: 'UNK', confidence: Math.min(0.6, fused), pending: true, signals }, notices };
       }
-      const fused = capVoiceOnly(this.setup, fuse({ channelMarginDb: null, voiceMatch: top[1], diarizerAgrees: null, overlap: s.overlap }), this.gates);
-      return { decision: this.finish(top[0], fused, signals), notices };
+      const raw = fuse({ channelMarginDb: null, voiceMatch: top[1], diarizerAgrees: null, overlap: s.overlap });
+      return { decision: this.capped(top[0], raw, capVoiceOnly(this.setup, raw, this.gates), signals), notices };
     }
 
     const channel = s.channel;
@@ -134,10 +136,11 @@ export class Attributor {
     }
 
     if (isDead) {
-      // Falls back to voice alone until the channel recovers.
+      // Falls back to voice alone until the channel recovers, under the same voice-only cap as call
+      // and room: the gate never measures this case, so these lines always wait for the host (P3-R10).
       const pick = top ? top[0] : owner;
-      const fusedDead = fuse({ channelMarginDb: null, voiceMatch: top ? top[1] : null, diarizerAgrees: null, overlap: s.overlap });
-      return { decision: this.finish(pick, fusedDead, signals), notices };
+      const raw = fuse({ channelMarginDb: null, voiceMatch: top ? top[1] : null, diarizerAgrees: null, overlap: s.overlap });
+      return { decision: this.capped(pick, raw, capVoiceOnly('tracks-voice', raw, this.gates), signals), notices };
     }
 
     let candidate = owner;
@@ -203,6 +206,12 @@ export class Attributor {
     const candidates: Record<string, number> = { [owner]: confidence };
     if (top && top[0] !== owner && top[1] > 0) candidates[top[0]] = top[1];
     return { participantKey: 'UNK', candidate: owner, candidates, confidence, pending: true, signals };
+  }
+
+  /** `finish` on the capped score, noting the score before the cap when the cap lowered it. */
+  private capped(key: string, raw: number, confidence: number, signals: Decision['signals']): Decision {
+    const d = this.finish(key, confidence, signals);
+    return confidence < raw ? { ...d, uncapped: raw } : d;
   }
 
   private finish(key: string, confidence: number, signals: Decision['signals']): Decision {

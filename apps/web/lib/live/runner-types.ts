@@ -2,7 +2,7 @@
 import type { EventLog } from '@adl/engine';
 import type { AsrClient } from '../asr/client';
 import type { Anchor } from '../attribution/anchors';
-import type { ChannelMap, Notice, Setup } from '../attribution/attributor';
+import type { ChannelMap, Decision, Notice, Setup } from '../attribution/attributor';
 import type { GateTable } from '../attribution/gate';
 
 export type LiveSetup = { kind: Setup; channels: ChannelMap; participants: { key: string; displayName: string }[] };
@@ -37,4 +37,6 @@ export type LiveRunnerOptions = {
   now?: () => number;
   /** The measured gate table (gate.json unless given); tests pin it. */
   gates?: GateTable;
+  /** Each logged line's attribution decision, by utterance id (the attribution lab reads the voice-only cap from it). */
+  onDecision?(utteranceId: string, decision: Decision): void;
 };

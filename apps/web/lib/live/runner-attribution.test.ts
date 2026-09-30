@@ -24,6 +24,21 @@ function tracks(o: { participants: string[]; anchors: string[]; match: (a: Ancho
   return { r, log, calls };
 }
 
+describe('LiveRunner decisions for the lab', () => {
+  it('reports each logged line\'s decision by utterance id, with the score before a voice-only cap', async () => {
+    const seen: [string, { pending: boolean; uncapped?: number }][] = [];
+    const r = new LiveRunner({
+      sessionId: 's', setup: { kind: 'room', channels: {}, participants: people('A', 'B') }, anchors: [anchor('A'), anchor('B')], gates: {},
+      asr: words, voices: { matchVoices: async () => ({ A: 0.99, B: 0 }) }, log: new Mem(), onStatus: () => {}, onDecision: (id, d) => seen.push([id, d]),
+    });
+    await r.onUtterance('d0c0', { startMs: 0, endMs: 1000, pcm }, {}, false);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]![0]).toBe('ud0c0-0');
+    expect(seen[0]![1].pending).toBe(true);
+    expect(seen[0]![1].uncapped).toBeGreaterThan(0.84);
+  });
+});
+
 describe('LiveRunner attribution (final fixes)', () => {
   it('C1: an unmiked moderator on debater A\'s mic at a 14 dB margin is matched and held, not given to A', async () => {
     const { r, log, calls } = tracks({ participants: ['A', 'B', 'M'], anchors: ['A', 'B', 'M'], match: () => ({ A: 0.05, B: 0, M: 0.9 }) });

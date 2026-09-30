@@ -7,8 +7,7 @@
 // window.__adlLab.run and writes what it returns.
 import { useEffect } from 'react';
 import { enrollmentError, trimAnchor, type Anchor } from '@/lib/attribution/anchors';
-import { fuse } from '@/lib/attribution/fusion';
-import { capVoiceOnly, VOICE_ONLY_CAP } from '@/lib/attribution/gate';
+import type { Decision } from '@/lib/attribution/attributor';
 import { AsrClient } from '@/lib/asr/client';
 import { mergeChunkWords, planChunks, type Word } from '@/lib/asr/chunks';
 import { DiarizeClient } from '@/lib/diarize/client';
@@ -18,9 +17,11 @@ import { LiveRunner, type LiveSetup } from '@/lib/live/runner';
 import { Segmenter } from '@/lib/live/segmenter';
 import { buildUtterances } from '@/lib/recording/utterances';
 import { groupVoices } from '@/lib/recording/voices';
-import { anchorClip, linesFromEvents, nameVoices, parseWav, speechWords, type LabLine, type Reference } from './scenario';
+import { anchorClip, clipOf, lastSpans, linesFromEvents, nameVoices, parseWav, speechWords, type LabLine, type Reference, type RefTurn } from './scenario';
 
-export type LabSetup = 'tracks' | 'bleed' | 'mono-live' | 'mono-recording';
+/** Mic-per-person setups: bleed levels -15 (bleed), -6, -9 dB, and unmiked (no moderator mic). */
+export type TracksSetup = 'tracks' | 'bleed' | 'bleed-6' | 'bleed-9' | 'unmiked';
+export type LabSetup = TracksSetup | 'mono-live' | 'mono-recording';
 export type LabResult = {
   utterances: LabLine[];
   /** Wall time of the run. */
@@ -31,6 +32,8 @@ export type LabResult = {
   enrolled: string[];
   /** mono-live only: enrollment clips come from reference speech at or after this time, past the scored window (P3-R6). */
   enrolledFromMs?: number;
+  /** Tracks setups: the reference speech enrollment clips were cut from; the scorer leaves it out (P3-R11). */
+  enrollSpans?: RefTurn[];
   /** Recording only: each separated voice and who the simulated host named it (null: someone else). */
   voiceMap?: Record<string, string | null>;
   /** Live only: runner failures and notices by kind. */
@@ -50,7 +53,11 @@ export type AsrLabResult = {
 
 declare global {
   interface Window {
-    __adlLab?: { run(o: { fixture: string; setup: LabSetup }): Promise<LabResult>; asr(o: { fixture: string; windows: AsrWindow[] }): Promise<AsrLabResult>; asrSplit(o: { fixture: string; window: AsrWindow; span: AsrWindow }): Promise<{ chunked: Word[]; halves: Word[] }> };
+    __adlLab?: {
+      run(o: { fixture: string; setup: LabSetup }): Promise<LabResult>;
+      asr(o: { fixture: string; windows: AsrWindow[] }): Promise<AsrLabResult>;
+      asrSplit(o: { fixture: string; window: AsrWindow; span: AsrWindow }): Promise<{ chunked: Word[]; halves: Word[] }>;
+    };
   }
 }
 
@@ -78,13 +85,33 @@ function enroll(ref: Reference, source: (key: string) => Float32Array, fromMs = 
   });
 }
 
-async function runLive(fixture: string, setup: 'tracks' | 'bleed' | 'mono-live', ref: Reference): Promise<Omit<LabResult, 'seconds'>> {
-  const keys = ref.participants.map((p) => p.key);
+/**
+ * Tracks setups (P3-R11): one anchor per participant from their last 30 s of reference speech on
+ * `source`; the spans used come back so the scorer leaves them out (enrollment disjoint from scoring).
+ */
+function enrollFromEnd(ref: Reference, source: (key: string) => Float32Array): { anchors: Anchor[]; spans: RefTurn[] } {
+  const anchors: Anchor[] = [];
+  const spans: RefTurn[] = [];
+  for (const p of ref.participants) {
+    const used = lastSpans(ref.turns, p.key, 30_000);
+    const clip = clipOf(source(p.key), used);
+    if (enrollmentError(p.displayName, clip)) continue;
+    anchors.push({ key: p.key, pcm: trimAnchor(clip) });
+    spans.push(...used);
+  }
+  return { anchors, spans };
+}
+
+async function runLive(fixture: string, setup: TracksSetup | 'mono-live', ref: Reference): Promise<Omit<LabResult, 'seconds'>> {
+  // unmiked: only debaters have a mic; a moderator is heard (and enrolled) on the nearest one, the first debater's.
+  const keys = setup === 'unmiked' ? ref.participants.filter((p) => p.role === 'debater').map((p) => p.key) : ref.participants.map((p) => p.key);
   const byKey = new Map<string, Float32Array>();
   if (setup === 'mono-live') byKey.set('*', await wav(fixture, 'mono.wav'));
   else for (const k of keys) byKey.set(k, await wav(fixture, `${setup}/${k}.wav`));
   const enrolledFromMs = setup === 'mono-live' ? MONO_ENROLL_FROM_MS : 0;
-  const anchors = enroll(ref, (k) => byKey.get(setup === 'mono-live' ? '*' : k)!, enrolledFromMs);
+  const source = (k: string) => byKey.get(setup === 'mono-live' ? '*' : byKey.has(k) ? k : keys[0]!)!;
+  const fromEnd = setup === 'mono-live' ? null : enrollFromEnd(ref, source);
+  const anchors = fromEnd ? fromEnd.anchors : enroll(ref, source, enrolledFromMs);
 
   const live: LiveSetup = setup === 'mono-live'
     ? { kind: 'room', channels: {}, participants: ref.participants.map(({ key, displayName }) => ({ key, displayName })) }
@@ -95,6 +122,7 @@ async function runLive(fixture: string, setup: 'tracks' | 'bleed' | 'mono-live',
   const windowMs = Math.floor((setup === 'mono-live' ? Math.min(total, (LIVE_WINDOW_MS * RATE) / 1000) : total) / FRAME) * 20;
 
   const log = new MemoryEventLog();
+  const decisions = new Map<string, Decision>();
   let status: { failed: number; notices: Record<string, number> } = { failed: 0, notices: {} };
   const runner = new LiveRunner({
     sessionId: SESSION,
@@ -103,6 +131,7 @@ async function runLive(fixture: string, setup: 'tracks' | 'bleed' | 'mono-live',
     asr: { transcribe: async (pcm, startMs) => [{ text: 'x', startMs, endMs: startMs + Math.round((pcm.length * 1000) / RATE) }] },
     voices: await voices(),
     log,
+    onDecision: (id, d) => decisions.set(id, d),
     onStatus: (s) => {
       const notices: Record<string, number> = {};
       for (const n of s.notices) notices[n.kind] = (notices[n.kind] ?? 0) + 1;
@@ -124,12 +153,15 @@ async function runLive(fixture: string, setup: 'tracks' | 'bleed' | 'mono-live',
   runner.tick(windowMs + 10_000, seg.active(windowMs + 10_000));
   await Promise.all(done);
   await runner.stop();
-  // A capped line (room: voice only) scored at least the cap; its uncapped score is its best voice match, fused alone.
-  const capped = capVoiceOnly(live.kind, 1) < 1;
-  const uncap = (confidence: number, voiceprint: Record<string, number> | undefined) =>
-    capped && confidence === VOICE_ONLY_CAP && voiceprint ? fuse({ channelMarginDb: null, voiceMatch: Math.max(...Object.values(voiceprint)), diarizerAgrees: null, overlap: false }) : undefined;
   if (enrolledFromMs && enrolledFromMs < windowMs) throw new Error('enrollment overlaps the scored window');
-  return { utterances: linesFromEvents(log.events, uncap), windowMs, enrolled: anchors.map((a) => a.key), ...(enrolledFromMs ? { enrolledFromMs } : {}), ...status };
+  return {
+    utterances: linesFromEvents(log.events, decisions),
+    windowMs,
+    enrolled: anchors.map((a) => a.key),
+    ...(enrolledFromMs ? { enrolledFromMs } : {}),
+    ...(fromEnd ? { enrollSpans: fromEnd.spans } : {}),
+    ...status,
+  };
 }
 
 async function runRecording(fixture: string, ref: Reference): Promise<Omit<LabResult, 'seconds'>> {

@@ -64,7 +64,7 @@ export function noticeLine(n: Notice, { channels, names }: NoticeContext): strin
   const input = n.channel ? inputNumber(channels, n.channel) : 0;
   switch (n.kind) {
     case 'dead_channel':
-      return `Input ${input} (${name(n.participantKey)}) has been silent for a minute while others speak. ${name(n.participantKey)} will be identified by voice until it recovers.`;
+      return `Input ${input} (${name(n.participantKey)}) has been silent for a minute while others speak. Until it recovers, lines from Input ${input} wait for you to confirm who spoke.`;
     case 'channel_recovered':
       return `Input ${input} (${name(n.participantKey)}) is working again.`;
     case 'swap_suggested': {

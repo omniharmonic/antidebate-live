@@ -47,7 +47,7 @@ describe('live view helpers', () => {
   });
 
   it('words each notice with input numbers and names', () => {
-    expect(noticeLine({ kind: 'dead_channel', channel: 'd0c0', participantKey: 'A' }, ctx)).toBe('Input 1 (Ann) has been silent for a minute while others speak. Ann will be identified by voice until it recovers.');
+    expect(noticeLine({ kind: 'dead_channel', channel: 'd0c0', participantKey: 'A' }, ctx)).toBe('Input 1 (Ann) has been silent for a minute while others speak. Until it recovers, lines from Input 1 wait for you to confirm who spoke.');
     expect(noticeLine({ kind: 'swap_suggested', channel: 'd0c0', participantKey: 'B' }, ctx)).toBe('Input 1 sounds like Bo. Swap inputs 1 and 2?');
     expect(noticeLine({ kind: 'channel_recovered', channel: 'd0c1', participantKey: 'B' }, ctx)).toBe('Input 2 (Bo) is working again.');
     expect(noticeLine({ kind: 'new_voice', label: 'Voice 1' }, ctx)).toBeNull();

@@ -32,6 +32,22 @@ describe('capVoiceOnly', () => {
   it('never caps tracks', () => {
     expect(capVoiceOnly('tracks', 1, {})).toBe(1);
   });
+  it('always caps voice-only decisions in tracks (a dead mic): the gate never measures them (P3-R10)', () => {
+    expect(capVoiceOnly('tracks-voice', 1, {})).toBe(VOICE_ONLY_CAP);
+    expect(capVoiceOnly('tracks-voice', 1, { tracks: { threshold: 0.85, hostConfirmsAll: false } })).toBe(VOICE_ONLY_CAP);
+    expect(capVoiceOnly('tracks-voice', 0.7, {})).toBe(0.7);
+  });
+  it('keeps call capped while its entry was measured on a room mix, even if that passed (P3-R10)', () => {
+    const table = { call: { threshold: 0.85, hostConfirmsAll: false, measuredFrom: 'room-mix' as const } };
+    expect(gateFor('call', table)).toEqual({ threshold: 0.85, hostConfirmsAll: false, insufficient: true });
+    expect(capVoiceOnly('call', 1, table)).toBe(VOICE_ONLY_CAP);
+  });
+});
+
+describe('the committed gate.json', () => {
+  it('marks call as measured from the room mix, so call is insufficient', () => {
+    expect(gateFor('call').insufficient).toBe(true);
+  });
 });
 
 describe('hostConfirmsNote', () => {

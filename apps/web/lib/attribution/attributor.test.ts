@@ -35,19 +35,27 @@ describe('Attributor, separate tracks', () => {
     const n2 = at.tick(61_000, { L: false, R: true });
     const n3 = at.tick(62_000, { L: false, R: true });
     expect([...n1, ...n2, ...n3].filter((n) => n.kind === 'dead_channel')).toEqual([{ kind: 'dead_channel', channel: 'L', participantKey: 'A' }]);
-    // margin is now ignored: a low margin no longer drops or lowers the owner
+    // margin is now ignored: a low margin no longer drops the line; voice alone is capped, so it is held for the host
     const d = at.decide(sig({ channelRmsDb: { L: -40, R: -20 }, voice: { A: 0.95 } })).decision;
-    expect(d).toMatchObject({ participantKey: 'A', pending: false });
+    expect(d).toMatchObject({ participantKey: 'UNK', candidate: 'A', pending: true, confidence: VOICE_ONLY_CAP });
+    expect(d.drop).toBeUndefined();
   });
   const killL = (at: Attributor) => {
     at.tick(0, { L: false, R: true });
     at.tick(61_000, { L: false, R: true });
   };
-  it('a dead channel uses the best voice match, even when it names someone else', () => {
+  it('a dead channel uses the best voice match as the candidate, even when it names someone else', () => {
     const at = a();
     killL(at);
     const d = at.decide(sig({ voice: { A: 0.1, B: 0.95 } })).decision;
-    expect(d).toMatchObject({ participantKey: 'B', pending: false });
+    expect(d).toMatchObject({ participantKey: 'UNK', candidate: 'B', pending: true });
+  });
+  it('a dead channel\'s voice-only decision is capped like call and room, whatever the gate table says (P3-R10)', () => {
+    const at = new Attributor('tracks', { L: 'A', R: 'B' }, { gates: { tracks: { threshold: 0.85, hostConfirmsAll: false } } });
+    killL(at);
+    const d = at.decide(sig({ voice: { A: 1 } })).decision;
+    expect(d).toMatchObject({ participantKey: 'UNK', candidate: 'A', pending: true, confidence: VOICE_ONLY_CAP });
+    expect(d.uncapped).toBe(fuse({ channelMarginDb: null, voiceMatch: 1, diarizerAgrees: null, overlap: false }));
   });
   it('a dead channel with no voice data is pending with the owner as candidate', () => {
     const at = a();
@@ -133,11 +141,13 @@ describe('Attributor, one mixed feed', () => {
       const at = new Attributor(setup, {}, { gates: {} });
       const { decision } = at.decide(sig({ channel: null, channelRmsDb: {}, voice: { A: 0.99, B: 0.01 } }));
       expect(decision).toMatchObject({ participantKey: 'UNK', candidate: 'A', pending: true, confidence: VOICE_ONLY_CAP });
+      expect(decision.uncapped).toBe(fuse({ channelMarginDb: null, voiceMatch: 0.99, diarizerAgrees: null, overlap: false }));
     });
     it(`${setup}: once the gate passes for it, the cap is lifted`, () => {
       const at = new Attributor(setup, {}, { gates: { [setup]: { threshold: 0.85, hostConfirmsAll: false } } });
       const { decision } = at.decide(sig({ channel: null, channelRmsDb: {}, voice: { A: 0.99, B: 0.01 } }));
       expect(decision).toMatchObject({ participantKey: 'A', pending: false });
+      expect(decision.uncapped).toBeUndefined();
     });
   }
   it('weak → UNK pending with a new voice notice', () => {

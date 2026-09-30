@@ -1,7 +1,8 @@
 // Attribution lab harness: drives /host/lab in headless Chromium over every scenario and setup, and
 // writes .data/scenarios/<fixture>/<setup>.result.json for the scorer.
 //
-//   pnpm tsx evals/attribution/run.ts [--fixture <slug>] [--setup tracks|bleed|mono-live|mono-recording]
+//   pnpm tsx evals/attribution/run.ts [--fixture <slug>] [--setup <setup>[,<setup>...]]
+//   setups: tracks, bleed (-15 dB), bleed-6, bleed-9, unmiked (no moderator mic), mono-live, mono-recording
 //
 // Needs the web app in development mode (the lab is not found in production), started with
 // HOST_SIGNING_SECRET, and scenarios from `adl-scenarios` (services/capture). LAB_URL sets the
@@ -15,7 +16,7 @@ import { HOST_COOKIE, signHostCookie } from '../../apps/web/lib/host-auth';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SCENARIOS = path.join(ROOT, '.data/scenarios');
-const SETUPS = ['tracks', 'bleed', 'mono-live', 'mono-recording'] as const;
+const SETUPS = ['tracks', 'bleed', 'bleed-6', 'bleed-9', 'unmiked', 'mono-live', 'mono-recording'] as const;
 type Setup = (typeof SETUPS)[number];
 type Lab = { __adlLab?: { run(o: { fixture: string; setup: Setup }): Promise<Result> } };
 type Result = { utterances: unknown[]; seconds: number; windowMs: number; enrolled: string[]; failed?: number; notices?: Record<string, number> };
@@ -39,8 +40,11 @@ function secret(): string {
 
 async function main() {
   const base = process.env.LAB_URL ?? 'http://localhost:3000';
-  const fixtures = arg('fixture') ? [arg('fixture')!] : readdirSync(SCENARIOS).filter((f) => existsSync(path.join(SCENARIOS, f, 'reference.json'))).sort();
-  const setups: readonly Setup[] = arg('setup') ? [arg('setup') as Setup] : SETUPS;
+  const all = readdirSync(SCENARIOS).filter((f) => existsSync(path.join(SCENARIOS, f, 'reference.json'))).sort();
+  const fixtures = arg('fixture') ? [arg('fixture')!] : all;
+  for (const f of fixtures) if (!all.includes(f)) throw new Error(`no scenario ${f} in ${SCENARIOS} (have ${all.join(', ')})`);
+  const setups = (arg('setup')?.split(',') ?? [...SETUPS]) as Setup[];
+  for (const s of setups) if (!SETUPS.includes(s)) throw new Error(`unknown setup ${s} (one of ${SETUPS.join(', ')})`);
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext();

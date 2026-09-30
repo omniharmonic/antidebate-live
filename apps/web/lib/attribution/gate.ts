@@ -5,8 +5,12 @@ import measured from './gate.json';
 export type GateSetup = Setup | 'recording';
 /** `insufficient`: wrong auto-accepts met the 2% ceiling, but on too small a sample to count as passed (P3-R7). */
 export type Gate = { threshold: number; hostConfirmsAll: boolean; insufficient: boolean };
-/** What evals/attribution/report.ts writes to gate.json: one entry per setup it measured. */
-export type GateTable = Partial<Record<GateSetup, Omit<Gate, 'insufficient'> & { insufficient?: boolean }>>;
+/**
+ * What evals/attribution/report.ts writes to gate.json: one entry per setup it measured.
+ * `measuredFrom: 'room-mix'`: the entry was measured on a room mix standing in for that setup's audio
+ * (call, until call-like audio is measured), so it is not representative and counts as insufficient.
+ */
+export type GateTable = Partial<Record<GateSetup, Omit<Gate, 'insufficient'> & { insufficient?: boolean; measuredFrom?: 'room-mix' }>>;
 
 const MEASURED: GateTable = measured;
 
@@ -18,7 +22,9 @@ const MEASURED: GateTable = measured;
 export function gateFor(setup: GateSetup, table: GateTable = MEASURED): Gate {
   const g = table[setup];
   if (!g) return { threshold: AUTO_THRESHOLD, hostConfirmsAll: false, insufficient: false };
-  return { threshold: Math.max(AUTO_THRESHOLD, g.threshold), hostConfirmsAll: g.hostConfirmsAll, insufficient: g.insufficient ?? false };
+  // Call measured on a room mix is not call audio (P3-R10): never a pass while that holds.
+  const unrepresentative = setup === 'call' && g.measuredFrom === 'room-mix';
+  return { threshold: Math.max(AUTO_THRESHOLD, g.threshold), hostConfirmsAll: g.hostConfirmsAll, insufficient: (g.insufficient ?? false) || unrepresentative };
 }
 
 /** What the setup screen says when the gate found no safe threshold for that setup. */
@@ -27,8 +33,9 @@ export const hostConfirmsNote = (setup: GateSetup, table: GateTable = MEASURED):
 
 /** A measured setup whose wrong auto-accepts stayed at or under 2% on a large enough sample. */
 const passed = (setup: GateSetup, table: GateTable) => {
-  const g = table[setup];
-  return g !== undefined && !g.hostConfirmsAll && !g.insufficient;
+  if (table[setup] === undefined) return false;
+  const g = gateFor(setup, table);
+  return !g.hostConfirmsAll && !g.insufficient;
 };
 
 /**
@@ -39,10 +46,15 @@ const passed = (setup: GateSetup, table: GateTable) => {
  * evals/attribution/report.ts on the lab's runs, and it passed (hostConfirmsAll false, and not
  * `insufficient`: at least 200 auto-accepted lines and 20 minutes of them, ruling P3-R7). A missing
  * entry, a failed gate or too small a sample keeps the cap. Ruling P3-R6: the call/room entries count only once they
- * come from runs whose enrollment clips are disjoint from the scored audio.
+ * come from runs whose enrollment clips are disjoint from the scored audio. Ruling P3-R10: call stays
+ * capped while its entry was measured on a room mix (`measuredFrom: 'room-mix'`).
+ *
+ * `tracks-voice`: a tracks line decided on voice alone because its mic is dead. The gate never
+ * measures that case, so it is always capped (P3-R10).
  */
 export const VOICE_ONLY_CAP = 0.84;
-export const VOICE_ONLY_CAPPED: readonly Setup[] = ['call', 'room'];
+export type VoiceOnlySetup = Setup | 'tracks-voice';
+export const VOICE_ONLY_CAPPED: readonly VoiceOnlySetup[] = ['call', 'room', 'tracks-voice'];
 
-export const capVoiceOnly = (setup: Setup, confidence: number, table: GateTable = MEASURED) =>
-  VOICE_ONLY_CAPPED.includes(setup) && !passed(setup, table) ? Math.min(confidence, VOICE_ONLY_CAP) : confidence;
+export const capVoiceOnly = (setup: VoiceOnlySetup, confidence: number, table: GateTable = MEASURED) =>
+  VOICE_ONLY_CAPPED.includes(setup) && (setup === 'tracks-voice' || !passed(setup, table)) ? Math.min(confidence, VOICE_ONLY_CAP) : confidence;

@@ -185,6 +185,7 @@ export class LiveRunner {
     this.copiesOf.delete(id);
     const { events, text, candidates } = lineEvents({ sessionId, id, u, words, decision, wallTs: this.wallTs(), ...(overlapsWith ? { overlapsWith } : {}) });
     await this.o.log.append(events);
+    this.o.onDecision?.(id, decision);
 
     this.lastMediaMs = u.endMs;
     if (decision.pending) this.unconfirmed.set(id, { text, candidates, endMs: u.endMs });

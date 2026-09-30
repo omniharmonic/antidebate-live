@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DomainEvent } from '@adl/core';
-import { anchorClip, linesFromEvents, nameVoices, parseWav, speechWords } from './scenario';
+import { anchorClip, clipOf, lastSpans, linesFromEvents, nameVoices, parseWav, speechWords } from './scenario';
 
 const RATE = 16_000;
 const at = (ms: number) => (ms * RATE) / 1000;
@@ -49,6 +49,21 @@ describe('anchorClip', () => {
   });
 });
 
+describe('lastSpans / clipOf', () => {
+  it("takes the speaker's last reference speech up to the limit, cutting the earliest turn it reaches", () => {
+    const turns: [number, number, string][] = [[0, 2000, 'A'], [2000, 3000, 'B'], [4000, 6000, 'A'], [7000, 8000, 'A']];
+    expect(lastSpans(turns, 'A', 2500)).toEqual([[4500, 6000, 'A'], [7000, 8000, 'A']]);
+    expect(lastSpans(turns, 'C', 2500)).toEqual([]);
+  });
+  it('joins the spans of a source in time order', () => {
+    const pcm = Float32Array.from({ length: at(10_000) }, (_, i) => Math.floor(i / at(1000)));
+    const clip = clipOf(pcm, [[4500, 6000, 'A'], [7000, 8000, 'A']]);
+    expect(clip.length).toBe(at(2500));
+    expect(clip[0]).toBe(4);
+    expect(clip.at(-1)).toBe(7);
+  });
+});
+
 describe('nameVoices', () => {
   const seg = (label: string, startMs: number, endMs: number) => ({ label, startMs, endMs, confidence: 0.9 });
   it('names each listed voice after the reference speaker its longest stretches overlap most; audience stays unnamed', () => {
@@ -90,12 +105,15 @@ describe('linesFromEvents', () => {
       { startMs: 0, endMs: 500, participantKey: 'B', confidence: 0.93, pending: false },
     ]);
   });
-  it('adds what a capped line would have scored', () => {
+  it('flags a line the voice-only cap bound, from the decision the runner reported, and keeps its channel', () => {
     const events = [
       { type: 'attribution.pending', payload: { utteranceId: 'u1', candidates: { A: 0.84 } } },
-      final('u1', 'UNK', 0.84, { A: 0.97, B: 0 }),
+      { type: 'utterance.final', payload: { utterance: { id: 'u1', participantKey: 'UNK', startMs: 0, endMs: 500, attribution: { confidence: 0.84, signals: { channel: 'd0c0', voiceprint: { A: 0.97 } } } } } },
+      final('u2', 'B', 0.84),
     ] as unknown as DomainEvent[];
-    const [line] = linesFromEvents(events, (c, v) => (c === 0.84 && v ? Math.max(...Object.values(v)) : undefined));
-    expect(line).toMatchObject({ candidate: 'A', confidence: 0.84, uncapped: 0.97 });
+    const [capped, plain] = linesFromEvents(events, new Map([['u1', { uncapped: 0.97 }], ['u2', {}]]));
+    expect(capped).toMatchObject({ candidate: 'A', confidence: 0.84, capped: true, uncapped: 0.97, channel: 'd0c0' });
+    expect(plain!.capped).toBeUndefined();
+    expect(plain!.uncapped).toBeUndefined();
   });
 });
