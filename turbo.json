@@ -15,7 +15,9 @@
         "DATABASE_URL",
         "CAPTURE_TOKEN",
         "ROLE_LINK_SECRET",
-        "OPERATOR_KEY"
+        "OPERATOR_KEY",
+        "HOST_PASSWORD",
+        "HOST_SIGNING_SECRET"
       ]
     },
     "typecheck": {
