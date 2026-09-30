@@ -1,0 +1,426 @@
+{
+  "date": "2026-09-30",
+  "url": "https://antidebate.xyz",
+  "applicationCommit": "79d1530",
+  "deploymentId": "dpl_XvcExjFLykKqvExQkYMW22TRjpG4",
+  "corrections": 476,
+  "edits": 216,
+  "rejections": 260,
+  "publication": [
+    {
+      "sessionId": "bk-test1",
+      "originalEvents": 736,
+      "corrections": 6,
+      "edits": 0,
+      "rejections": 6,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "ball-kokotajlo-r1",
+      "originalEvents": 3649,
+      "corrections": 52,
+      "edits": 24,
+      "rejections": 28,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "ball-kokotajlo-r2",
+      "originalEvents": 5290,
+      "corrections": 55,
+      "edits": 31,
+      "rejections": 24,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "gender-affirming-care-r1",
+      "originalEvents": 3205,
+      "corrections": 33,
+      "edits": 27,
+      "rejections": 6,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "belief-in-god-r1",
+      "originalEvents": 5623,
+      "corrections": 41,
+      "edits": 23,
+      "rejections": 18,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "ignite-talk-r1",
+      "originalEvents": 294,
+      "corrections": 0,
+      "edits": 0,
+      "rejections": 0,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "destiny-shermer-r1",
+      "originalEvents": 6087,
+      "corrections": 41,
+      "edits": 31,
+      "rejections": 10,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "open-source-ai-r1",
+      "originalEvents": 7203,
+      "corrections": 17,
+      "edits": 6,
+      "rejections": 11,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "ball-kokotajlo-r3",
+      "originalEvents": 5221,
+      "corrections": 30,
+      "edits": 2,
+      "rejections": 28,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "gender-affirming-care-r2",
+      "originalEvents": 3091,
+      "corrections": 13,
+      "edits": 7,
+      "rejections": 6,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "belief-in-god-r2",
+      "originalEvents": 5502,
+      "corrections": 32,
+      "edits": 13,
+      "rejections": 19,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "destiny-shermer-r2",
+      "originalEvents": 6000,
+      "corrections": 8,
+      "edits": 4,
+      "rejections": 4,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "open-source-ai-r2",
+      "originalEvents": 7321,
+      "corrections": 18,
+      "edits": 5,
+      "rejections": 13,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "ball-kokotajlo-r4",
+      "originalEvents": 4747,
+      "corrections": 35,
+      "edits": 4,
+      "rejections": 31,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "ball-kokotajlo-r5",
+      "originalEvents": 4814,
+      "corrections": 28,
+      "edits": 8,
+      "rejections": 20,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "gender-affirming-care-r3",
+      "originalEvents": 2848,
+      "corrections": 13,
+      "edits": 9,
+      "rejections": 4,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "destiny-shermer-r3",
+      "originalEvents": 5241,
+      "corrections": 10,
+      "edits": 6,
+      "rejections": 4,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "belief-in-god-r3",
+      "originalEvents": 4644,
+      "corrections": 24,
+      "edits": 7,
+      "rejections": 17,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    },
+    {
+      "sessionId": "open-source-ai-r3",
+      "originalEvents": 6605,
+      "corrections": 20,
+      "edits": 9,
+      "rejections": 11,
+      "applied": true,
+      "zeroHardStanceViolations": true
+    }
+  ],
+  "publicStreams": {
+    "root": "https://antidebate.xyz",
+    "indexStatus": 200,
+    "listedSessions": 19,
+    "sessions": [
+      {
+        "sessionId": "bk-test1",
+        "events": 742,
+        "corrections": 6,
+        "approvedPropositions": 54,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "gender-affirming-care-r1",
+        "events": 3238,
+        "corrections": 33,
+        "approvedPropositions": 230,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "ball-kokotajlo-r2",
+        "events": 5345,
+        "corrections": 55,
+        "approvedPropositions": 406,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "belief-in-god-r1",
+        "events": 5664,
+        "corrections": 41,
+        "approvedPropositions": 459,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "ignite-talk-r1",
+        "events": 294,
+        "corrections": 0,
+        "approvedPropositions": 28,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "ball-kokotajlo-r1",
+        "events": 3701,
+        "corrections": 52,
+        "approvedPropositions": 235,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "open-source-ai-r1",
+        "events": 7220,
+        "corrections": 17,
+        "approvedPropositions": 562,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "destiny-shermer-r1",
+        "events": 6128,
+        "corrections": 41,
+        "approvedPropositions": 503,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "gender-affirming-care-r2",
+        "events": 3104,
+        "corrections": 13,
+        "approvedPropositions": 229,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "ball-kokotajlo-r3",
+        "events": 5251,
+        "corrections": 30,
+        "approvedPropositions": 406,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "belief-in-god-r2",
+        "events": 5534,
+        "corrections": 32,
+        "approvedPropositions": 458,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "destiny-shermer-r2",
+        "events": 6008,
+        "corrections": 8,
+        "approvedPropositions": 512,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "open-source-ai-r2",
+        "events": 7339,
+        "corrections": 18,
+        "approvedPropositions": 576,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "ball-kokotajlo-r5",
+        "events": 4842,
+        "corrections": 28,
+        "approvedPropositions": 353,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "ball-kokotajlo-r4",
+        "events": 4782,
+        "corrections": 35,
+        "approvedPropositions": 357,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "gender-affirming-care-r3",
+        "events": 2861,
+        "corrections": 13,
+        "approvedPropositions": 198,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "destiny-shermer-r3",
+        "events": 5251,
+        "corrections": 10,
+        "approvedPropositions": 417,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "open-source-ai-r3",
+        "events": 6625,
+        "corrections": 20,
+        "approvedPropositions": 495,
+        "mode": "db",
+        "caughtup": true
+      },
+      {
+        "sessionId": "belief-in-god-r3",
+        "events": 4668,
+        "corrections": 24,
+        "approvedPropositions": 363,
+        "mode": "db",
+        "caughtup": true
+      }
+    ]
+  },
+  "browser": [
+    {
+      "path": "/",
+      "status": 200,
+      "exploreLinks": 6
+    },
+    {
+      "sid": "ball-kokotajlo-r5",
+      "status": 200,
+      "viewport": "desktop",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "sid": "belief-in-god-r3",
+      "status": 200,
+      "viewport": "desktop",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "sid": "open-source-ai-r3",
+      "status": 200,
+      "viewport": "desktop",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "sid": "gender-affirming-care-r3",
+      "status": 200,
+      "viewport": "desktop",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "sid": "destiny-shermer-r3",
+      "status": 200,
+      "viewport": "desktop",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "sid": "ignite-talk-r1",
+      "status": 200,
+      "viewport": "desktop",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "route": "cockpit",
+      "status": 200,
+      "viewport": "mobile",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "route": "spatial",
+      "status": 200,
+      "viewport": "mobile",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "route": "arc",
+      "status": 200,
+      "viewport": "mobile",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "route": "positions",
+      "status": 200,
+      "viewport": "mobile",
+      "overflow": false,
+      "errors": []
+    },
+    {
+      "hostLoginProtected": true
+    }
+  ],
+  "invalidHostPasswordStatus": 401,
+  "errorLevelLogEntries": 0,
+  "typeScriptTests": 403,
+  "additionalModelSpendUsd": 0,
+  "scope": "Deterministic historical corrections and pipeline validation; not a new corpus-wide semantic model review."
+}
