@@ -14,7 +14,7 @@ import {
   type Utterance,
 } from '@adl/ontology';
 import { L1_INSTRUCTIONS, L1_PROMPT_VERSION, L1Output, buildL1Input, buildSessionContext } from './prompts/l1-extract';
-import { locateQuote } from './quotes';
+import { locateQuoteSpans } from './quotes';
 import type { Turn } from './turns';
 
 export interface L1Context {
@@ -37,19 +37,19 @@ export function mapL1Output(turn: Turn, out: L1Output, ctx: L1Context): DomainEv
 
   // ADUs: locate every quote exactly
   const adus = new Map<string, Adu>();
-  const unlocated: string[] = [];
+  const unlocated: { ref: string; quotes: string[] }[] = [];
   for (const a of out.adus) {
-    const spans = a.quotes.map((q) => locateQuote(q, turn.utterances));
+    const spans = a.quotes.map((q) => locateQuoteSpans(q, turn.utterances));
     if (spans.some((s) => s === null)) {
-      unlocated.push(a.ref);
+      unlocated.push({ ref: a.ref, quotes: a.quotes.filter((_, i) => spans[i] === null) });
       continue;
     }
-    const adu: Adu = { id: id(a.ref), speakerKey: turn.participantKey, spans: spans as NonNullable<(typeof spans)[number]>[], speechAct: a.speechAct, addressedTo: a.addressedTo || 'none' };
+    const adu: Adu = { id: id(a.ref), speakerKey: turn.participantKey, spans: spans.flatMap(s => s ?? []), speechAct: a.speechAct, addressedTo: a.addressedTo || 'none' };
     adus.set(a.ref, adu);
     events.push({ ...base, eventId: `${adu.id}:proposed`, type: 'adu.proposed', wallTs: wall, payload: { adu } });
   }
-  for (const ref of unlocated) {
-    events.push({ ...base, eventId: `${id(ref)}:unlocated`, type: 'validation.result', wallTs: wall, payload: { itemId: id(ref), issues: [{ code: 'span_quote_mismatch', message: 'Model quote not found verbatim in turn; ADU dropped' }] } });
+  for (const { ref, quotes } of unlocated) {
+    events.push({ ...base, eventId: `${id(ref)}:unlocated`, type: 'validation.result', wallTs: wall, payload: { itemId: id(ref), issues: [{ code: 'span_quote_mismatch', message: `Model quote not found verbatim in turn; ADU dropped. Unmatched quotes: ${JSON.stringify(quotes)}` }] } });
   }
 
   // Propositions (new, or identity-resolved to existing)
